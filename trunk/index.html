@@ -1,0 +1,335 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>SDL_ffmpeg - Arjan Houben - 2007</title>
+	<style type="text/css">
+	
+		pre {
+			margin: 5pt 0pt 5pt 30pt;
+			color: #000099;
+			font-family: Courier new;
+			font-size: 10pt;
+			display: block;
+			overflow: hidden;
+		}
+		.comment {
+			font-style: italic;
+			color: grey;
+		}
+		.content {
+			font-size: 10pt;
+		}
+		.blue {
+			color: blue;
+		}
+		.red {
+			color: red;
+		}
+		.kop {
+			cursor: pointer;
+		}
+		* {
+			margin: 0px;
+			font-family: Courier New;
+		}
+		body {
+			margin: 10px;
+		}
+		h3, h1 {
+			text-align: center;
+			margin: 0pt 0pt 20pt 0pt;
+		}
+		h4 {
+			font-family: Courier New, sans-serif;
+		}
+		p {
+			margin: 5pt 0pt 5pt 30pt;
+			overflow: hidden;
+		}
+	</style>
+	<script type="text/javascript">
+		var SLIDETIME = 100;
+		function time() {
+			var d = new Date();
+			return d.getTime();
+		}
+		function hideObjects() {
+			var all = document.body.childNodes;
+			for(var i in all) {
+				if(all[i].className == "content_disabled") {
+					all[i].className = "content";
+					all[i].style.height = "0px";
+				}
+			}
+		}
+		function showObject(obj) {
+			var all = document.body.childNodes;
+			var i = 0;
+			while(all[i] != obj.parentNode) i++;
+			while(all[i].className != "content") i++;
+			if( !all[i].slideout ) {
+				all[i].startTime = time();
+				all[i].slideout = true;
+				slide(all[i]);
+			} else {
+				all[i].startTime = time();
+				all[i].slideout = false;
+				slide(all[i]);
+			}
+		}
+		function slide(obj) {
+			var t = (time() - obj.startTime) / SLIDETIME;
+			if(t >= 1) {
+				if(obj.slideout) {
+					obj.style.height = obj.scrollHeight + "px";
+				} else {
+					obj.style.height = "0px";
+				}
+			} else {
+				if(obj.slideout) {
+					obj.style.height = (obj.scrollHeight * t) + "px";
+				} else {
+					obj.style.height = (obj.scrollHeight * (1-t)) + "px";
+				}
+				setTimeout(function(){slide(obj)},20);
+			}
+		}
+	</script>
+</head>
+<body onload="hideObjects()">
+<h1>SDL_ffmpeg 0.6.0</h1>
+<h4><span class="kop" onclick="showObject(this)">Changelog</span></h4>
+<p class="content_disabled">
+<b>December 12, 2007</b><br>
+Opening of SDL_ffmpeg forum<br>
+- In response to some emails I decided to open a forum where SDL_ffmpeg can be<br>
+ discussed.<br><br>
+<b>November 11, 2007</b><br>
+Release of SDL_ffmpeg 0.6.0<br>
+- fixed some stupid bugs in decode format<br>
+- changed the way the audio and video buffers work<br><br>
+<b>September 16, 2007</b><br>
+Initial release of SDL_ffmpeg<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">Forum</span></h4>
+<p class="content_disabled">
+Here you can talk to other SDL_ffmpeg users <a href="forum">in-place</a> <a href="forum" target="new">new window</a><br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">Introduction</span></h4>
+<p class="content_disabled">
+This page is dedicated to the SDL_ffmpeg library.<br>
+The intent of this library is to provide a convenient way to incorperate<br>
+multimedia to your program.
+</p>
+<h4><span class="kop" onclick="showObject(this)">Purpose</span></h4>
+<p class="content_disabled">
+SDL_ffmpeg was never intended to be the most complete multimedia library out<br>
+there. The design choices were made with usebility in mind.<br>
+I personaly believe that I have created a library simple enough for any<br>
+programmer to be able to have full multimedia support for his or her project.<br>
+<br>
+If you are searching however, for the most comprehensive multimedia library,<br>
+this is not for you. Instead I encourage you to look at the source code of<br>
+ffmpeg itself. As SDL_ffmpeg is clearly nothing more that a wrapper around<br>
+ffmpeg, you could probably squeeze out a bit more performance when using ffmpeg<br>
+directly. A (major) drawback to all you performance lovers out there will be<br>
+the fact that SDL_ffmpeg internally uses the RGB format. Most videos however,<br>
+are in YUV format. This means that for every frame that is decoded, a<br>
+conversion from (native format) to RGB24 takes place.<br>
+<br>
+I chose to do this, as I think my target audience are people who are probably<br>
+going to do some image manipulations on the videos, and then RGB24 is the more<br>
+logical choice. I do not rule out the possibility that SDL_ffmpeg will support different<br>
+formats in the future, but for now, ease of use is my prime directive.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">About</span></h4>
+<p class="content_disabled">
+My name is Arjan Houben, 22 years old and I live in the Netherlands. I consider<br>
+programming to be my hobby and have been programming professionaly for over a<br>
+year now. I have always used SDL and I still really enjoy using it.<br>
+I think it has a very good balance between usability and techical correctness.<br>
+I have tried to do the same in this project.<br>
+<br>
+The reason I decided to write SDL_ffmpeg, is that I have found myself to use SDL<br>
+for almost every project I do. Because of this, I decided I should give something<br>
+back to the open source community. Since I have worked with SDL and FFmpeg quite a lot<br>
+it seemed logical to do something with that. Ffmpeg is a great library, although it<br>
+can be very hard to get right. Mostly because of the chronic lack of documentation,<br>
+but also because it is a very big and active project. I should warn that I do not<br>
+know if I use Ffmpeg correctly, so if you think you know better, please let me know!<br>
+Anyway I hope you find SDL_ffmpeg usefull!<br>
+<br>
+If you have any questions, requests, or new ideas you can use this<br>
+address: <b>sdl_ffmpeg (at) arjanhouben . nl</b>
+</p>
+<h4><span class="kop" onclick="showObject(this)">License</span></h4>
+<pre class="content_disabled">
+I have decided to release SDL_ffmpeg in the GNU Lesser General Public License, as this<br>
+is the license used by SDL and FFmpeg.
+<span class="comment">/*******************************************************************************
+*                                                                              *
+*   SDL_ffmpeg is a library for basic multimedia functionality.                *
+*   SDL_ffmpeg is based on ffmpeg.                                             *
+*                                                                              *
+*   Copyright (C) 2007  Arjan Houben                                           *
+*                                                                              *
+*   SDL_ffmpeg is free software: you can redistribute it and/or modify         *
+*   it under the terms of the GNU Lesser General Public License as published   *
+*   by the Free Software Foundation, either version 3 of the License, or any   *
+*   later version.                                                             *
+*                                                                              *
+*   This program is distributed in the hope that it will be useful,            *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the               *
+*   GNU Lesser General Public License for more details.                        *
+*                                                                              *
+*   You should have received a copy of the GNU Lesser General Public License   *
+*   along with this program. If not, see <a href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</a>          *
+*                                                                              *
+*******************************************************************************/</span>
+</pre>
+<h4><span class="kop" onclick="showObject(this)">Example</span></h4>
+<p class="content_disabled">
+<a href="example.html">general purpose multimedia player</a><br>
+<a href="audio_example.html">simple cli audio player</a>
+</p>
+<h4><span class="kop" onclick="showObject(this)">Download</span></h4>
+<p class="content_disabled">
+Source: <a href="SDL_ffmpeg.tar.gz">SDL_ffmpeg.tar.gz</a><br>
+Deb (Ubuntu 7.04 Feisty): <a href="libsdl_ffmpeg.deb">libsdl_ffmpeg.deb</a>
+</p>
+<h3>reference</h3>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegGetVideoSize<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class="blue">int</span> <span class="red">*</span>w, <span class="blue">int</span> <span class="red">*</span>h<span class="red">);</span></span></h4>
+<p class="content_disabled">
+With this function you can get the width and height of a frame, belonging to<br>
+your file. If there is no (valid) videostream selected w and h default<br>
+to 320x240. Please not that you will have to make sure the pointers are<br>
+allocated.
+
+function returns 0 when everything was fine, -1 when either the pointers where<br>
+0 or there was no valid videostream.
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegPause<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class="blue">int</span> state<span class="red">);</span></span></h4>
+<p class="content_disabled">
+To start or pause a file.<br>
+passing a non-zero value to state, makes the file pause.<br>
+passing zero means play.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegReleaseAudio<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, SDL_ffmpegAudioFrame <span class="red">*</span>frame, <span class="blue">int </span>len);</span></span></h4>
+<p class="content_disabled">
+Function to call after you have requested some audiosamples.<br>
+This function needs to know how many bytes you got in order to move the<br>
+audiobuffer accordingly. You get this value from SDL_ffmpegGetAudio( ... )<br>
+
+returns 0 on succes, -1 when there was an error.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegReleaseVideo<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, SDL_ffmpegVideoFrame <span class="red">*</span>frame<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Function to call after you have requested a SDL_ffmpegVideoFrame.<br>
+This releases the SDL_ffmpegVideoFrame, so after this call, you should no longer use frame.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegSeekRelative<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class=blue>int64_t</span> timestamp<span class="red">);</span></span></h4>
+<p class="content_disabled">
+More or less the same as standard seek, with the exception that this<br>
+seek takes into account the current playposition.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegSeek<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class=blue>int64_t</span> timestamp<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Seeks to specified point in file. Timestamp is represented in milliseconds.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegSelectAudioStream<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class="blue">int</span> audioID<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Use this function to select an audio stream for decoding.<br>
+Using SDL_ffmpegGetVideoStream you can get information about the streams.<br>
+Based on that you can chose the stream you want.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegSelectVideoStream<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class="blue">int</span> videoID<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Use this function to select the videostream you want to use.<br>
+Using SDL_ffmpegGetAudioStream you can get information about the streams.<br>
+Based on that you can chose the stream you want.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegStartDecoding<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+After you call this function, a thread starts filling the buffers with the<br>
+streams you selected. If you only want audio, you shouldn't select a video<br>
+stream, as this would mean extra work for the cpu.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegStopDecoding<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+This stops the decodethread, this doesn't flush the buffers so you can use the<br>
+data in them, even after you called this function.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegValidAudio<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+This is used to check if a valid audio stream is selected.<br>
+<p class="content_disabled">
+0 if no valid stream selected, 1 if there is a valid stream selected<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegValidVideo<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+This is used to check if a valid video stream is selected.<br>
+<p class="content_disabled">
+0 if no valid stream selected, 1 if there is a valid stream selected<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">SDL_AudioSpec<span class="red">*</span> SDL_ffmpegGetAudioSpec<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class="blue">int</span> samples, <span class="blue">void</span> <span class="red">*</span>callback<span class="red">);</span></span></h4>
+<p class="content_disabled">
+This returns a suitable SDL_AudioSpec, if you have selected a valid audio<br>
+stream. Otherwise, default values are used.
+
+0 if valid audiostream was found, 1 there was no valid audio stream found.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">SDL_ffmpegFile<span class="red">*</span> SDL_ffmpegOpen<span class="red">(</span><span class="blue">const char</span><span class="red">*</span> filename<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Use this to open the multimedia file of your choice. For supported formats<br>
+you should checkout http:<span class="comment">//ffmpeg.mplayerhq.hu/<br></span>
+
+If for some reason the file could not be opened, 0 is returned, instead of<br>
+a valid SDL_ffmpeg pointer.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">SDL_ffmpegStream<span class="red">*</span> SDL_ffmpegGetAudioStream<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class="blue">int</span> audioID<span class="red">);</span></span></h4>
+<p class="content_disabled">
+This returns a pointer to the requested stream. With this stream pointer you can<br>
+get information about the stream, like language, samplerate, size etc.<br>
+Based on this information you can choose the stream you want to use.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">SDL_ffmpegStream<span class="red">*</span> SDL_ffmpegGetVideoStream<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file, <span class="blue">int</span> videoID<span class="red">);</span></span></h4>
+<p class="content_disabled">
+This returns a pointer to the requested stream. With this stream pointer you can<br>
+get information about the stream, like language, samplerate, size etc.<br>
+Based on this information you can choose the stream you want to use.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">SDL_ffmpegVideoFrame<span class="red">*</span> SDL_ffmpegGetVideoFrame<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+This is part of a paired call, this call gives you a pointer to a SDL_ffmpegVideoFrame.<br>
+You should always check if you actually got a SDL_ffmpegVideoFrame, since the function returns<br>
+0 if there is no new frame that should be shown at this time.<br>
+After you are done with the SDL_ffmpegVideoFrame, you should call SDL_ffmpegReleaseVideo to<br>
+release the data and let te decoding thread copy new data into the buffer.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">void</span> SDL_ffmpegFree<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Use this to free your SDL_ffmpegFile*. It stops the decoding thread if needed<br>
+and flushes the buffers before releasing the memory.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)">SDL_ffmpegAudioFrame<span class="red">*</span> SDL_ffmpegGetAudioFrame<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file);</span></span></h4>
+<p class="content_disabled">
+This is part of a paired call, this call gives you a pointer to a SDL_ffmpegAudioFrame.<br>
+If no frame could be delivered, a NULL pointer is returned, so the value should<br>
+always be checked before using.<br>
+After you are done with the data, you should call SDL_ffmpegReleaseAudio to<br>
+move the data and let te decoding thread copy new data into the buffer.<br>
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int</span> SDL_ffmpegGetState<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Returns the state of the file.<br>
+zero means the file is paused, otherwise a non zero value is returned.
+</p>
+<h4><span class="kop" onclick="showObject(this)"><span class="blue">int64_t</span> SDL_ffmpegGetDuration<span class="red">(</span>SDL_ffmpegFile <span class="red">*</span>file<span class="red">);</span></span></h4>
+<p class="content_disabled">
+Returns the Duration of the file in milliseconds.
+</p>
+</body>
+</html>
+
