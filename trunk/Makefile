@@ -3,36 +3,30 @@
 CC=/usr/bin/gcc
 AR=/usr/bin/ar
 CFLAGS=-I$(INCDIR)
-LDFLAGS=-lavformat -lSDL
-PROG=example
+LDFLAGS=-lavformat -lSDL -L$(LIBDIR)
+PROG=$(NAME)_example
 NAME=SDL_ffmpeg
 
 SRCDIR=src/
-SRC=$(NAME).c
-
 OBJDIR=obj/
-OBJ=$(NAME).o
-
+LIBDIR=lib/
 INCDIR=include/
-INC=$(NAME).h
 
 all: $(PROG)
 
-lib: $(addprefix $(OBJDIR),$(OBJ))
+$(LIBDIR)lib$(NAME).a: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	-mkdir lib
-	$(AR) -rc lib/lib$(NAME).a $<
-	
-$(PROG): lib $(SRCDIR)example.c
-	-mkdir bin
-	$(CC) $(CFLAGS) $(LDFLAGS) $(SRCDIR)example.c -l$(NAME) -Llib -o bin/$(NAME)
-
-%.o: $(SRCDIR)$(SRC) $(INCDIR)SDL/$(INC)
 	-mkdir obj
-	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $@
+	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
+	$(AR) -rc lib/lib$(NAME).a $(OBJDIR)$(NAME).o
+	
+$(PROG): $(LIBDIR)lib$(NAME).a
+	-mkdir bin
+	$(CC) $(CFLAGS) $(LDFLAGS) $(SRCDIR)example.c -l$(NAME) -o bin/$(PROG)
 
 .PHONY: clean
 
 clean:
-	-rm bin/$(NAME)
+	-rm bin/$(PROG)
 	-rm $(OBJDIR)*.o
-	-rm lib/lib$(NAME).a
+	-rm $(LIBDIR)/lib$(NAME).a
