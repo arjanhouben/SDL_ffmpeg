@@ -33,6 +33,8 @@
 #include <SDL/SDL_thread.h>
 #endif
 
+#include <ffmpeg/swscale.h>
+
 #include "SDL/SDL_ffmpeg.h"
 
 int FFMPEG_init_was_called = 0;
@@ -79,6 +81,10 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 }
 
 void SDL_ffmpegFree(SDL_ffmpegFile* file) {
+
+    /* loop through videstreams cleaning
+    sws_freeContext
+    */
 
     SDL_ffmpegStopDecoding(file);
 
@@ -170,6 +176,12 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                     stream->channels = ((AVFormatContext*)file->_ffmpeg)->streams[i]->codec->channels;
                     memcpy(stream->codecName, ((AVFormatContext*)file->_ffmpeg)->streams[i]->codec->codec_name, 32);
 
+                    /* create conversion context for current stream */
+                    stream->_conversion = sws_getContext( stream->width, stream->height,
+                                                          ((AVCodecContext*)stream->_ffmpeg)->pix_fmt,
+                                                          stream->width, stream->height,
+                                                          PIX_FMT_RGB24, 0, 0, 0, 0 );
+
                     file->vs[file->VStreams] = stream;
                     file->VStreams++;
 
@@ -217,6 +229,8 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                     stream->sampleRate = ((AVFormatContext*)file->_ffmpeg)->streams[i]->codec->sample_rate;
                     stream->channels = ((AVFormatContext*)file->_ffmpeg)->streams[i]->codec->channels;
                     memcpy(stream->codecName, ((AVFormatContext*)file->_ffmpeg)->streams[i]->codec->codec_name, 32);
+
+                    stream->_conversion = 0;
 
                     file->as[file->AStreams] = stream;
                     file->AStreams++;
@@ -753,9 +767,9 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrameRGB, SD
     if( got_frame && !((AVCodecContext*)file->vs[file->videoStream]->_ffmpeg)->hurry_up ) {
 
         /* we convert whatever type of data we got to RGB24 */
-        img_convert((AVPicture*)inFrameRGB, PIX_FMT_RGB24, (AVPicture*)inFrame,
-                    ((AVCodecContext*)file->vs[file->videoStream]->_ffmpeg)->pix_fmt,
-                    file->vs[file->videoStream]->width, file->vs[file->videoStream]->height);
+        sws_scale( file->vs[file->videoStream]->_conversion, inFrame->data,
+                   inFrame->linesize, 0, file->vs[file->videoStream]->height,
+                   inFrameRGB->data, inFrameRGB->linesize);
 
         /* we create a SDL_Surface to store the frame data */
         frame->buffer = SDL_CreateRGBSurface( 0, file->vs[file->videoStream]->width,

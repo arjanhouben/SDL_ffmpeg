@@ -63,10 +63,12 @@ typedef struct SDL_ffmpegVideoFrame {
 /* this is the basic stream for SDL_ffmpeg */
 typedef struct SDL_ffmpegStream {
 
-    /* pointer to ffmpeg data, internal use only!
-      points to AVCodecContext */
     int pixFmt;
+    /* pointer to ffmpeg data, internal use only!
+      _ffmpeg points to AVCodecContext
+      _conversion points to SwsContext */
     void *_ffmpeg;
+    void *_conversion;
 
     /* semaphore for current stream */
     SDL_sem *sem;
