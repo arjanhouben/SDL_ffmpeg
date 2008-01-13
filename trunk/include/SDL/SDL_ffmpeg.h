@@ -31,15 +31,9 @@ extern "C" {
 #include "SDL/SDL.h"
 
 #ifdef SDL_FFMPEG_LIBRARY
-    #ifdef WIN32
     #include "avformat.h"
-    #else
-    #include "ffmpeg/avformat.h"
-    #endif
-    #define EXPORT extern
-#else
-    #define EXPORT extern
 #endif
+#define EXPORT extern
 
 #include "stdint.h"
 

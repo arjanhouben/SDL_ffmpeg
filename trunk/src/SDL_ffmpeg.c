@@ -26,11 +26,7 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_thread.h>
 
-#ifdef WIN32
 #include <swscale.h>
-#else
-#include <ffmpeg/swscale.h>
-#endif
 
 #include "SDL/SDL_ffmpeg.h"
 

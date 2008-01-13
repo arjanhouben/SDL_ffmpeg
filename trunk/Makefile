@@ -1,35 +1,41 @@
 # SDL_ffmpeg - Arjan Houben - 2007
 
-CC=/usr/bin/gcc
-AR=/usr/bin/ar
-CFLAGS=-I$(INCDIR)
-LDFLAGS=-lSDL -lz -L$(LIBDIR)
-PROG=$(NAME)_example
-NAME=SDL_ffmpeg
-
 SRCDIR=src/
 OBJDIR=obj/
 LIBDIR=lib/
 INCDIR=include/
 
-FFMPEGDIR=../ffmpeg/
+FFMPEGDIR=/home/arjan/ffmpeg/
+
+CC=gcc
+AR=ar
+LD=ld
+LDFLAGS=-lSDL -L$(LIBDIR) -lz
+CFLAGS=-I$(INCDIR) -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec
+PROG=$(NAME)_example
+NAME=SDL_ffmpeg
 
 all: $(PROG)
 
 $(LIBDIR)lib$(NAME).a: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
-	-mkdir lib
 	-mkdir obj
 	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
-	$(AR) -rc lib/lib$(NAME).a $(OBJDIR)$(NAME).o `find $(FFMPEGDIR)lib* -name \*.o`
+	-mkdir $(OBJDIR)libavformat
+	cd $(OBJDIR)libavformat;$(AR) x $(FFMPEGDIR)libavformat/libavformat.a
+	-mkdir $(OBJDIR)libavcodec
+	cd $(OBJDIR)libavcodec;$(AR) x $(FFMPEGDIR)libavcodec/libavcodec.a
+	-mkdir $(OBJDIR)libavutil
+	cd $(OBJDIR)libavutil;$(AR) x $(FFMPEGDIR)libavutil/libavutil.a
+	-mkdir lib
+	$(AR) -rcs $(LIBDIR)lib$(NAME).a $(OBJDIR)$(NAME).o $(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
 	
 $(PROG): $(LIBDIR)lib$(NAME).a
 	-mkdir bin
-	$(CC) $(CFLAGS) $(LDFLAGS) $(SRCDIR)example.c -l$(NAME) -o bin/$(PROG)
+	$(CC) $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/$(PROG)
 
 .PHONY: clean
 
 clean:
-	echo $(FFMPEGDIR)
 	-rm bin/$(PROG)
-	-rm $(OBJDIR)*.o
-	-rm $(LIBDIR)/lib$(NAME).a
+	-rm -R $(OBJDIR)
+	-rm -R $(LIBDIR)
