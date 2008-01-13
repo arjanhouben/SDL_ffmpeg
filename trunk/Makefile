@@ -12,6 +12,7 @@ AR=ar
 LD=ld
 LDFLAGS=-lSDL -L$(LIBDIR) -lz
 CFLAGS=-I$(INCDIR) -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec
+CFLAGS+=$(ECFLAGS)
 PROG=$(NAME)_example
 NAME=SDL_ffmpeg
 
