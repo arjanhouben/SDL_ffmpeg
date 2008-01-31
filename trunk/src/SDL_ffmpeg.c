@@ -26,7 +26,8 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_thread.h>
 
-#include <swscale.h>
+#include "swscale.h"
+#include "avformat.h"
 
 #include "SDL/SDL_ffmpeg.h"
 
@@ -627,7 +628,7 @@ SDL_AudioSpec* SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, void *c
 
         /* if we have a valid audiofile, we can use its data to create a
            more appropriate audio spec */
-        if( SDL_ffmpegValidAudio(file) ) {
+        if( file && SDL_ffmpegValidAudio(file) ) {
             spec->freq = file->as[file->audioStream]->sampleRate;
             spec->channels = file->as[file->audioStream]->channels;
         }

@@ -16,9 +16,11 @@ CFLAGS+=$(ECFLAGS)
 PROG=$(NAME)_example
 NAME=SDL_ffmpeg
 
-all: $(PROG)
+all: example audio_example
 
-$(LIBDIR)lib$(NAME).a: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
+$(LIBDIR)lib$(NAME).a: library
+
+library: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	-mkdir obj
 	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
 	-mkdir $(OBJDIR)libavformat
@@ -29,14 +31,25 @@ $(LIBDIR)lib$(NAME).a: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	cd $(OBJDIR)libavutil;$(AR) x $(FFMPEGDIR)libavutil/libavutil.a
 	-mkdir lib
 	$(AR) -rcs $(LIBDIR)lib$(NAME).a $(OBJDIR)$(NAME).o $(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
-	
-$(PROG): $(LIBDIR)lib$(NAME).a
+
+cleanlibrary:
+	-rm -R $(OBJDIR)
+	-rm $(LIBDIR)lib$(NAME).a
+
+example: library
 	-mkdir bin
-	$(CC) $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/$(PROG)
+	$(CC) $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/example
+
+cleanexample:
+	-rm bin/example
+
+audio_example: library
+	-mkdir bin
+	$(CC) $(CFLAGS) $(SRCDIR)audio_example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/audio_example
+
+cleanaudio_example:
+	-rm bin/audio_example
 
 .PHONY: clean
 
-clean:
-	-rm bin/$(PROG)
-	-rm -R $(OBJDIR)
-	-rm -R $(LIBDIR)
+clean: cleanexample cleanaudio_example cleanlibrary
