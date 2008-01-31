@@ -5,21 +5,23 @@ OBJDIR=obj/
 LIBDIR=lib/
 INCDIR=include/
 
-FFMPEGDIR=/c/src/ffmpeg/
-SDLDIR=/c/lib/SDL-1.2.12/
-
 CC=gcc
 AR=ar
 LD=ld
-LDFLAGS=-lSDL -lwsock32 -L$(SDLDIR)lib -L$(LIBDIR)
-CFLAGS=-I$(INCDIR) -I$(SDLDIR)include -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec
+LDFLAGS=-lSDL -lwsock32
+
+
+CFLAGS=-I$(INCDIR) -L$(LIBDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec
 CFLAGS+=$(ECFLAGS)
-PROG=$(NAME)_example
 NAME=SDL_ffmpeg
 
-all: $(PROG)
+all: example audio_example
 
-$(LIBDIR)lib$(NAME).a: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
+$(LIBDIR)lib$(NAME).a: library
+
+lib$(NAME).a: library
+
+library: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	-mkdir obj
 	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
 	-mkdir $(OBJDIR)libavformat
@@ -29,15 +31,26 @@ $(LIBDIR)lib$(NAME).a: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	-mkdir $(OBJDIR)libavutil
 	cd $(OBJDIR)libavutil;$(AR) x $(FFMPEGDIR)libavutil/libavutil.a
 	-mkdir lib
-	$(AR) -rcs $(LIBDIR)/lib$(NAME).a $(OBJDIR)$(NAME).o $(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
-	
-$(PROG): $(LIBDIR)lib$(NAME).a
+	$(AR) -rcs $(LIBDIR)lib$(NAME).a $(OBJDIR)$(NAME).o $(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
+
+cleanlibrary:
+	-rm -R $(OBJDIR)
+	-rm $(LIBDIR)lib$(NAME).a
+
+example: library
 	-mkdir bin
-	$(CC) $(CFLAGS) $(SRCDIR)example.c -lmingw32 -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/$(PROG)
+	$(CC) -lmingw32 $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/example
+
+cleanexample:
+	-rm bin/example
+
+audio_example: library
+	-mkdir bin
+	$(CC) -lmingw32 $(CFLAGS) $(SRCDIR)audio_example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/audio_example
+
+cleanaudio_example:
+	-rm bin/audio_example
 
 .PHONY: clean
 
-clean:
-	-rm bin/$(PROG)
-	-rm -R $(OBJDIR)
-	-rm -R $(LIBDIR)
+clean: cleanexample cleanaudio_example cleanlibrary
