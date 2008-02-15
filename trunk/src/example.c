@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
     /* standard SDL initialization stuff */
     if(SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_DOUBLEBUF) < 0) {
         fprintf(stderr, "problem initializing SDL: %s\n", SDL_GetError());
-        return -1;
+        goto freeAndClose;
     }
 
     /* open file from arg[1] */
@@ -126,13 +126,13 @@ int main(int argc, char** argv) {
     SDL_Surface *screen = SDL_SetVideoMode(w, h, 32, SDL_DOUBLEBUF|SDL_HWSURFACE);
     if(!screen) {
         printf("Couldn't open video: %s\n", SDL_GetError());
-        return -1;
+        goto freeAndClose;
     }
 
     /* Open the Audio device */
     if( SDL_OpenAudio(specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
-        return -1;
+        goto freeAndClose;
     }
 
     /* we start our decode thread, this always tries to buffer in some frames */
@@ -194,6 +194,11 @@ int main(int argc, char** argv) {
         /* we wish not to kill our poor cpu, so we give it some timeoff */
         SDL_Delay(5);
     }
+
+    freeAndClose:
+
+    /* cleanup audio specs */
+    free( specs );
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree(film);

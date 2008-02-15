@@ -50,16 +50,21 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     /* allocate room for VStreams */
     file->vs = (SDL_ffmpegStream**)malloc( sizeof(SDL_ffmpegStream*) * MAX_STREAMS );
     if(!file->vs) {
+        SDL_DestroySemaphore( file->decode );
         free( file );
         return 0;
     }
+    memset(file->vs, 0, sizeof(SDL_ffmpegStream*) * MAX_STREAMS );
 
     /* allocate room for AStreams */
     file->as = (SDL_ffmpegStream**)malloc( sizeof(SDL_ffmpegStream*) * MAX_STREAMS );
     if(!file->as) {
+        SDL_DestroySemaphore( file->decode );
+        free( file->vs );
         free( file );
         return 0;
     }
+    memset(file->as, 0, sizeof(SDL_ffmpegStream*) * MAX_STREAMS );
 
     /* initialize variables with standard values */
     file->audioStream = -1;
@@ -68,6 +73,7 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     file->offset = 0;
     file->videoOffset = 0;
     file->startTime = 0;
+    file->pause = 1;
 
     file->threadID = 0;
 
@@ -76,13 +82,37 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 
 void SDL_ffmpegFree(SDL_ffmpegFile* file) {
 
-    /* loop through videstreams cleaning
-    sws_freeContext
-    */
+    if( !file ) return;
 
     SDL_ffmpegStopDecoding(file);
 
     SDL_ffmpegFlush(file);
+
+    SDL_DestroySemaphore( file->decode );
+
+    int i;
+    for(i=0; i<MAX_STREAMS; i++) {
+        if(file->vs[i]) {
+            SDL_DestroySemaphore( file->vs[i]->sem );
+            if( file->vs[i]->_conversion ) sws_freeContext( file->vs[i]->_conversion );
+            if( file->vs[i]->_ffmpeg ) avcodec_close( file->vs[i]->_ffmpeg );
+            free( file->vs[i] );
+        }
+        if(file->as[i]) {
+            SDL_DestroySemaphore( file->as[i]->sem );
+            if( file->as[i]->_conversion ) sws_freeContext( file->as[i]->_conversion );
+            if( file->as[i]->_ffmpeg ) avcodec_close( file->as[i]->_ffmpeg );
+            free( file->as[i] );
+        }
+    }
+
+    free( file->vs );
+
+    free( file->as );
+
+    if(file->_ffmpeg) {
+        av_close_input_file( file->_ffmpeg );
+    }
 
     free(file);
 }
@@ -92,6 +122,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
     /* register all codecs */
     if(!FFMPEG_init_was_called) {
         FFMPEG_init_was_called = 1;
+        avcodec_register_all();
         av_register_all();
     }
 
@@ -148,7 +179,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                 stream->_ffmpeg = ((AVFormatContext*)file->_ffmpeg)->streams[i]->codec;
 
                 /* get the correct decoder for this stream */
-                AVCodec *codec = avcodec_find_decoder(((AVCodecContext*)stream->_ffmpeg)->codec_id);
+                AVCodec *codec = avcodec_find_decoder((stream->_ffmpeg)->codec_id);
 
                 /* initialize empty audiobuffer */
                 memset(stream->audioBuffer, 0, sizeof(SDL_ffmpegAudioFrame)*SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES);
@@ -172,7 +203,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 
                     /* create conversion context for current stream */
                     stream->_conversion = sws_getContext( stream->width, stream->height,
-                                                          ((AVCodecContext*)stream->_ffmpeg)->pix_fmt,
+                                                          (stream->_ffmpeg)->pix_fmt,
                                                           stream->width, stream->height,
                                                           PIX_FMT_RGB24, 0, 0, 0, 0 );
 
@@ -365,12 +396,19 @@ int SDL_ffmpegDecodeThread(void* data) {
 
     /* allocate another frame for unknown->RGB conversion */
     AVFrame *inFrameRGB = avcodec_alloc_frame();
+    if( !inFrameRGB ) return -1;
+
+    uint8_t *inVideoBuffer = 0;
 
     if(SDL_ffmpegValidVideo(file)) {
         /* allocate buffer */
-        uint8_t *inVideoBuffer = (uint8_t*)malloc(  avpicture_get_size(PIX_FMT_RGB24,
+        inVideoBuffer = (uint8_t*)malloc(  avpicture_get_size(PIX_FMT_RGB24,
                                                         file->vs[file->videoStream]->width,
                                                         file->vs[file->videoStream]->height) );
+        if( !inVideoBuffer ) {
+            av_free( inFrameRGB );
+            return -1;
+        }
 
         /* put buffer into our reserved frame */
         avpicture_fill( (AVPicture*)inFrameRGB,
@@ -382,6 +420,11 @@ int SDL_ffmpegDecodeThread(void* data) {
 
     /* allocate temporary audiobuffer */
     int16_t *samples = (int16_t*)malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE );
+    if( !samples ) {
+        av_free( inFrameRGB );
+        if(inVideoBuffer) av_free( inVideoBuffer );
+        return -1;
+    }
 
     while(file->threadActive) {
 
@@ -459,6 +502,10 @@ int SDL_ffmpegDecodeThread(void* data) {
         av_free_packet(&pack);
     }
 
+    av_free( inFrameRGB );
+    if(inVideoBuffer) av_free( inVideoBuffer );
+    av_free( samples );
+
     return 0;
 }
 
@@ -528,7 +575,7 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
             }
         }
 
-        avcodec_flush_buffers( (AVCodecContext*)file->as[file->audioStream]->_ffmpeg );
+        avcodec_flush_buffers( file->as[file->audioStream]->_ffmpeg );
 
         SDL_SemPost(file->as[file->audioStream]->sem);
     }
@@ -548,7 +595,7 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
             }
         }
 
-        avcodec_flush_buffers( (AVCodecContext*)file->vs[file->videoStream]->_ffmpeg );
+        avcodec_flush_buffers( file->vs[file->videoStream]->_ffmpeg );
 
         SDL_SemPost(file->vs[file->videoStream]->sem);
     }
@@ -706,9 +753,9 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_f
     frame->timestamp = pack->pts * file->as[file->audioStream]->timeBase;
 
     if(SDL_ffmpegGetPosition(file) > frame->timestamp) {
-        ((AVCodecContext*)file->as[file->audioStream]->_ffmpeg)->hurry_up = 1;
+        (file->as[file->audioStream]->_ffmpeg)->hurry_up = 1;
     } else {
-        ((AVCodecContext*)file->as[file->audioStream]->_ffmpeg)->hurry_up = 0;
+        (file->as[file->audioStream]->_ffmpeg)->hurry_up = 0;
     }
 
     while(size > 0 && file->threadActive) {
@@ -717,7 +764,7 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_f
         len = avcodec_decode_audio2(file->as[file->audioStream]->_ffmpeg, samples, &audioSize, data, size);
 
         /* if error, or hurry state, we skip the frame */
-        if(len <= 0 || !audioSize || ((AVCodecContext*)file->as[file->audioStream]->_ffmpeg)->hurry_up) return -1;
+        if(len <= 0 || !audioSize || (file->as[file->audioStream]->_ffmpeg)->hurry_up) return -1;
 
         /* change pointers */
         data += len;
@@ -745,9 +792,9 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrameRGB, SD
     }
 
     if(SDL_ffmpegGetPosition(file) > frame->timestamp) {
-        ((AVCodecContext*)file->vs[file->videoStream]->_ffmpeg)->hurry_up = 1;
+        file->vs[file->videoStream]->_ffmpeg->hurry_up = 1;
     } else {
-        ((AVCodecContext*)file->vs[file->videoStream]->_ffmpeg)->hurry_up = 0;
+        file->vs[file->videoStream]->_ffmpeg->hurry_up = 0;
     }
 
     int got_frame = 0;
@@ -758,7 +805,7 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrameRGB, SD
     /* Decode the packet */
     avcodec_decode_video(file->vs[file->videoStream]->_ffmpeg, inFrame, &got_frame, pack->data, pack->size);
 
-    if( got_frame && !((AVCodecContext*)file->vs[file->videoStream]->_ffmpeg)->hurry_up ) {
+    if( got_frame && !file->vs[file->videoStream]->_ffmpeg->hurry_up ) {
 
         /* we convert whatever type of data we got to RGB24 */
         sws_scale( file->vs[file->videoStream]->_conversion, inFrame->data,

@@ -37,7 +37,7 @@ extern "C" {
 
 #include "stdint.h"
 
-#define SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES      50
+#define SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES      25
 #define SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES     512
 
 typedef struct SDL_ffmpegAudioFrame {
@@ -56,11 +56,9 @@ typedef struct SDL_ffmpegVideoFrame {
 typedef struct SDL_ffmpegStream {
 
     int pixFmt;
-    /* pointer to ffmpeg data, internal use only!
-      _ffmpeg points to AVCodecContext
-      _conversion points to SwsContext */
-    void *_ffmpeg;
-    void *_conversion;
+    /* pointer to ffmpeg data, internal use only! */
+    struct AVCodecContext *_ffmpeg;
+    struct SwsContext *_conversion;
 
     /* semaphore for current stream */
     SDL_sem *sem;
