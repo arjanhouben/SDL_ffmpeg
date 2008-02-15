@@ -90,12 +90,15 @@ void SDL_ffmpegFree(SDL_ffmpegFile* file) {
 
     SDL_DestroySemaphore( file->decode );
 
-    int i;
+    int i,f;
     for(i=0; i<MAX_STREAMS; i++) {
         if(file->vs[i]) {
             SDL_DestroySemaphore( file->vs[i]->sem );
             if( file->vs[i]->_conversion ) sws_freeContext( file->vs[i]->_conversion );
             if( file->vs[i]->_ffmpeg ) avcodec_close( file->vs[i]->_ffmpeg );
+            for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
+                SDL_FreeSurface( file->vs[i]->videoBuffer[f].buffer );
+            }
             free( file->vs[i] );
         }
         if(file->as[i]) {
@@ -152,7 +155,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
     file->threadActive = 0;
 
     /* iterate through all the streams and store audio/video streams */
-    size_t i;
+    size_t i,f;
     for(i=0; i<((AVFormatContext*)file->_ffmpeg)->nb_streams; i++) {
 
         if(((AVFormatContext*)file->_ffmpeg)->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO) {
@@ -192,6 +195,13 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                     free(stream);
                     fprintf(stderr, "could not open decoder\n");
                 } else {
+
+                    /* allocate videobuffer */
+                    for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
+                        stream->videoBuffer[f].buffer = SDL_CreateRGBSurface( 0,
+                                                    stream->width, stream->height, 24,
+                                                    0x0000FF, 0x00FF00, 0xFF0000, 0 );
+                    }
 
                     /* copy metadata from AVStream into our stream */
                     stream->frameRate[0] = ((AVFormatContext*)file->_ffmpeg)->streams[i]->time_base.num;
@@ -300,9 +310,7 @@ SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 int SDL_ffmpegReleaseVideo(SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame) {
 
     /* no video, means no releasing */
-    if( !SDL_ffmpegValidVideo(file) ) return -1;
-
-    SDL_FreeSurface( frame->buffer );
+    if( !SDL_ffmpegValidVideo(file) || !frame ) return -1;
 
     frame->filled = 0;
 
@@ -590,7 +598,6 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
         for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; i++) {
 
             if(file->vs[file->videoStream]->videoBuffer[i].filled) {
-                SDL_FreeSurface( file->vs[file->videoStream]->videoBuffer[i].buffer );
                 file->vs[file->videoStream]->videoBuffer[i].filled = 0;
             }
         }
@@ -811,11 +818,6 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrameRGB, SD
         sws_scale( file->vs[file->videoStream]->_conversion, inFrame->data,
                    inFrame->linesize, 0, file->vs[file->videoStream]->height,
                    inFrameRGB->data, inFrameRGB->linesize);
-
-        /* we create a SDL_Surface to store the frame data */
-        frame->buffer = SDL_CreateRGBSurface( 0, file->vs[file->videoStream]->width,
-                                              file->vs[file->videoStream]->height, 24,
-                                              0x0000FF, 0x00FF00, 0xFF0000, 0 );
 
         /* copy image data to SDL_Surface */
         memcpy( frame->buffer->pixels, inFrameRGB->data[0],
