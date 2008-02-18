@@ -6,7 +6,7 @@ LIBDIR=lib/
 INCDIR=include/
 BINDIR=bin/
 
-FFMPEGDIR=/home/arjan/ffmpeg/
+FFMPEGDIR=
 SDLDIR=
 WIN=
 
@@ -14,21 +14,31 @@ CC=gcc
 AR=ar
 LD=ld
 LDFLAGS=-lSDL -L$(LIBDIR)
-CFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec
-CFLAGS+=$(ECFLAGS)
+BASECFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
 PROG=$(NAME)_example
 NAME=SDL_ffmpeg
 FFMPEGOBJECTS=$(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
 
-all: example audio_example dynamiclibrary
-
-prep:
-ifneq ($(strip $(WIN)),)
-@echo WINDOWS BUILD
-LDFLAGS+=-lwsock32
-else
-LDFLAGS+=-lz
+ifeq ($(strip $(FFMPEGDIR)),)
+	FFMPEGDIR=\ FFMPEG\ PATH\ NOT\ SET!\ 
 endif
+
+ifeq ($(strip $(WIN)),)
+	LDFLAGS+=-lz
+	CFLAGS=$(BASECFLAGS)
+	EXTEXE=
+	EXTDLL=.so
+	ifeq ($(strip $(SDLDIR)),)
+		SDLDIR=\ SDL\ PATH\ NOT\ SET!\ 
+	endif
+else
+	LDFLAGS+=-lwsock32
+	CFLAGS=-lmingw32 $(BASECFLAGS)
+	EXTDLL=.dll
+	EXTEXE=.exe
+endif
+
+all: example audio_example dynamiclibrary
 
 # ffmpeg objects
 
@@ -65,32 +75,32 @@ cleanstaticlibrary:
 
 # dynamic library
 
-$(BINDIR)$(NAME).so: dynamiclibrary
+$(BINDIR)$(NAME)$(EXTDLL): dynamiclibrary
 
 dynamiclibrary: ffmpegfiles sdl_ffmpeg
 	@-mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(FFMPEGOBJECTS) -shared -o $(BINDIR)$(NAME).so
+	$(CC) $(CFLAGS)-DSDL_FFMPEG_LIBRARY $(FFMPEGOBJECTS) $(LDFLAGS) -shared -o $(BINDIR)$(NAME)$(EXTDLL)
 
 cleandynamiclibrary:
-	-rm -f $(BINDIR)$(NAME).so
+	-rm -f $(BINDIR)$(NAME)$(EXTDLL)
 
 # example
 
-example: prep staticlibrary
+example: staticlibrary
 	@-mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)example
+	$(CC) $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
 
 cleanexample:
-	-rm -f $(BINDIR)example
+	-rm -f $(BINDIR)example$(EXTEXE)
 
 # audio example
 
-audio_example: prep staticlibrary
+audio_example: staticlibrary
 	@-mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) $(SRCDIR)audio_example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)audio_example
+	$(CC) $(CFLAGS) $(SRCDIR)audio_example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)audio_example$(EXTEXE)
 
 cleanaudio_example:
-	-rm -f $(BINDIR)audio_example
+	-rm -f $(BINDIR)audio_example$(EXTEXE)
 
 # clean
 
