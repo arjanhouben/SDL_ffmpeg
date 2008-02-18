@@ -4,52 +4,100 @@ SRCDIR=src/
 OBJDIR=obj/
 LIBDIR=lib/
 INCDIR=include/
+BINDIR=bin/
 
 FFMPEGDIR=/home/arjan/ffmpeg/
+SDLDIR=
+WIN=
 
 CC=gcc
 AR=ar
 LD=ld
-LDFLAGS=-lSDL -L$(LIBDIR) -lz
-CFLAGS=-I$(INCDIR) -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec
+LDFLAGS=-lSDL -L$(LIBDIR)
+CFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec
 CFLAGS+=$(ECFLAGS)
 PROG=$(NAME)_example
 NAME=SDL_ffmpeg
+FFMPEGOBJECTS=$(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
 
-all: example audio_example
+all: example audio_example dynamiclibrary
 
-$(LIBDIR)lib$(NAME).a: library
+prep:
+ifneq ($(strip $(WIN)),)
+@echo WINDOWS BUILD
+LDFLAGS+=-lwsock32
+else
+LDFLAGS+=-lz
+endif
 
-library: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
-	-mkdir obj
-	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
-	-mkdir $(OBJDIR)libavformat
+# ffmpeg objects
+
+ffmpegfiles: $(FFMPEGDIR)libavformat/libavformat.a $(FFMPEGDIR)libavcodec/libavcodec.a $(FFMPEGDIR)libavutil/libavutil.a
+	@-mkdir -p $(OBJDIR)
+	@-mkdir -p $(OBJDIR)libavformat
 	cd $(OBJDIR)libavformat;$(AR) x $(FFMPEGDIR)libavformat/libavformat.a
-	-mkdir $(OBJDIR)libavcodec
+	@-mkdir -p $(OBJDIR)libavcodec
 	cd $(OBJDIR)libavcodec;$(AR) x $(FFMPEGDIR)libavcodec/libavcodec.a
-	-mkdir $(OBJDIR)libavutil
+	@-mkdir -p $(OBJDIR)libavutil
 	cd $(OBJDIR)libavutil;$(AR) x $(FFMPEGDIR)libavutil/libavutil.a
-	-mkdir lib
-	$(AR) -rcs $(LIBDIR)lib$(NAME).a $(OBJDIR)$(NAME).o $(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
 
-cleanlibrary:
-	-rm -R $(OBJDIR)
-	-rm $(LIBDIR)lib$(NAME).a
+# SDL_ffmpeg object
 
-example: library
-	-mkdir bin
-	$(CC) $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/example
+$(OBJDIR)$(NAME).o: sdl_ffmpeg
+
+sdl_ffmpeg: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
+	@-mkdir -p $(OBJDIR)
+	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
+
+cleansdl_ffmpeg:
+	-rm -f $(OBJDIR)$(NAME).o
+
+# static library
+
+$(LIBDIR)lib$(NAME).a: staticlibrary
+
+staticlibrary: ffmpegfiles sdl_ffmpeg
+	@-mkdir -p $(LIBDIR)
+	$(AR) -rcs $(LIBDIR)lib$(NAME).a $(OBJDIR)$(NAME).o $(FFMPEGOBJECTS)
+
+cleanstaticlibrary:
+	-rm -f $(LIBDIR)lib$(NAME).a
+
+# dynamic library
+
+$(BINDIR)$(NAME).so: dynamiclibrary
+
+dynamiclibrary: ffmpegfiles sdl_ffmpeg
+	@-mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(FFMPEGOBJECTS) -shared -o $(BINDIR)$(NAME).so
+
+cleandynamiclibrary:
+	-rm -f $(BINDIR)$(NAME).so
+
+# example
+
+example: prep staticlibrary
+	@-mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)example
 
 cleanexample:
-	-rm bin/example
+	-rm -f $(BINDIR)example
 
-audio_example: library
-	-mkdir bin
-	$(CC) $(CFLAGS) $(SRCDIR)audio_example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o bin/audio_example
+# audio example
+
+audio_example: prep staticlibrary
+	@-mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) $(SRCDIR)audio_example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)audio_example
 
 cleanaudio_example:
-	-rm bin/audio_example
+	-rm -f $(BINDIR)audio_example
+
+# clean
 
 .PHONY: clean
 
-clean: cleanexample cleanaudio_example cleanlibrary
+clean: cleanexample cleanaudio_example cleanstaticlibrary cleandynamiclibrary cleansdl_ffmpeg
+	-rm -Rf $(OBJDIR)
+	-rm -Rf $(LIBDIR)
+	-rm -Rf $(BINDIR)
+
