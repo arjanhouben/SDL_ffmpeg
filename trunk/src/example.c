@@ -69,6 +69,14 @@ int audioCallback(void *udata, Uint8 *stream, int len) {
 
 int main(int argc, char** argv) {
 
+	SDL_ffmpegFile *film = 0;
+    SDL_ffmpegStream *str = 0;
+	SDL_AudioSpec *specs = 0;
+	SDL_Surface *screen = 0;
+	SDL_ffmpegVideoFrame *frame = 0;
+    int s, w, h, done, x, y;
+	int64_t time;
+
     /* check if we got an argument */
     if(argc < 2) {
         printf("usage: \"%s\" \"filename\"\n", argv[0]);
@@ -81,16 +89,13 @@ int main(int argc, char** argv) {
     }
 
     /* open file from arg[1] */
-    SDL_ffmpegFile* film = SDL_ffmpegOpen(argv[1]);
+    film = SDL_ffmpegOpen(argv[1]);
     if(!film) {
         printf("error opening file\n");
         return -1;
     }
 
     /* print some info on detected stream to output */
-    int s;
-    SDL_ffmpegStream *str;
-
     for(s = 0; s<film->AStreams; s++) {
         str = SDL_ffmpegGetAudioStream(film, s);
 
@@ -115,15 +120,14 @@ int main(int argc, char** argv) {
 
     /* get the audiospec which fits the selected audiostream, if no audiostream */
     /* is selected, default values are used (2 channel, 48Khz) */
-    SDL_AudioSpec *specs = SDL_ffmpegGetAudioSpec(film, 512, audioCallback);
+    specs = SDL_ffmpegGetAudioSpec(film, 512, audioCallback);
 
-    int w,h;
     /* we get the size from our active video stream, if no active video stream */
     /* exists, width and height are set to default values (320x240) */
     SDL_ffmpegGetVideoSize(film, &w, &h);
 
     /* Open the Video device */
-    SDL_Surface *screen = SDL_SetVideoMode(w, h, 32, SDL_DOUBLEBUF|SDL_HWSURFACE);
+    screen = SDL_SetVideoMode(w, h, 32, SDL_DOUBLEBUF|SDL_HWSURFACE);
     if(!screen) {
         printf("Couldn't open video: %s\n", SDL_GetError());
         goto freeAndClose;
@@ -142,7 +146,7 @@ int main(int argc, char** argv) {
     /* we unpause the audio so our audiobuffer gets read */
     SDL_PauseAudio(0);
 
-    int done = 0;
+    done = 0;
 
     while( !done ) {
 
@@ -158,11 +162,10 @@ int main(int argc, char** argv) {
             if(event.type == SDL_MOUSEBUTTONDOWN) {
                 SDL_PumpEvents();
 
-                int x,y;
                 SDL_GetMouseState(&x, &y);
                 /* by clicking you turn on the stream, seeking to the percentage */
                 /* in time, based on the x-position you clicked on */
-                int64_t time = ((double)x / w) * SDL_ffmpegGetDuration(film);
+                time = (int64_t)((double)x / w) * SDL_ffmpegGetDuration(film);
 
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek(film, time);
@@ -176,7 +179,7 @@ int main(int argc, char** argv) {
         /* we retrieve the current image from the file */
         /* we get 0 if no file could be retrieved */
         /* important! please note this call should be paired with SDL_ffmpegReleaseVideo */
-        SDL_ffmpegVideoFrame* frame = SDL_ffmpegGetVideoFrame(film);
+        frame = SDL_ffmpegGetVideoFrame(film);
 
         if(frame) {
 
