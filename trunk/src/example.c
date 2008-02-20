@@ -25,7 +25,7 @@
 
 #include <string.h>
 
-int audioCallback(void *udata, Uint8 *stream, int len) {
+void audioCallback(void *udata, Uint8 *stream, int len) {
 
     /* unpack our void pointer */
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
@@ -33,14 +33,14 @@ int audioCallback(void *udata, Uint8 *stream, int len) {
     int bytesUsed;
     int offset = 0;
     SDL_ffmpegAudioFrame *frame = SDL_ffmpegGetAudioFrame(file);
-    if(!frame) return -1;
+    if(!frame) return;
 
     while(len > 0) {
 
         /* check if we need a new frame */
         if(!frame->size) {
             frame = SDL_ffmpegGetAudioFrame(file);
-            if(!frame) return -1;
+            if(!frame) return;
         }
 
         if(frame->size <= len) {
@@ -64,7 +64,7 @@ int audioCallback(void *udata, Uint8 *stream, int len) {
         SDL_ffmpegReleaseAudio(file, frame, bytesUsed);
     }
 
-    return 0;
+    return;
 }
 
 int main(int argc, char** argv) {
@@ -85,13 +85,14 @@ int main(int argc, char** argv) {
     /* standard SDL initialization stuff */
     if(SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_DOUBLEBUF) < 0) {
         fprintf(stderr, "problem initializing SDL: %s\n", SDL_GetError());
-        goto freeAndClose;
+        return -1;
     }
 
     /* open file from arg[1] */
     film = SDL_ffmpegOpen(argv[1]);
     if(!film) {
         printf("error opening file\n");
+        SDL_Quit();
         return -1;
     }
 
@@ -130,13 +131,15 @@ int main(int argc, char** argv) {
     screen = SDL_SetVideoMode(w, h, 32, SDL_DOUBLEBUF|SDL_HWSURFACE);
     if(!screen) {
         printf("Couldn't open video: %s\n", SDL_GetError());
-        goto freeAndClose;
+        SDL_Quit();
+        return -1;
     }
 
     /* Open the Audio device */
     if( SDL_OpenAudio(specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
-        goto freeAndClose;
+        SDL_Quit();
+        return -1;
     }
 
     /* we start our decode thread, this always tries to buffer in some frames */
@@ -165,7 +168,7 @@ int main(int argc, char** argv) {
                 SDL_GetMouseState(&x, &y);
                 /* by clicking you turn on the stream, seeking to the percentage */
                 /* in time, based on the x-position you clicked on */
-                time = (int64_t)((double)x / w) * SDL_ffmpegGetDuration(film);
+                time = (int64_t)(((double)x / (double)w) * SDL_ffmpegGetDuration(film));
 
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek(film, time);
@@ -176,19 +179,15 @@ int main(int argc, char** argv) {
             }
         }
 
-        /* we retrieve the current image from the file */
-        /* we get 0 if no file could be retrieved */
-        /* important! please note this call should be paired with SDL_ffmpegReleaseVideo */
+        /*  we retrieve the current image from the file
+            we get 0 if no frame could be retrieved
+            frame is valid until next frame is received */
         frame = SDL_ffmpegGetVideoFrame(film);
 
         if(frame) {
 
             /* we got a frame, so we better show this one */
             SDL_BlitSurface(frame->buffer, 0, screen, 0);
-
-            /* After releasing this frame, you can no longer use it. */
-            /* you should call this function every time you get a frame! */
-            SDL_ffmpegReleaseVideo(film, frame);
 
             /* we flip the double buffered screen so we might actually see something */
             SDL_Flip(screen);
@@ -197,8 +196,6 @@ int main(int argc, char** argv) {
         /* we wish not to kill our poor cpu, so we give it some timeoff */
         SDL_Delay(5);
     }
-
-    freeAndClose:
 
     /* cleanup audio specs */
     free( specs );

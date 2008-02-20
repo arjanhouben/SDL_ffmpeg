@@ -25,7 +25,7 @@
 
 #include <string.h>
 
-int audioCallback(void *udata, Uint8 *stream, int len) {
+void audioCallback(void *udata, Uint8 *stream, int len) {
 
     /* unpack our void pointer */
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
@@ -33,14 +33,14 @@ int audioCallback(void *udata, Uint8 *stream, int len) {
     int bytesUsed;
     int offset = 0;
     SDL_ffmpegAudioFrame *frame = SDL_ffmpegGetAudioFrame(file);
-    if(!frame) return -1;
+    if(!frame) return;
 
     while(len > 0) {
 
         /* check if we need a new frame */
         if(!frame->size) {
             frame = SDL_ffmpegGetAudioFrame(file);
-            if(!frame) return -1;
+            if(!frame) return;
         }
 
         if(frame->size <= len) {
@@ -64,10 +64,15 @@ int audioCallback(void *udata, Uint8 *stream, int len) {
         SDL_ffmpegReleaseAudio(file, frame, bytesUsed);
     }
 
-    return 0;
+    return;
 }
 
 int main(int argc, char** argv) {
+
+    SDL_ffmpegFile* audioFile;
+    SDL_ffmpegStream *str;
+    SDL_AudioSpec *specs;
+    int s, done;
 
     /* check if we got an argument */
     if(argc < 2) {
@@ -82,16 +87,13 @@ int main(int argc, char** argv) {
     }
 
     /* open file from arg[1] */
-    SDL_ffmpegFile* audioFile = SDL_ffmpegOpen(argv[1]);
+    audioFile = SDL_ffmpegOpen(argv[1]);
     if(!audioFile) {
         printf("error opening file\n");
         return -1;
     }
 
     /* print some info on detected stream to output */
-    int s;
-    SDL_ffmpegStream *str;
-
     for(s = 0; s<audioFile->AStreams; s++) {
         str = SDL_ffmpegGetAudioStream(audioFile, s);
 
@@ -106,12 +108,12 @@ int main(int argc, char** argv) {
 
     /* get the audiospec which fits the selected audiostream, if no audiostream */
     /* is selected, default values are used (2 channel, 48Khz) */
-    SDL_AudioSpec *specs = SDL_ffmpegGetAudioSpec(audioFile, 512, audioCallback);
+    specs = SDL_ffmpegGetAudioSpec(audioFile, 512, audioCallback);
 
     /* Open the Audio device */
     if( SDL_OpenAudio(specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
-        return -1;
+        goto freeAndClose;
     }
 
     /* we start our decode thread, this always tries to buffer in some frames */
@@ -124,7 +126,7 @@ int main(int argc, char** argv) {
     /* we unpase the file so audio plays */
     SDL_ffmpegPause(audioFile, 0);
 
-    int done = 0;
+    done = 0;
 
     while( !done ) {
 
@@ -140,6 +142,11 @@ int main(int argc, char** argv) {
         /* we wish not to kill our poor cpu, so we give it some timeoff */
         SDL_Delay(5);
     }
+
+    freeAndClose:
+
+    /* cleanup audio specs */
+    free( specs );
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree(audioFile);

@@ -3,12 +3,11 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="SDL_ffmpeg" />
-		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option default_target="example" />
 		<Option compiler="gcc" />
 		<Build>
-			<Target title="library">
+			<Target title="dynamiclibrary">
 				<Option output="lib/libSDL_ffmpegd" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option object_output="obj/Debug/library" />
@@ -59,25 +58,35 @@
 					<Add directory="lib" />
 				</Linker>
 			</Target>
+			<Target title="staticlibrary">
+				<Option output="SDL_ffmpeg" prefix_auto="1" extension_auto="1" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+			</Target>
 		</Build>
 		<VirtualTargets>
-			<Add alias="all" targets="library;example;audio_example;" />
+			<Add alias="all" targets="dynamiclibrary;example;audio_example;" />
 		</VirtualTargets>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-fexceptions" />
 			<Add directory="include" />
+			<Add directory="/home/arjan/ffmpeg/libavcodec" />
+			<Add directory="/home/arjan/ffmpeg/libavformat" />
+			<Add directory="/home/arjan/ffmpeg/libavutil" />
+			<Add directory="/home/arjan/ffmpeg/libswscale" />
 		</Compiler>
 		<Linker>
 			<Add library="SDL" />
+			<Add library="SDLmain" />
+			<Add library="z" />
+			<Add directory="lib" />
 		</Linker>
 		<Unit filename="include/SDL/SDL_ffmpeg.h">
-			<Option target="library" />
+			<Option target="dynamiclibrary" />
 			<Option target="example" />
 		</Unit>
 		<Unit filename="src/SDL_ffmpeg.c">
 			<Option compilerVar="CC" />
-			<Option target="library" />
 			<Option target="example" />
 		</Unit>
 		<Unit filename="src/audio_example.c">
@@ -86,7 +95,7 @@
 		</Unit>
 		<Unit filename="src/example.c">
 			<Option compilerVar="CC" />
-			<Option target="&lt;{~None~}&gt;" />
+			<Option target="example" />
 		</Unit>
 		<Extensions>
 			<envvars />

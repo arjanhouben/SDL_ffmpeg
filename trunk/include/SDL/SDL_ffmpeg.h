@@ -30,15 +30,12 @@ extern "C" {
 #include "SDL/SDL_thread.h"
 #include "SDL/SDL.h"
 
-//#ifdef SDL_FFMPEG_LIBRARY
-//    #include "avformat.h"
-//#endif
-//#define EXPORT extern
-
 #include "stdint.h"
 
 #define SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES      25
 #define SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES     512
+
+typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
 typedef struct SDL_ffmpegAudioFrame {
     int64_t timestamp;
@@ -47,7 +44,7 @@ typedef struct SDL_ffmpegAudioFrame {
 } SDL_ffmpegAudioFrame;
 
 typedef struct SDL_ffmpegVideoFrame {
-    int64_t timestamp;
+    int64_t pts, dts;
     SDL_Surface *buffer;
     int filled;
 } SDL_ffmpegVideoFrame;
@@ -80,26 +77,27 @@ typedef struct SDL_ffmpegStream {
 
     /* extra data for audio */
     int id;
-    int64_t lastTimeStamp;
+    int64_t lastTimeStamp, dts;
 
 } SDL_ffmpegStream;
 
 typedef struct SDL_ffmpegFile {
 
-    /* pointer to ffmpeg data, internal use only!
-       points to AVFormatContext */
-    void *_ffmpeg;
+    /* pointer to ffmpeg data, internal use only! */
+    struct AVFormatContext *_ffmpeg;
 
     /* our streams */
     SDL_ffmpegStream **vs;
     SDL_ffmpegStream **as;
+    SDL_ffmpegStream *videoStream, *audioStream;
 
     /* data used for syncing/searching */
-    int64_t offset, videoOffset, startTime;
-    int pause;
+    int64_t offset, videoOffset, startTime, seekTo;
+    int pause, mustSeek;
 
     /* streams and data about threads */
-    int VStreams, AStreams, videoStream, audioStream, threadActive;
+    int VStreams, AStreams, threadActive;
+    SDL_ffmpegVideoFrame *videoFrameInUse;
     SDL_Thread *threadID;
     SDL_sem *decode;
 
@@ -111,8 +109,6 @@ int SDL_ffmpegStartDecoding(SDL_ffmpegFile* file);
 int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file);
 
 SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file);
-
-int SDL_ffmpegReleaseVideo(SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame);
 
 SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, int audioID);
 
@@ -142,7 +138,7 @@ int SDL_ffmpegReleaseAudio(SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame, in
 
 int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file);
 
-SDL_AudioSpec* SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, void *callback);
+SDL_AudioSpec* SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
 
 int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h);
 
