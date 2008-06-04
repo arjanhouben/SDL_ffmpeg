@@ -3,6 +3,8 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="SDL_ffmpeg" />
+		<Option makefile="Makefile ECFLAGS=-pg FFMPEGDIR=/OSX/Users/arjan/ffmpeg/" />
+		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option default_target="example" />
 		<Option compiler="gcc" />
@@ -30,7 +32,7 @@
 				<Option object_output="obj/Release/library" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters='&quot;/media/opslag/Films/office space/office space.avi&quot;' />
+				<Option parameters='&quot;/OSX/Users/arjan/Movies/mythbusters.s06e07.hdtv.xvid-fqm.avi&quot; ' />
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-Wall" />
@@ -70,6 +72,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add directory="include" />
+			<Add directory="/home/arjan/ffmpeg" />
 			<Add directory="/home/arjan/ffmpeg/libavcodec" />
 			<Add directory="/home/arjan/ffmpeg/libavformat" />
 			<Add directory="/home/arjan/ffmpeg/libavutil" />

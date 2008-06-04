@@ -31,17 +31,16 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
 
     int bytesUsed;
-    int offset = 0;
-    SDL_ffmpegAudioFrame *frame = SDL_ffmpegGetAudioFrame(file);
-    if(!frame) return;
 
-    while(len > 0) {
+    SDL_ffmpegAudioFrame *frame;
+	
+	while(len > 0) {
 
-        /* check if we need a new frame */
-        if(!frame->size) {
-            frame = SDL_ffmpegGetAudioFrame(file);
-            if(!frame) return;
-        }
+        /* try to get a new frame */
+        frame = SDL_ffmpegGetAudioFrame(file);
+
+        /* we could not receive a new frame, break from loop */
+        if(!frame) break;
 
         if(frame->size <= len) {
             /* this frame is smaller or equal to the amount of data needed. */
@@ -52,16 +51,19 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
         }
 
         /* copy the correct amount of data */
-        memcpy(stream+offset, frame->buffer, bytesUsed);
+        memcpy(stream, frame->buffer, bytesUsed);
+
         /* adjust the needed length accordingly */
         len -= bytesUsed;
-        offset += bytesUsed;
+		
+        /* adjust stream offset */
+        stream += bytesUsed;
 
-        /* we release our audio data, so the decode thread can fill it again */
-        /* we also inform this function of the amount of bytes we used, so it can */
-        /* move the buffer accordingly */
-        /* important! this call is paired with SDL_ffmpegGetAudio */
-        SDL_ffmpegReleaseAudio(file, frame, bytesUsed);
+        /* adjust size of frame to prevent reusing the same data */
+        frame->size -= bytesUsed;
+		
+        /* adjust buffer of frame for the same reason */
+        frame->buffer += bytesUsed;
     }
 
     return;
@@ -128,7 +130,7 @@ int main(int argc, char** argv) {
     SDL_ffmpegGetVideoSize(film, &w, &h);
 
     /* Open the Video device */
-    screen = SDL_SetVideoMode(w, h, 32, SDL_DOUBLEBUF|SDL_HWSURFACE);
+    screen = SDL_SetVideoMode(w, h, 0, SDL_DOUBLEBUF|SDL_HWSURFACE);
     if(!screen) {
         printf("Couldn't open video: %s\n", SDL_GetError());
         SDL_Quit();
@@ -149,6 +151,9 @@ int main(int argc, char** argv) {
     /* we unpause the audio so our audiobuffer gets read */
     SDL_PauseAudio(0);
 
+	/* and start the playback */
+	SDL_ffmpegPlay(film, 1);
+
     done = 0;
 
     while( !done ) {
@@ -163,6 +168,7 @@ int main(int argc, char** argv) {
             }
 
             if(event.type == SDL_MOUSEBUTTONDOWN) {
+			
                 SDL_PumpEvents();
 
                 SDL_GetMouseState(&x, &y);
@@ -173,9 +179,10 @@ int main(int argc, char** argv) {
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek(film, time);
 
-                /* by passing 0(false) as our second argument, we play the file */
-                /* passing a non-zero value would mean we pause our file */
-                SDL_ffmpegPause(film, 0);
+                /* by passing 0 as our second argument, we pause the file */
+                /* passing -1 means we want to loop this file forever */
+				/* any unsigned value means we play the file that many times */
+                SDL_ffmpegPlay(film, 1);
             }
         }
 
@@ -185,7 +192,7 @@ int main(int argc, char** argv) {
         frame = SDL_ffmpegGetVideoFrame(film);
 
         if(frame) {
-
+		
             /* we got a frame, so we better show this one */
             SDL_BlitSurface(frame->buffer, 0, screen, 0);
 
@@ -194,7 +201,7 @@ int main(int argc, char** argv) {
         }
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay(5);
+        SDL_Delay(10);
     }
 
     /* cleanup audio specs */

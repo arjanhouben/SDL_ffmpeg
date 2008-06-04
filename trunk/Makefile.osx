@@ -12,8 +12,8 @@ WIN=
 CC=gcc
 AR=ar
 LD=ld
-LDFLAGS=-lSDL -L$(LIBDIR)
-BASECFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
+LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) include/SDL/SDLMain.m
+BASECFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
 RCFLAGS=-s -O2
 DCFLAGS=-g
 PROG=$(NAME)_example
@@ -21,11 +21,11 @@ NAME=SDL_ffmpeg
 FFMPEGOBJECTS=$(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
 
 ifeq ($(strip $(FFMPEGDIR)),)
-	FFMPEGDIR=\ FFMPEGDIR\ NOT\ SET!\ 
+	FFMPEGDIR=\ FFMPEG\ PATH\ NOT\ SET!\ 
 endif
 
 ifeq ($(strip $(WIN)),)
-	LDFLAGS+=-lz
+	LDFLAGS+=-lbz2 -lz
 	CFLAGS=$(BASECFLAGS)
 	EXTEXE=
 	EXTDLL=.so
@@ -39,7 +39,8 @@ else
 	endif
 endif
 
-all: dynamiclibrary staticlibrary dynamiclibrarydebug staticlibrarydebug audio_example example
+#all: dynamiclibrary staticlibrary dynamiclibrarydebug staticlibrarydebug audio_example example
+all: staticlibrary staticlibrarydebug audio_example example
 	@echo 
 	@echo all done!
 
@@ -112,6 +113,7 @@ dynamiclibrary: ffmpegfiles sdl_ffmpeg
 	@echo
 	@echo [ $@ ]
 	@-mkdir -p $(BINDIR)
+#	make sdl_ffmpeg FFMPEGDIR=$(FFMPEGDIR) SDLDIR=$(SDLDIR) WIN=$(WIN) ECFLAGS=-fPIC
 	$(CC) $(CFLAGS) $(RCFLAGS) -DSDL_FFMPEG_LIBRARY $(FFMPEGOBJECTS) $(LDFLAGS) -shared -o $(BINDIR)$(NAME)$(EXTDLL)
 
 cleandynamiclibrary:
@@ -123,6 +125,7 @@ dynamiclibrarydebug: ffmpegfiles sdl_ffmpegdebug
 	@echo
 	@echo [ $@ ]
 	@-mkdir -p $(BINDIR)
+	make sdl_ffmpegdebug FFMPEGDIR=$(FFMPEGDIR) SDLDIR=$(SDLDIR) WIN=$(WIN) ECFLAGS=-fPIC
 	$(CC) $(CFLAGS) $(DCFLAGS) -DSDL_FFMPEG_LIBRARY $(FFMPEGOBJECTS) $(LDFLAGS) -shared -o $(BINDIR)$(NAME)d$(EXTDLL)
 
 cleandynamiclibrarydebug:
@@ -134,18 +137,18 @@ example: staticlibrarydebug
 	@echo
 	@echo [ $@ ]
 	@-mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME)d $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
+	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)example.c -l$(NAME)d $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
 
 cleanexample:
 	-rm -f $(BINDIR)example$(EXTEXE)
 
 # audio example
 
-audio_example: staticlibrary
+audio_example: staticlibrarydebug
 	@echo
 	@echo [ $@ ]
 	@-mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) $(RCFLAGS) $(SRCDIR)audio_example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)audio_example$(EXTEXE)
+	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)audio_example.c -l$(NAME) $(LDFLAGS) -o $(BINDIR)audio_example$(EXTEXE)
 
 cleanaudio_example:
 	-rm -f $(BINDIR)audio_example$(EXTEXE)

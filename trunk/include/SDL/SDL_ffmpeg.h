@@ -32,33 +32,41 @@ extern "C" {
 
 #include "stdint.h"
 
+#ifndef MAX_STREAMS
+#define MAX_STREAMS 20
+#endif
+
 #define SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES      25
-#define SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES     512
+#define SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES     256
 
 typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
 typedef struct SDL_ffmpegAudioFrame {
-    int64_t timestamp;
+    int64_t pts,
+            dts;
     uint8_t *buffer;
+    uint8_t *source;
     uint32_t size;
+	struct SDL_ffmpegAudioFrame *next;
+	int last;
 } SDL_ffmpegAudioFrame;
 
 typedef struct SDL_ffmpegVideoFrame {
-    int64_t pts, dts;
+    int64_t pts,
+            dts;
     SDL_Surface *buffer;
     int filled;
+	struct SDL_ffmpegVideoFrame *next;
+	int last;
 } SDL_ffmpegVideoFrame;
 
 /* this is the basic stream for SDL_ffmpeg */
 typedef struct SDL_ffmpegStream {
 
-    int pixFmt;
+    int pixFmt,
+        endReached;
     /* pointer to ffmpeg data, internal use only! */
-    struct AVCodecContext *_ffmpeg;
-    struct SwsContext *_conversion;
-
-    /* semaphore for current stream */
-    SDL_sem *sem;
+    struct AVStream *_ffmpeg;
 
     /* audio/video buffers */
     SDL_ffmpegAudioFrame audioBuffer[ SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES ];
@@ -87,19 +95,32 @@ typedef struct SDL_ffmpegFile {
     struct AVFormatContext *_ffmpeg;
 
     /* our streams */
-    SDL_ffmpegStream **vs;
-    SDL_ffmpegStream **as;
-    SDL_ffmpegStream *videoStream, *audioStream;
+    SDL_ffmpegStream    *vs[MAX_STREAMS],
+                        *as[MAX_STREAMS];
+
+    SDL_ffmpegStream    *videoStream,
+                        *audioStream;
 
     /* data used for syncing/searching */
-    int64_t offset, videoOffset, startTime, seekTo;
-    int pause, mustSeek;
+    int64_t     offset,
+                loopCount,
+                startTime,
+                seekTo;
+
+    int			mustSeek;
 
     /* streams and data about threads */
-    int VStreams, AStreams, threadActive;
-    SDL_ffmpegVideoFrame *videoFrameInUse;
-    SDL_Thread *threadID;
-    SDL_sem *decode;
+    int     VStreams,
+            AStreams,
+            threadActive;
+
+    SDL_ffmpegVideoFrame	*videoFrameInUse,
+							*pendingVideoFrame;
+
+    SDL_ffmpegAudioFrame	*audioFrameInUse,
+							*pendingAudioFrame;
+
+    SDL_Thread              *threadID;
 
 } SDL_ffmpegFile;
 
@@ -134,8 +155,6 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file);
 
 SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file);
 
-int SDL_ffmpegReleaseAudio(SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame, int len);
-
 int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file);
 
 SDL_AudioSpec* SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
@@ -148,7 +167,7 @@ int SDL_ffmpegValidAudio(SDL_ffmpegFile *file);
 
 int SDL_ffmpegValidVideo(SDL_ffmpegFile *file);
 
-int SDL_ffmpegPause(SDL_ffmpegFile *file, int state);
+int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count);
 
 int SDL_ffmpegGetState(SDL_ffmpegFile *file);
 
