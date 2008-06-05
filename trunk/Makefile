@@ -6,9 +6,6 @@ LIBDIR=lib/
 INCDIR=include/
 BINDIR=bin/
 
-SDLDIR=
-WIN=
-
 CC=gcc
 AR=ar
 LD=ld
@@ -35,7 +32,7 @@ else
 	EXTDLL=.dll
 	EXTEXE=.exe
 	ifeq ($(strip $(SDLDIR)),)
-		SDLDIR=\ SDL\ PATH\ NOT\ SET!\ 
+		SDLDIR=\ SDLDIR\ NOT\ SET!\ 
 	endif
 endif
 
@@ -130,11 +127,11 @@ cleandynamiclibrarydebug:
 
 # example
 
-example: staticlibrarydebug
+example: staticlibrary
 	@echo
 	@echo [ $@ ]
 	@-mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME)d $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
+	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)example.c -lSDLmain -l$(NAME) $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
 
 cleanexample:
 	-rm -f $(BINDIR)example$(EXTEXE)
