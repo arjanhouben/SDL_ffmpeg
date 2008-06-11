@@ -65,6 +65,12 @@
 				<Option type="0" />
 				<Option compiler="gcc" />
 			</Target>
+			<Target title="multichannel">
+				<Option output="bin/multichannel" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="bin" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+			</Target>
 		</Build>
 		<VirtualTargets>
 			<Add alias="all" targets="dynamiclibrary;example;audio_example;" />
@@ -99,6 +105,10 @@
 		<Unit filename="src/example.c">
 			<Option compilerVar="CC" />
 			<Option target="example" />
+		</Unit>
+		<Unit filename="src/multichannel.c">
+			<Option compilerVar="CC" />
+			<Option target="multichannel" />
 		</Unit>
 		<Extensions>
 			<envvars />

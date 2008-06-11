@@ -296,7 +296,7 @@ SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 	/* previous frame can indicate which frame should come now */
 	if( file->videoFrameInUse ) {
 
-		if(file->videoFrameInUse->next) {
+		if( file->videoFrameInUse->next && file->videoFrameInUse->next->filled ) {
 
 			f = file->videoFrameInUse->next;
 		}
@@ -336,7 +336,7 @@ SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 			file->videoFrameInUse = f;
 
 			if( f->last ) {
-			
+
 				f->last = 0;
 
 			    /* last video frame found, check if audio is available/done */
@@ -344,20 +344,20 @@ SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 
 			        file->videoStream->endReached = 0;
 			        if(file->audioStream) file->audioStream->endReached = 0;
-					
-					/* check if file should loop */					
+
+					/* check if file should loop */
 					if( file->loopCount > 0 ) {
 						file->loopCount--;
 					}
-					
+
 					/* if loopCount is still non-zero, we loop */
 					if( file->loopCount ) {
 
 						file->startTime = SDL_GetTicks();
-					
+
 						file->offset = 0;
 					}
-					
+
 			    } else {
 
 			        file->videoStream->endReached = 1;
@@ -517,7 +517,7 @@ int SDL_ffmpegDecodeThread(void* data) {
                 minimalTimestamp = AV_NOPTS_VALUE;
 
             } else {
-			
+
                 file->offset = file->seekTo;
                 file->startTime = SDL_GetTicks();
 
@@ -534,16 +534,16 @@ int SDL_ffmpegDecodeThread(void* data) {
 
         /* if we did not get a packet, we seek to begin and try again */
         if(decode < 0) {
-		
+
             streamLooped = 1;
             file->mustSeek = 1;
             file->seekTo = 0;
 
             /* last frame should be flagged as such */
             if( lastAudioFrame ) lastAudioFrame->last = 1;
-			
+
 			if( lastVideoFrame ) lastVideoFrame->last = 1;
-			
+
             continue;
         } else {
             streamLooped = 0;
@@ -707,7 +707,7 @@ SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 
 		if( file->audioFrameInUse->size ) return file->audioFrameInUse;
 
-		f = file->audioFrameInUse->next;
+        if( file->audioFrameInUse->next && file->audioFrameInUse->next->size ) f = file->audioFrameInUse->next;
 
 	} else if( file->pendingAudioFrame ) {
 
@@ -743,7 +743,7 @@ SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 			file->audioFrameInUse = f;
 
 			if( f->last ) {
-			
+
 				f->last = 0;
 
 			    /* last audio frame found, check if video is available/done */
@@ -751,17 +751,17 @@ SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 
 			        file->audioStream->endReached = 0;
 			        if(file->videoStream) file->videoStream->endReached = 0;
-					
-					/* check if file should loop */					
+
+					/* check if file should loop */
 					if( file->loopCount > 0 ) {
 						file->loopCount--;
 					}
-					
+
 					/* if loopCount is still non-zero, we loop */
 					if( file->loopCount ) {
 
 						file->startTime = SDL_GetTicks();
-					
+
 						file->offset = 0;
 					}
 
@@ -858,7 +858,7 @@ int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
 int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count) {
 
 	/* if file is not plying at this moment, flag reset */
-	int reset = file->loopCount == 0; 
+	int reset = file->loopCount == 0;
 
     /* -1 means we play indefenetely, otherwise we play count times */
     file->loopCount = count;
@@ -1003,7 +1003,7 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
         V = YUV420P->data[2] + YUV420P->linesize[2] * (y/2);
 
 		/* make sure we deinterlace before upsampling */
-		if( 1||interlaced ) {
+		if( interlaced ) {
 			mod = y % 4;
 			/* on scanline 2 and 3 we need to look at different lines */
 			if( mod == 1 ) {

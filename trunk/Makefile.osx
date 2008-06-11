@@ -6,14 +6,13 @@ LIBDIR=lib/
 INCDIR=include/
 BINDIR=bin/
 
-SDLDIR=
 WIN=
 
 CC=gcc
 AR=ar
 LD=ld
-LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) include/SDL/SDLMain.m
-BASECFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
+LDFLAGS=-framework Cocoa -framework SDL -framework SDL_mixer -L$(LIBDIR) include/SDL/SDLMain.m
+BASECFLAGS=-I/Library/Frameworks/SDL_mixer.framework/Headers -I/Library/Frameworks/SDL.framework/Headers -I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
 RCFLAGS=-s -O2
 DCFLAGS=-g
 PROG=$(NAME)_example
@@ -21,7 +20,7 @@ NAME=SDL_ffmpeg
 FFMPEGOBJECTS=$(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
 
 ifeq ($(strip $(FFMPEGDIR)),)
-	FFMPEGDIR=\ FFMPEG\ PATH\ NOT\ SET!\ 
+	FFMPEGDIR=\ FFMPEGDIR\ NOT\ SET!\ 
 endif
 
 ifeq ($(strip $(WIN)),)
@@ -153,11 +152,22 @@ audio_example: staticlibrarydebug
 cleanaudio_example:
 	-rm -f $(BINDIR)audio_example$(EXTEXE)
 
+# multichannel example
+
+multichannel: staticlibrary
+	@echo
+	@echo [ $@ ]
+	@-mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) $(RCFLAGS) $(SRCDIR)multichannel.c -l$(NAME) $(LDFLAGS) -o $(BINDIR)multichannel$(EXTEXE)
+
+cleanmultichannel:
+	-rm -f $(BINDIR)multichannel$(EXTEXE)
+
 # clean
 
 .PHONY: clean
 
-clean: cleanexample cleanaudio_example cleanstaticlibrary cleandynamiclibrary cleanstaticlibrarydebug cleandynamiclibrarydebug cleansdl_ffmpeg cleansdl_ffmpegdebug
+clean: cleanexample cleanaudio_example cleanmultichannel cleanstaticlibrary cleandynamiclibrary cleanstaticlibrarydebug cleandynamiclibrarydebug cleansdl_ffmpeg cleansdl_ffmpegdebug
 	-rm -Rf $(OBJDIR)
 	-rm -Rf $(LIBDIR)
 	-rm -Rf $(BINDIR)

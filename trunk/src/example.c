@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
     SDL_PauseAudio(0);
 
 	/* and start the playback */
-	SDL_ffmpegPlay(film, 1);
+	SDL_ffmpegPlay(film, 10);
 
     done = 0;
 

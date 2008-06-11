@@ -9,7 +9,7 @@ BINDIR=bin/
 CC=gcc
 AR=ar
 LD=ld
-LDFLAGS=-lSDL -L$(LIBDIR)
+LDFLAGS=-lSDL -L$(LIBDIR) -lSDL_mixer
 BASECFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libswscale -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
 RCFLAGS=-s -O2
 DCFLAGS=-g
@@ -147,11 +147,22 @@ audio_example: staticlibrary
 cleanaudio_example:
 	-rm -f $(BINDIR)audio_example$(EXTEXE)
 
+# multichannel example
+
+multichannel: staticlibrarydebug
+	@echo
+	@echo [ $@ ]
+	@-mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)multichannel.c -lSDLmain -l$(NAME)d $(LDFLAGS) -o $(BINDIR)multichannel$(EXTEXE)
+
+cleanmultichannel:
+	-rm -f $(BINDIR)multichannel$(EXTEXE)
+
 # clean
 
 .PHONY: clean
 
-clean: cleanexample cleanaudio_example cleanstaticlibrary cleandynamiclibrary cleanstaticlibrarydebug cleandynamiclibrarydebug cleansdl_ffmpeg cleansdl_ffmpegdebug
+clean: cleanexample cleanaudio_example cleanmultichannel cleanstaticlibrary cleandynamiclibrary cleanstaticlibrarydebug cleandynamiclibrarydebug cleansdl_ffmpeg cleansdl_ffmpegdebug
 	-rm -Rf $(OBJDIR)
 	-rm -Rf $(LIBDIR)
 	-rm -Rf $(BINDIR)
