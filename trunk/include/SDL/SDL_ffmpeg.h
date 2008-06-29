@@ -64,7 +64,8 @@ typedef struct SDL_ffmpegVideoFrame {
 typedef struct SDL_ffmpegStream {
 
     int pixFmt,
-        endReached;
+        endReached,
+        flushed;
     /* pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
 

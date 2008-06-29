@@ -3,17 +3,46 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="SDL_ffmpeg" />
-		<Option makefile="Makefile ECFLAGS=-pg FFMPEGDIR=/OSX/Users/arjan/ffmpeg/" />
+		<Option makefile="Makefile.osx ECFLAGS=-pg FFMPEGDIR=/Users/arjan/ffmpeg_osx/" />
 		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option default_target="example" />
 		<Option compiler="gcc" />
 		<Build>
-			<Target title="dynamiclibrary">
+			<Target title="staticlibrarydebug">
 				<Option output="lib/libSDL_ffmpegd" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
-				<Option object_output="obj/Debug/library" />
 				<Option type="2" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="staticlibrary">
+				<Option output="lib/libSDL_ffmpeg" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="" />
+				<Option type="2" />
+				<Option compiler="gcc" />
+			</Target>
+			<Target title="dynamiclibrarydebug">
+				<Option output="lib/SDL_ffmpegd" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="lib" />
+				<Option object_output="obj/Debug/library" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-Wall" />
+					<Add option="-g" />
+					<Add option="-fno-strict-aliasing" />
+					<Add option="-DSDL_FFMPEG_LIBRARY" />
+					<Add directory="../../ffmpeg/libavformat" />
+					<Add directory="../../ffmpeg/libavcodec" />
+					<Add directory="../../ffmpeg/libswscale" />
+					<Add directory="../../ffmpeg/libavutil" />
+				</Compiler>
+			</Target>
+			<Target title="dynamiclibrary">
+				<Option output="lib/SDL_ffmpeg" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="lib" />
+				<Option object_output="obj/Debug/library" />
+				<Option type="3" />
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-Wall" />
@@ -32,7 +61,7 @@
 				<Option object_output="obj/Release/library" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters='&quot;/OSX/Users/arjan/Movies/mythbusters.s06e07.hdtv.xvid-fqm.avi&quot; ' />
+				<Option parameters="/Users/arjan/Movies/mythbusters.s06e07.hdtv.xvid-fqm.avi" />
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-Wall" />
@@ -43,13 +72,13 @@
 					<Add directory="lib" />
 				</Linker>
 			</Target>
-			<Target title="audio_example">
-				<Option output="bin/sdl_ffmpeg_audio" prefix_auto="1" extension_auto="1" />
+			<Target title="audioexample">
+				<Option output="bin/audioexample" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
 				<Option object_output="obj/audio_example" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters='&quot;/media/opslag/Films/office space/office space.avi&quot;' />
+				<Option parameters="/Users/arjan/Music/Armin_van_Buuren_presents_-_A_State_of_Trance_Episode_349.mp3" />
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-Wall" />
@@ -60,20 +89,16 @@
 					<Add directory="lib" />
 				</Linker>
 			</Target>
-			<Target title="staticlibrary">
-				<Option output="SDL_ffmpeg" prefix_auto="1" extension_auto="1" />
-				<Option type="0" />
-				<Option compiler="gcc" />
-			</Target>
-			<Target title="multichannel">
-				<Option output="bin/multichannel" prefix_auto="1" extension_auto="1" />
+			<Target title="multichannelexample">
+				<Option output="bin/multichannelexample" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
-				<Option type="0" />
+				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option parameters="/Users/arjan/Music/Armin_van_Buuren_presents_-_A_State_of_Trance_Episode_349.mp3" />
 			</Target>
 		</Build>
 		<VirtualTargets>
-			<Add alias="all" targets="dynamiclibrary;example;audio_example;" />
+			<Add alias="all" targets="multichannelexample;" />
 		</VirtualTargets>
 		<Compiler>
 			<Add option="-Wall" />
@@ -93,22 +118,23 @@
 		<Unit filename="include/SDL/SDL_ffmpeg.h">
 			<Option target="dynamiclibrary" />
 			<Option target="example" />
+			<Option target="dynamiclibrarydebug" />
 		</Unit>
 		<Unit filename="src/SDL_ffmpeg.c">
 			<Option compilerVar="CC" />
 			<Option target="example" />
 		</Unit>
-		<Unit filename="src/audio_example.c">
+		<Unit filename="src/audioexample.c">
 			<Option compilerVar="CC" />
-			<Option target="audio_example" />
+			<Option target="audioexample" />
 		</Unit>
 		<Unit filename="src/example.c">
 			<Option compilerVar="CC" />
 			<Option target="example" />
 		</Unit>
-		<Unit filename="src/multichannel.c">
+		<Unit filename="src/multichannelexample.c">
 			<Option compilerVar="CC" />
-			<Option target="multichannel" />
+			<Option target="multichannelexample" />
 		</Unit>
 		<Extensions>
 			<envvars />

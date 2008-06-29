@@ -30,6 +30,8 @@
 
 #include "SDL/SDL_ffmpeg.h"
 
+int test = 0;
+
 int __Y[256];
 int __CrtoR[256];
 int __CrtoG[256];
@@ -575,6 +577,13 @@ int SDL_ffmpegDecodeThread(void* data) {
 			/* write found audioFrame into empty audiobuffer place */
 			if( getAudioFrame( file, &pack, samples, &file->audioStream->audioBuffer[a], minimalTimestamp ) ) {
 
+                if( file->audioStream->flushed ) {
+                    /* after a flush the lastAudioFrame is invalid */
+                    lastAudioFrame = file->audioFrameInUse;
+                    /* we continue with the last frame given to the user */
+                    file->audioStream->flushed = 0;
+                }
+
 				if( lastAudioFrame ) lastAudioFrame->next = &file->audioStream->audioBuffer[a];
 
 				lastAudioFrame = &file->audioStream->audioBuffer[a];
@@ -610,6 +619,13 @@ int SDL_ffmpegDecodeThread(void* data) {
 
 			/* write found videoFrame into empty videobuffer place */
 			if( getVideoFrame( file, &pack, inFrame, &file->videoStream->videoBuffer[a], minimalTimestamp ) ) {
+
+                if( file->videoStream->flushed ) {
+                    /* after a flush the lastAudioFrame is invalid */
+                    lastVideoFrame = file->videoFrameInUse;
+                    /* we continue with the last frame given to the user */
+                    file->videoStream->flushed = 0;
+                }
 
 				if( lastVideoFrame ) lastVideoFrame->next = &file->videoStream->videoBuffer[a];
 
@@ -661,6 +677,8 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
 			/* frame which is in use by user should not be flagged free */
             if(file->audioFrameInUse != &file->audioStream->audioBuffer[i]) {
                 file->audioStream->audioBuffer[i].size = 0;
+                file->audioStream->audioBuffer[i].next = 0;
+                file->audioStream->audioBuffer[i].last = 0;
             }
         }
 
@@ -669,6 +687,8 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
         }
 
 		file->pendingAudioFrame = 0;
+
+        file->audioStream->flushed = 1;
     }
 
     /* if we have a valid video stream, we flush some more */
@@ -679,12 +699,16 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
 			/* frame which is in use by user should not be flagged free */
 			if(file->videoFrameInUse != &file->videoStream->videoBuffer[i]) {
 				file->videoStream->videoBuffer[i].filled = 0;
+                file->videoStream->videoBuffer[i].next = 0;
+                file->videoStream->videoBuffer[i].last = 0;
 			}
         }
 
         if(file->videoStream->_ffmpeg) {
             avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
         }
+
+        file->videoStream->flushed = 1;
 
 		file->pendingVideoFrame = 0;
     }
@@ -772,7 +796,6 @@ SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 			}
 
         } else {
-
             /* we can't show this frame at this moment */
             f = 0;
         }
@@ -872,7 +895,6 @@ int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count) {
     } else {
 		/* we stopped, record current position as our offset */
 		file->offset = SDL_ffmpegGetPosition(file);
-		printf("offset: %lli\n", file->offset);
 	}
 
     return 0;
