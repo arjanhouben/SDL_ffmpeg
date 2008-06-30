@@ -17,13 +17,10 @@ RCFLAGS=-s -O2
 DCFLAGS=-g
 NAME=SDL_ffmpeg
 FFMPEGOBJECTS=$(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
-LINKLIBRARY=staticlibrary
-LDLIBRARY=$(NAME)
 
 ifeq ($(strip $(FFMPEGDIR)),)
 	FFMPEGDIR=\ FFMPEGDIR\ NOT\ SET!\ 
 endif
-
 
 ifeq ($(OS),Linux)
 	LDFLAGS+=-lz
@@ -32,10 +29,9 @@ ifeq ($(OS),Linux)
 	EXTDLL=.so
 endif
 
-
-ifeq ($(findstring MINGW,$(OS)),MINGW)
+ifeq ($(OS),WIN)
 	LDFLAGS+=-lwsock32
-	CFLAGS=-lmingw32 $(BASECFLAGS) -lSDLmain
+	CFLAGS=-lmingw32 $(BASECFLAGS)
 	EXTDLL=.dll
 	EXTEXE=.exe
 	ifeq ($(strip $(SDLDIR)),)
@@ -43,20 +39,9 @@ ifeq ($(findstring MINGW,$(OS)),MINGW)
 	endif
 endif
 
-
 ifeq ($(OS),Darwin)
 	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) include/SDL/SDLMain.m -lbz2 -lz
 endif
-
-
-ifeq ($(strip $(DEBUG)),)
-	CFLAGS+=$(RCFLAGS)
-else
-	CFLAGS+=$(DCFLAGS)
-	LINKLIBRARY=staticlibrarydebug
-	LDLIBRARY=$(NAME)d
-endif
-
 
 all: dynamiclibrary staticlibrary dynamiclibrarydebug staticlibrarydebug example audioexample multichannelexample
 	@echo 
@@ -101,13 +86,13 @@ $(OBJDIR)$(NAME).o: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(OBJDIR)
-	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
+	$(CC) $(CFLAGS) $(RCFLAGS) -rSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
 
 $(OBJDIR)$(NAME)d.o: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(OBJDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME)d.o
+	$(CC) $(CFLAGS) $(DCFLAGS) -rSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME)d.o
 
 # static library
 
@@ -149,7 +134,7 @@ $(BINDIR)$(NAME)$(EXTDLL):
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)$(EXTDLL)
+	$(CC) $(CFLAGS) $(RCFLAGS) -rSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)$(EXTDLL)
 
 .PHONY: dynamiclibrary
 
@@ -165,7 +150,7 @@ $(BINDIR)$(NAME)d$(EXTDLL):
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)d$(EXTDLL)
+	$(CC) $(CFLAGS) $(DCFLAGS) -rSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)d$(EXTDLL)
 
 .PHONY: dynamiclibrarydebug
 
@@ -179,11 +164,11 @@ cleandynamiclibrarydebug:
 
 example: $(BINDIR)example$(EXTEXE)
 
-$(BINDIR)example$(EXTEXE): $(LINKLIBRARY)
+$(BINDIR)example$(EXTEXE): staticlibrarydebug
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(SRCDIR)example.c -l$(LDLIBRARY) $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
+	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)example.c -l$(NAME)d $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
 
 .PHONY: example
 
@@ -197,11 +182,11 @@ cleanexample:
 
 audioexample: $(BINDIR)audioexample$(EXTEXE)
 
-$(BINDIR)audioexample$(EXTEXE): $(LINKLIBRARY)
+$(BINDIR)audioexample$(EXTEXE): staticlibrarydebug
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(SRCDIR)audioexample.c -l$(LDLIBRARY) $(LDFLAGS) -o $(BINDIR)audioexample$(EXTEXE)
+	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)audioexample.c -l$(NAME)d $(LDFLAGS) -o $(BINDIR)audioexample$(EXTEXE)
 
 .PHONY: audioexample
 
@@ -215,11 +200,11 @@ cleanaudioexample:
 
 multichannelexample: $(BINDIR)multichannelexample$(EXTEXE)
 
-$(BINDIR)multichannelexample$(EXTEXE): $(LINKLIBRARY)
+$(BINDIR)multichannelexample$(EXTEXE): staticlibrarydebug
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(SRCDIR)multichannelexample.c -l$(LDLIBRARY) $(LDFLAGS) -o $(BINDIR)multichannelexample$(EXTEXE)
+	$(CC) $(CFLAGS) $(DCFLAGS) $(SRCDIR)multichannelexample.c -l$(NAME)d $(LDFLAGS) -o $(BINDIR)multichannelexample$(EXTEXE)
 
 .PHONY: multichannelexample
 

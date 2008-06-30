@@ -31,17 +31,16 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
 
     int bytesUsed;
-    int offset = 0;
-    SDL_ffmpegAudioFrame *frame = SDL_ffmpegGetAudioFrame(file);
-    if(!frame) return;
 
-    while(len > 0) {
+    SDL_ffmpegAudioFrame *frame;
 
-        /* check if we need a new frame */
-        if(!frame->size) {
-            frame = SDL_ffmpegGetAudioFrame(file);
-            if(!frame) return;
-        }
+	while(len > 0) {
+
+        /* try to get a new frame */
+        frame = SDL_ffmpegGetAudioFrame(file);
+
+        /* we could not receive a new frame, break from loop */
+        if(!frame) break;
 
         if(frame->size <= len) {
             /* this frame is smaller or equal to the amount of data needed. */
@@ -52,16 +51,19 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
         }
 
         /* copy the correct amount of data */
-        memcpy(stream+offset, frame->buffer, bytesUsed);
+        memcpy(stream, frame->buffer, bytesUsed);
+
         /* adjust the needed length accordingly */
         len -= bytesUsed;
-        offset += bytesUsed;
 
-        /* we release our audio data, so the decode thread can fill it again */
-        /* we also inform this function of the amount of bytes we used, so it can */
-        /* move the buffer accordingly */
-        /* important! this call is paired with SDL_ffmpegGetAudio */
-        SDL_ffmpegReleaseAudio(file, frame, bytesUsed);
+        /* adjust stream offset */
+        stream += bytesUsed;
+
+        /* adjust size of frame to prevent reusing the same data */
+        frame->size -= bytesUsed;
+
+        /* adjust buffer of frame for the same reason */
+        frame->buffer += bytesUsed;
     }
 
     return;
@@ -123,8 +125,8 @@ int main(int argc, char** argv) {
     /* we unpause the audio so our audiobuffer gets read */
     SDL_PauseAudio(0);
 
-    /* we unpase the file so audio plays */
-    SDL_ffmpegPause(audioFile, 0);
+    /* we play the file with -1 as parameter, so audio plays forever */
+    SDL_ffmpegPlay(audioFile, -1);
 
     done = 0;
 
