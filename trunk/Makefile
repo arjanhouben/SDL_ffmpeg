@@ -11,8 +11,9 @@ OS=$(shell uname)
 CC=gcc
 AR=ar
 LD=ld
-LDFLAGS=-lSDL -L$(LIBDIR)
-BASECFLAGS= -I$(INCDIR) -I$(SDLDIR)include/ -L$(SDLDIR)lib/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
+LDFLAGS=-lSDL -L$(LIBDIR) -L$(SDLDIR)lib/
+BASECFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
+CFLAGS=$(BASECFLAGS)
 RCFLAGS=-s -O2
 DCFLAGS=-g
 NAME=SDL_ffmpeg
@@ -24,7 +25,6 @@ endif
 
 ifeq ($(OS),Linux)
 	LDFLAGS+=-lz
-	CFLAGS=$(BASECFLAGS)
 	EXTEXE=
 	EXTDLL=.so
 endif
@@ -41,6 +41,7 @@ endif
 
 ifeq ($(OS),Darwin)
 	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) include/SDL/SDLMain.m -lbz2 -lz
+	CFLAGS=-I/Library/Frameworks/SDL.framework/Headers/ $(BASECFLAGS)
 endif
 
 all: dynamiclibrary staticlibrary dynamiclibrarydebug staticlibrarydebug example audioexample multichannelexample
@@ -86,13 +87,13 @@ $(OBJDIR)$(NAME).o: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(OBJDIR)
-	$(CC) $(CFLAGS) $(RCFLAGS) -rSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
+	$(CC) $(CFLAGS) $(RCFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
 
 $(OBJDIR)$(NAME)d.o: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(OBJDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) -rSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME)d.o
+	$(CC) $(CFLAGS) $(DCFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME)d.o
 
 # static library
 
@@ -134,7 +135,7 @@ $(BINDIR)$(NAME)$(EXTDLL):
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(RCFLAGS) -rSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)$(EXTDLL)
+	$(CC) $(CFLAGS) $(RCFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)$(EXTDLL)
 
 .PHONY: dynamiclibrary
 
@@ -150,7 +151,7 @@ $(BINDIR)$(NAME)d$(EXTDLL):
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) -rSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)d$(EXTDLL)
+	$(CC) $(CFLAGS) $(DCFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS) -shared -o $(BINDIR)$(NAME)d$(EXTDLL)
 
 .PHONY: dynamiclibrarydebug
 
