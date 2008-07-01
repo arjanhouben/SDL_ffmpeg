@@ -27,7 +27,7 @@
 
 void audioCallback(void *udata, Uint8 *stream, int len) {
 
-    /* unpack our void pointer */
+    /* unpack our void pointer  */
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
 
     int bytesUsed;
