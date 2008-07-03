@@ -288,9 +288,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 
     SDL_ffmpegVideoFrame *f;
-    int i;
-    int64_t pos;
-
+	
     if( !file || !file->videoStream || !file->loopCount || file->videoStream->endReached ) return 0;
 
 	f = 0;
@@ -323,17 +321,19 @@ SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 				/* release previous frame */
 				file->videoFrameInUse->filled = 0;
 			}
-			#if 0
+
+			#if 1
 			/* check if we can skip this frame */
-			while( f->next && !f->next->last && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
+			while( !f->last && f->next && f->next->filled && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
 
 				/* current frame will not be used, flag it empty */
 				f->filled = 0;
-
+//printf("dropped frame\n");
 				/* jump to next frame */
 				f = f->next;
 			}
 			#endif
+
 			/* selected frame is marked as being used by user */
 			file->videoFrameInUse = f;
 
@@ -461,7 +461,7 @@ int SDL_ffmpegDecodeThread(void* data) {
     int64_t seekPos,
             minimalTimestamp;
     int16_t *samples;
-    int decode, a, streamLooped;
+    int decode, a, streamLooped = 0;
 
     /* create a packet for our data */
     AVPacket pack;
@@ -719,9 +719,7 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
 SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 
     SDL_ffmpegAudioFrame *f;
-    int64_t pos;
-    int i;
-
+	
     if( !file || !file->audioStream || !file->loopCount || file->audioStream->endReached ) return 0;
 
 	f = 0;
@@ -753,16 +751,20 @@ SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 				/* release previous frame */
 				file->audioFrameInUse->size = 0;
 			}
-			#if 0
-			while( f->next && !f->next->last && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
+
+			#if 1
+			while( !f->last && f->next && f->next->size && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
 
 				/* flag frame which we are not going to use as empty */
 				f->size = 0;
+
+//printf("dropped frame\n");
 
 				/* jump to next frame */
 				f = f->next;
 			}
 			#endif
+
 			/* selected frame is marked as being in use by user */
 			file->audioFrameInUse = f;
 
@@ -810,7 +812,7 @@ int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file) {
     if( !file ) return 0;
 
     /* return the current playposition of our file */
-    return (SDL_GetTicks() + file->offset) - file->startTime;
+    return SDL_GetTicks() - file->startTime + file->offset;
 }
 
 SDL_AudioSpec* SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback) {
@@ -914,8 +916,7 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_f
     audioSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * 2;
 
 	/* calculate pts to determine wheter or not this frame should be stored */
-	frame->pts = av_rescale((pack->dts - file->audioStream->_ffmpeg->start_time)*1000, file->audioStream->_ffmpeg->time_base.num, file->audioStream->_ffmpeg->time_base.den);
-
+	frame->pts = av_rescale((pack->dts-file->audioStream->_ffmpeg->start_time)*1000, file->audioStream->_ffmpeg->time_base.num, file->audioStream->_ffmpeg->time_base.den);
 
     /* don't decode packets which are too old anyway */
     if( frame->pts != AV_NOPTS_VALUE && frame->pts < minimalPTS ) {
@@ -966,7 +967,7 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrame, SDL_f
         frame->pts = file->videoStream->lastTimeStamp + file->videoStream->timeBase;
     } else {
         /* write timestamp into the buffer */
-        frame->pts = av_rescale(pack->dts*1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);
+        frame->pts = av_rescale((pack->dts-file->videoStream->_ffmpeg->start_time)*1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);
     }
 
 	if( frame->pts != AV_NOPTS_VALUE && frame->pts < minimalPTS ) {

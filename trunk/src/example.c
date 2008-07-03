@@ -33,7 +33,7 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
     int bytesUsed;
 
     SDL_ffmpegAudioFrame *frame;
-	
+
 	while(len > 0) {
 
         /* try to get a new frame */
@@ -55,13 +55,13 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
 
         /* adjust the needed length accordingly */
         len -= bytesUsed;
-		
+
         /* adjust stream offset */
         stream += bytesUsed;
 
         /* adjust size of frame to prevent reusing the same data */
         frame->size -= bytesUsed;
-		
+
         /* adjust buffer of frame for the same reason */
         frame->buffer += bytesUsed;
     }
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
         return -1;
     }
     /* standard SDL initialization stuff */
-    if(SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_DOUBLEBUF) < 0) {
+    if(SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "problem initializing SDL: %s\n", SDL_GetError());
         return -1;
     }
@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
     SDL_PauseAudio(0);
 
 	/* and start the playback */
-	SDL_ffmpegPlay(film, 10);
+	SDL_ffmpegPlay(film, -1);
 
     done = 0;
 
@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
             }
 
             if(event.type == SDL_MOUSEBUTTONDOWN) {
-			
+
                 SDL_PumpEvents();
 
                 SDL_GetMouseState(&x, &y);
@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
         frame = SDL_ffmpegGetVideoFrame(film);
 
         if(frame) {
-		
+
             /* we got a frame, so we better show this one */
             SDL_BlitSurface(frame->buffer, 0, screen, 0);
 

@@ -3,7 +3,7 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="SDL_ffmpeg" />
-		<Option makefile="Makefile.osx ECFLAGS=-pg FFMPEGDIR=/Users/arjan/ffmpeg_osx/" />
+		<Option makefile='Makefile DEBUG=true ECFLAGS=&quot;-pg -O2&quot; FFMPEGDIR=/home/arjan/ffmpeg/ STATIC=true' />
 		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option default_target="example" />
@@ -61,7 +61,7 @@
 				<Option object_output="obj/Release/library" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="/Users/arjan/Movies/mythbusters.s06e07.hdtv.xvid-fqm.avi" />
+				<Option parameters="/home/arjan/Movies/scrtest.mpg" />
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-Wall" />

@@ -19,14 +19,6 @@ DCFLAGS=-g
 NAME=SDL_ffmpeg
 FFMPEGOBJECTS=$(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
 
-ifeq ($(strip $(STATIC)),)
-  LIBDEBUG=dynamiclibrarydebug
-  LIBRELEASE=dynamiclibrary
-else
-  LIBDEBUG=staticlibrarydebug
-  LIBRELEASE=staticlibrary
-endif
-
 ifeq ($(strip $(FFMPEGDIR)),)
 	FFMPEGDIR=\ FFMPEGDIR\ NOT\ SET!\ 
 endif
@@ -50,6 +42,15 @@ endif
 ifeq ($(OS),Darwin)
 	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) include/SDL/SDLMain.m -lbz2 -lz
 	CFLAGS=-I/Library/Frameworks/SDL.framework/Headers/ $(BASECFLAGS)
+	STATIC=true
+endif
+
+ifeq ($(strip $(STATIC)),)
+  LIBDEBUG=dynamiclibrarydebug
+  LIBRELEASE=dynamiclibrary
+else
+  LIBDEBUG=staticlibrarydebug
+  LIBRELEASE=staticlibrary
 endif
 
 all: $(LIBRELEASE) $(LIBDEBUG) example audioexample multichannelexample
@@ -211,6 +212,7 @@ $(BINDIR)example$(EXTEXE): $(LIBDEBUG)
 
 cleanexample:
 	-rm -f $(BINDIR)example$(EXTEXE) 2>/dev/null
+	-rm -rf $(BINDIR)example.dSYM 2>/dev/null
 ifeq ($(shell ls -1 $(BINDIR) 2>/dev/null | wc -l),0)
 	-rm -r $(BINDIR) 2>/dev/null
 endif
@@ -231,6 +233,7 @@ $(BINDIR)audioexample$(EXTEXE): $(LIBDEBUG)
 
 cleanaudioexample:
 	-rm -f $(BINDIR)audioexample$(EXTEXE) 2>/dev/null
+	-rm -rf $(BINDIR)audioexample.dSYM 2>/dev/null
 ifeq ($(shell ls -1 $(BINDIR) 2>/dev/null | wc -l),0)
 	-rm -r $(BINDIR) 2>/dev/null
 endif
@@ -251,6 +254,7 @@ $(BINDIR)multichannelexample$(EXTEXE): $(LIBDEBUG)
 
 cleanmultichannelexample:
 	-rm -f $(BINDIR)multichannelexample$(EXTEXE) 2>/dev/null
+	-rm -rf $(BINDIR)multichannelexample.dSYM 2>/dev/null
 ifeq ($(shell ls -1 $(BINDIR) 2>/dev/null | wc -l),0)
 	-rm -r $(BINDIR) 2>/dev/null
 endif
