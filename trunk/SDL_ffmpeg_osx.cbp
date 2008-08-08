@@ -59,9 +59,9 @@
 				<Option output="bin/example" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
 				<Option object_output="obj/Release/library" />
-				<Option type="1" />
+				<Option type="0" />
 				<Option compiler="gcc" />
-				<Option parameters="/Users/arjan/Movies/mythbusters.s06e07.hdtv.xvid-fqm.avi" />
+				<Option parameters="/Users/arjan/Music/Armin_van_Buuren_presents_-_A_State_of_Trance_Episode_349.mp3" />
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-Wall" />

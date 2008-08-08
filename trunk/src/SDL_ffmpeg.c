@@ -288,7 +288,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 
     SDL_ffmpegVideoFrame *f;
-	
+
     if( !file || !file->videoStream || !file->loopCount || file->videoStream->endReached ) return 0;
 
 	f = 0;
@@ -719,7 +719,7 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
 SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 
     SDL_ffmpegAudioFrame *f;
-	
+
     if( !file || !file->audioStream || !file->loopCount || file->audioStream->endReached ) return 0;
 
 	f = 0;
@@ -757,8 +757,6 @@ SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 
 				/* flag frame which we are not going to use as empty */
 				f->size = 0;
-
-//printf("dropped frame\n");
 
 				/* jump to next frame */
 				f = f->next;
@@ -882,21 +880,25 @@ int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
 
 int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count) {
 
-	/* if file is not plying at this moment, flag reset */
-	int reset = file->loopCount == 0;
-
-    /* -1 means we play indefenetely, otherwise we play count times */
-    file->loopCount = count;
-
 	/* if we are going to start, we may have to reset startTime */
-    if( file->loopCount ) {
-		/* if we changed the playing state, we reset */
-		if( reset ) {
-			file->startTime = SDL_GetTicks();
-		}
+    if( count ) {
+
+		/* if current state is paused, we reset the starttime*/
+		if( !file->loopCount ) file->startTime = SDL_GetTicks();
+
+        /* -1 means we play indefenetely, otherwise we play count times */
+        file->loopCount = count;
+
     } else {
-		/* we stopped, record current position as our offset */
-		file->offset = SDL_ffmpegGetPosition(file);
+
+        if( file->loopCount ) {
+            /* we are about to stop playback, record current position as our offset */
+            file->offset = SDL_ffmpegGetPosition(file);
+        }
+
+        /* reset loopCount to disable playback */
+        file->loopCount = 0;
+
 	}
 
     return 0;
