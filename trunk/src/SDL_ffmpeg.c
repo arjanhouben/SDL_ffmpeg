@@ -498,6 +498,9 @@ int SDL_ffmpegDecodeThread(void* data) {
         /* check if a seek operation is pending */
         if(file->mustSeek) {
 
+            /* clamp seekTo value */
+            if( file->seekTo < 0 ) file->seekTo = 0;
+
             /* convert milliseconds to AV_TIME_BASE units */
             seekPos = file->seekTo * (AV_TIME_BASE / 1000);
 
