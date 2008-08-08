@@ -498,9 +498,6 @@ int SDL_ffmpegDecodeThread(void* data) {
         /* check if a seek operation is pending */
         if(file->mustSeek) {
 
-            /* clamp seekTo value */
-            if( file->seekTo < 0 ) file->seekTo = 0;
-
             /* convert milliseconds to AV_TIME_BASE units */
             seekPos = file->seekTo * (AV_TIME_BASE / 1000);
 
@@ -654,8 +651,14 @@ int SDL_ffmpegDecodeThread(void* data) {
 }
 
 int SDL_ffmpegSeek(SDL_ffmpegFile* file, int64_t timestamp) {
+
     file->mustSeek = 1;
+
+    /* clamp timestamp */
+    if( timestamp < 0 ) timestamp = 0;
+
     file->seekTo = timestamp;
+
     return 0;
 }
 
