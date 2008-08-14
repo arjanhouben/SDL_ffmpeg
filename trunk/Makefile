@@ -30,7 +30,7 @@ ifeq ($(OS),Linux)
 endif
 
 ifeq ($(findstring MINGW,$(OS)),MINGW)
-	LDFLAGS+=-lmingw32 -lSDLmain -lSDL -lwsock32
+	LDFLAGS+=-lmingw32 -lSDLmain -lSDL -lwsock32  -Wl,--output-def,$(LIBDIR)$(NAME).def,--out-implib,$(LIBDIR)lib$(NAME).a
 	CFLAGS=$(BASECFLAGS)
 	EXTDLL=.dll
 	EXTEXE=.exe
@@ -157,7 +157,7 @@ $(BINDIR)$(NAME)$(EXTDLL): $(OBJDIR)$(NAME).o $(FFMPEGOBJECTS)
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
 	@-mkdir $(LIBDIR)
-	$(CC) -shared -o $(BINDIR)$(NAME)$(EXTDLL) $(OBJDIR)$(NAME).o $(FFMPEGOBJECTS) $(CFLAGS) $(RCFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS) -Wl,--output-def,$(LIBDIR)$(NAME).def,--out-implib,$(LIBDIR)lib$(NAME).a
+	$(CC) -shared -o $(BINDIR)$(NAME)$(EXTDLL) $(OBJDIR)$(NAME).o $(FFMPEGOBJECTS) $(CFLAGS) $(RCFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS)
 
 .PHONY: dynamiclibrary
 

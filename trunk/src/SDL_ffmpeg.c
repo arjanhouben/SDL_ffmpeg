@@ -461,7 +461,7 @@ int SDL_ffmpegDecodeThread(void* data) {
     int64_t seekPos,
             minimalTimestamp;
     int16_t *samples;
-    int decode, a, streamLooped = 0;
+    int decode, a, streamLooped = 0, checkBufferedFrame = 0;
 
     /* create a packet for our data */
     AVPacket pack;
@@ -535,20 +535,37 @@ int SDL_ffmpegDecodeThread(void* data) {
         decode = av_read_frame(file->_ffmpeg, &pack);
 
         /* if we did not get a packet, we seek to begin and try again */
-        if(decode < 0) {
+        if( decode < 0 ) {
 
-            streamLooped = 1;
-            file->mustSeek = 1;
-            file->seekTo = 0;
+            /* first lets check if there is still a frame in the buffer */
+            if( checkBufferedFrame && file->videoStream->id >= 0 ) {
 
-            /* last frame should be flagged as such */
-            if( lastAudioFrame ) lastAudioFrame->last = 1;
+                /* prepare packet to check for buffered frame */
+                pack.data = 0;
+                pack.size = 0;
+                pack.stream_index = file->videoStream->id;
 
-			if( lastVideoFrame ) lastVideoFrame->last = 1;
+                /* make sure we only check once for a buffered frame */
+                checkBufferedFrame = 0;
 
-            continue;
+            } else {
+
+                streamLooped = 1;
+                file->mustSeek = 1;
+                file->seekTo = 0;
+
+                /* last frame should be flagged as such */
+                if( lastAudioFrame ) lastAudioFrame->last = 1;
+
+                if( lastVideoFrame ) lastVideoFrame->last = 1;
+
+                continue;
+            }
+
         } else {
+
             streamLooped = 0;
+            checkBufferedFrame = 1;
         }
 
         /* we got a packet, lets handle it */
@@ -655,9 +672,14 @@ int SDL_ffmpegSeek(SDL_ffmpegFile* file, int64_t timestamp) {
     file->mustSeek = 1;
 
     /* clamp timestamp */
-    if( timestamp < 0 ) timestamp = 0;
+    if( timestamp < 0 ) {
 
-    file->seekTo = timestamp;
+        file->seekTo  = 0;
+
+    } else {
+
+        file->seekTo = timestamp;
+    }
 
     return 0;
 }
