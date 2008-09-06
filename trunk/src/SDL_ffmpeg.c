@@ -501,16 +501,22 @@ int SDL_ffmpegDecodeThread(void* data) {
             /* convert milliseconds to AV_TIME_BASE units */
             seekPos = file->seekTo * (AV_TIME_BASE / 1000);
 
+            /* this seems to have an adverse affect on seeking
             if(file->_ffmpeg->start_time != AV_NOPTS_VALUE) {
-                /* start_time is in AV_TIME_BASE fractional seconds */
+                / * start_time is in AV_TIME_BASE fractional seconds * /
                 seekPos += file->_ffmpeg->start_time;
             }
+            */
 
             /* AVSEEK_FLAG_BACKWARD means we jump to the first keyframe before seekPos */
             if( av_seek_frame(file->_ffmpeg, -1, seekPos, AVSEEK_FLAG_BACKWARD) >= 0 ) {
-                /*  seek succesfull
-                    set some values in our file so we now were to start playing
-                    offset is in milliseconds */
+                /*  seek succesfull */
+                if( file->audioStream && file->audioStream->_ffmpeg->codec ) {
+                    avcodec_flush_buffers( file->audioStream->_ffmpeg->codec );
+                }
+                if( file->videoStream && file->videoStream->_ffmpeg->codec ) {
+                    avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
+                }
             }
 
             /* determine the reason for this seek action */
@@ -1047,7 +1053,7 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
 
     uint8_t *Y, *U, *V;
 	uint32_t *RGBA = OUTPUT->pixels;
-    int x, y, mod;
+    int x, y;
 
     for(y=0; y<OUTPUT->h; y++){
 
@@ -1057,12 +1063,12 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
 
 		/* make sure we deinterlace before upsampling */
 		if( interlaced ) {
-			mod = y % 4;
+            /* y & 3 means y % 3, but this should be faster */
 			/* on scanline 2 and 3 we need to look at different lines */
-			if( mod == 1 ) {
+			if( y & 3 == 1 ) {
 				U += YUV420P->linesize[1];
 				V += YUV420P->linesize[2];
-			} else if( mod == 2 ) {
+			} else if( y & 3 == 2 ) {
 				U -= YUV420P->linesize[1];
 				V -= YUV420P->linesize[2];
 			}
@@ -1083,8 +1089,8 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
             Y++;
 
 			/* quarter resolution chroma, increment every other pixel */
-            U+=x&1;
-			V+=x&1;
+            U += x&1;
+			V += x&1;
         }
     }
 }
@@ -1094,6 +1100,7 @@ void snowFill( SDL_Surface *frame ) {
     int i, t;
     for(i=0; i<frame->w*frame->h; i++) {
         t = (int)(((float)rand() / (float)RAND_MAX) * 255.0);
+        *RGB = t;   RGB++;
         *RGB = t;   RGB++;
         *RGB = t;   RGB++;
         *RGB = t;   RGB++;
