@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # SDL_ffmpeg - Arjan Houben - 2008
 
@@ -16,61 +16,126 @@ SRCDIR=src/
 INCDIR=include/
 OBJDIR=obj/
 CFLAGS=-I$INCDIR
-LDFLAGS=-L$LIBDIR\ -lSDL\ -lSDLmain\ -lz
-LIBFLAGS=-shared
+LDFLAGS=-L$LIBDIR
+LIBFLAGS=
 BINEXTENSION=
-LIBEXTENSION=.a
-LIBPREFIX=lib
-DYNLIBEXTENSION=.so
-DYNLIBPREFIX=lib
+LIBEXTENSION=
+LIBPREFIX=
+DYNLIBEXTENSION=
+DYNLIBPREFIX=
 CC=gcc
+AR=ar
+
+echo
+
+PROF=no
+OPTI=yes
+NOSTRIP=no
 
 # read command line arguments
 for i in $@;
 do
-	if [[ "$i" =~ "--avformat-header=" ]]
+	if [ `echo "$i" | grep "\-\-sdl\-include="` ]
 	then
-		CFLAGS+="-I"${i/--avformat-header=/};
+		CFLAGS=$CFLAGS" -I"${i/--sdl-include=/};
 	fi
 	
-	if [[ "$i" =~ "--avformat-library=" ]]
+	if [ `echo "$i" | grep "\-\-sdl\-lib="` ]
 	then
-		LIBAVFORMAT+=${i/--avformat-library=/};
+		LDFLAGS=$LDFLAGS" -L"${i/--sdl-lib=/};
 	fi
 	
-	if [[ "$i" =~ "--avcodec-library=" ]]
+	if [ `echo "$i" | grep "\-\-avformat\-include="` ]
 	then
-		LIBAVCODEC+=${i/--avcodec-library=/};
+		CFLAGS=$CFLAGS" -I"${i/--avformat-include=/};
 	fi
 	
-	if [[ "$i" =~ "--avutil-library=" ]]
+	if [ `echo "$i" | grep "\-\-avformat\-lib="` ]
 	then
-		LIBAVUTIL+=${i/--avutil-library=/};
+		LIBAVFORMAT=${i/--avformat\-lib=/};
 	fi
 	
-	if [[ "$i" =~ "--static=" ]]
+	if [ `echo "$i" | grep "\-\-avcodec\-lib="` ]
 	then
-		STATIC+=${i/--static=/};
+		LIBAVCODEC=${i/--avcodec-lib=/};
 	fi
 	
-	if [[ "$i" =~ "--debug=" ]]
+	if [ `echo "$i" | grep "\-\-avutil\-lib="` ]
 	then
-		DEBUG+=${i/--debug=/};
+		LIBAVUTIL=${i/--avutil-lib=/};
+	fi
+	
+	if [ `echo "$i" | grep "\-\-static="` ]
+	then
+		STATIC=${i/--static=/};
+	fi
+	
+	if [ `echo "$i" | grep "\-\-debug="` ]
+	then
+		DEBUG=${i/--debug=/};
+	fi
+	
+	if [ `echo "$i" | grep "\-\-optimization="` ]
+	then
+		OPTI=${i/--optimization=/};
+	fi
+	
+	if [ `echo "$i" | grep "\-\-disable\-stripping="` ]
+	then
+		NOSTRIP=${i/--disable-stripping=/};
+	fi
+	
+	if [ `echo "$i" | grep "\-\-enable\-profiling="` ]
+	then
+		PROF=${i/--enable-profiling=/};
 	fi
 done
 
+if [ "$DEBUG" == "yes" ]
+then
+	DEBUGNAME=d
+	CFLAGS="$CFLAGS -g -ggdb"
+else
+	DEBUGNAME=
+fi
+
+if [ $OPTI == "yes" ]
+then
+	CFLAGS=$CFLAGS\ -O2
+fi
+
+if [ $NOSTRIP == "no" ] && [ !DEBUGNAME ]
+then
+	CFLAGS=$CFLAGS\ -s
+fi
+
+if [ $PROF == "yes" ]
+then
+	CFLAGS=$CFLAGS\ -pg
+fi
 
 # set linux specific flags
+if [ `uname | grep Linux` ]
+then
+	LDFLAGS=$LDFLAGS\ -L$LIBDIR\ -lSDL\ -lSDLmain\ -lz
+	LIBFLAGS=$LIBFLAGS\ -shared
+	BINEXTENSION=
+	LIBEXTENSION=.a
+	LIBPREFIX=lib
+	DYNLIBEXTENSION=.so
+	DYNLIBPREFIX=lib
+fi
 
 # set WIN32 mingw specific flags
-if [ `uname` == "MINGW" ]
+if [ `uname | grep MINGW` ]
 then
-	LDFLAGS=-lmingw32 -lSDLmain -lSDL -lwsock32
+	LDFLAGS=$LDFLAGS\ -lmingw32\ -lSDLmain\ -lSDL\ -lwsock32
 	BINEXTENSION=.exe
-	LIBEXTENSION=.lib
-	LIBPREFIX=
+	LIBEXTENSION=.a
+	LIBPREFIX=lib
 	DYNLIBEXTENSION=.dll
 	DYNLIBPREFIX=
+	LIBFLAGS=$LIBFLAGS\ -shared\ -Wl,--output-def,$LIBDIR$NAME$DEBUGNAME.def,--out-implib,$LIBDIR$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION
 fi
 
 # set OSX specific flags
@@ -78,7 +143,7 @@ if [ `uname` == "Darwin" ]
 then
 #	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) -lbz2 -lz
 #	CFLAGS=-I/Library/Frameworks/SDL.framework/Headers/ $(BASECFLAGS)
-	LIBFLAGS=-dynamiclib -mdynamic-no-pic
+	LIBFLAGS=$LDFLAGS\ -dynamiclib\ -mdynamic-no-pic
 	ESOURCE=include/SDL/SDLMain.m
 	BINEXTENSION=
 	LIBEXTENSION=.a
@@ -89,32 +154,107 @@ then
 	STATIC=true
 fi
 
-if [ "$STATIC" != yes ]
+
+if [ "$STATIC" == "yes" ]
 then
-	LIBRARY=$LIBDIR$DYNLIBPREFIX$NAME$DEBUGNAME$DYNLIBEXTENSION
-else
 	LIBRARY=$LIBDIR$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION
+	LIBFILE=$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION
+else
+	LIBRARY=$LIBDIR$DYNLIBPREFIX$NAME$DEBUGNAME$DYNLIBEXTENSION
+	LIBFILE=$DYNLIBPREFIX$NAME$DEBUGNAME$DYNLIBEXTENSION
 fi
 
-#ifeq ($(findstring MINGW,$(OS)),MINGW)
-#	LDFLAGS+=-Wl,--output-def,$(LIBDIR)$(NAME)$(DEBUGNAME).def,--out-implib,$(LIBDIR)$(LIBPREFIX)$(NAME)$(DEBUGNAME)$(LIBEXTENSION)
-#endif
 
-
-# check for existence of avformat header
+# check for existence of SDL include
 cat > temp.c << EOF
-#include "libavformat/avformat.h"
-int main() {
+#include "SDL/SDL.h"
+int main(int argc,char **argv) {
 	return 0;
 }
 EOF
-$CC $CFLAGS temp.c 2> temp.log
+echo $CC -c $CFLAGS temp.c -o temp > config.log
+$CC -c $CFLAGS temp.c -o temp 2> temp.log
+if [ -s temp.log ]
+then
+	# try to use sdl-config
+	if [ `sdl-config --version 2> /dev/null` ]
+	then
+		CFLAGS=$CFLAGS" "`sdl-config --cflags`
+		# try again with added commands
+		echo $CC -c $CFLAGS temp.c -o temp > config.log
+		$CC -c $CFLAGS temp.c -o temp 2> temp.log
+		if [ -s temp.log ]
+		then
+			echo "sdl-config found, but it did not provide a valid include directory."
+			echo "please update sdl-config or specify the correct include dir"
+				echo
+				echo "example:"
+				echo "$0 --sdl-include=/usr/local/include/"
+				echo
+			exit -1
+		fi
+	else
+		echo "SDL include directory and sdl-config could not be found, please install SDL"
+		echo "If SDL is installed, please specify where the include dir can be found"
+		echo
+		echo "example:"
+		echo "$0 --sdl-include=/usr/local/include/"
+		echo
+		echo "Alternatively you could make sure that sdl-config is up to date and installed"
+		echo
+		exit -1
+	fi
+fi
+# use the same file to check for availability of libraries
+echo $CC $CFLAGS $LDFLAGS temp.c -o temp > config.log
+$CC $CFLAGS $LDFLAGS temp.c -o temp 2> temp.log
+if [ -s temp.log ]
+then
+	# try to use sdl-config
+	if [ `sdl-config --version 2> /dev/null` ]
+	then
+		LDFLAGS=$LDFLAGS" "`sdl-config --libs`
+		# try again with added commands
+		echo $CC $CFLAGS $LDFLAGS temp.c -o temp > config.log
+		$CC $CFLAGS $LDFLAGS temp.c -o temp 2> temp.log
+		if [ -s temp.log ]
+		then
+			echo "sdl-config found, but it did not provide a valid library directory."
+			echo "please update sdl-config or specify the correct library dir"
+				echo
+				echo "example:"
+				echo "$0 --sdl-lib=/usr/local/lib/"
+				echo
+			exit -1
+		fi
+	else
+		echo "SDL lib directory and sdl-config could not be found, please install SDL"
+		echo "If SDL is installed, please specify where the library dir can be found"
+		echo
+		echo "example:"
+		echo "$0 --sdl-lib=/usr/local/lib/"
+		echo
+		echo "Alternatively you could make sure that sdl-config is up to date and installed"
+				echo
+		exit -1
+	fi
+fi
+
+# check for existence of avformat include
+cat > temp.c << EOF
+#include "libavformat/avformat.h"
+int main(int argc,char **argv) {
+	return 0;
+}
+EOF
+echo $CC -c $CFLAGS temp.c -o temp > config.log
+$CC -c $CFLAGS temp.c -o temp 2> temp.log
 if [ -s temp.log ]
 then
 	echo "avformat directory could not be found, please install libavformat"
 	echo "If libavformat is installed, please specify where it can be found"
 	echo "example:"
-	echo "$0 --avformat-header=/usr/local/include/"
+	echo "$0 --avformat-include=/usr/local/include/"
 	exit -1
 fi
 
@@ -122,14 +262,14 @@ fi
 # try to find libavformat.a
 if [ -z $LIBAVFORMAT ]
 then
-	echo "no --avformat-library specified, trying to find libavformat.a..."
+	echo "no --avformat-lib specified, trying to find libavformat.a..."
 	LIBAVFORMAT=$(find /usr/ -name libavformat.a)
 	if [ -z $LIBAVFORMAT ]
 	then
 		echo "No instance of libavformat.a found. please install libavformat"
 		echo "If libavformat is installed, please specify where it can be found"
 		echo "example:"
-		echo "$0 --avformat-library=/usr/local/lib/libavformat.a"
+		echo "$0 --avformat-lib=/usr/local/lib/libavformat.a"
 		exit -1
 	fi
 fi
@@ -142,26 +282,24 @@ echo
 # prepare libavformat objects
 mkdir obj 2> /dev/null
 mkdir obj/libavformat 2> /dev/null
-cd obj/libavformat && ar -x $LIBAVFORMAT
-cd ../../
-
+cd obj/libavformat && ar -x $LIBAVFORMAT && cd ../../
 for i in obj/libavformat/*.o;
 do
-	FFMPEGOBJECTS+=" $i"
+	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
 done
 
 
 # try to find libavcodec.a
 if [ -z $LIBAVCODEC ]
 then
-	echo "no --avcodec-library specified, trying to find libavcodec.a..."
+	echo "no --avcodec-lib specified, trying to find libavcodec.a..."
 	LIBAVCODEC=$(find /usr/ -name libavcodec.a)
 	if [ -z $LIBAVCODEC ]
 	then
 		echo "No instance of libavcodec.a found. please install libavcodec"
 		echo "If libavcodec is installed, please specify where it can be found"
 		echo "example:"
-		echo "$0 --avcodec-library=/usr/local/lib/libavcodec.a"
+		echo "$0 --avcodec-lib=/usr/local/lib/libavcodec.a"
 		exit -1
 	fi
 fi
@@ -173,26 +311,24 @@ echo
 
 # prepare libavcodec objects
 mkdir obj/libavcodec 2> /dev/null
-cd obj/libavcodec && ar -x $LIBAVCODEC
-cd ../../
-
+cd obj/libavcodec && ar -x $LIBAVCODEC && cd ../../
 for i in obj/libavcodec/*.o;
 do
-	FFMPEGOBJECTS+=" $i"
+	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
 done
 
 
 # try to find libavutil.a
 if [ -z $LIBAVUTIL ]
 then
-	echo "no --avutil-library specified, trying to find libavutil.a..."
+	echo "no --avutil-lib specified, trying to find libavutil.a..."
 	LIBAVUTIL=$(find /usr/ -name libavutil.a)
 	if [ -z $LIBAVUTIL ]
 	then
 		echo "No instance of libavutil.a found. please install libavutil"
 		echo "If libavutil is installed, please specify where it can be found"
 		echo "example:"
-		echo "$0 --avutil-library=/usr/local/lib/libavutil.a"
+		echo "$0 --avutil-lib=/usr/local/lib/libavutil.a"
 		exit -1
 	fi
 fi
@@ -204,16 +340,16 @@ echo
 
 # prepare libavutil objects
 mkdir obj/libavutil 2> /dev/null
-cd obj/libavutil && ar -x $LIBAVUTIL
-cd ../../
+cd obj/libavutil && ar -x $LIBAVUTIL && cd ../../
 for i in obj/libavutil/*.o;
 do
-	FFMPEGOBJECTS+=" $i"
+	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
 done
 
 # write Makefile.include file
 cat > Makefile.include << EOF
 NAME=$NAME
+LIBNAME=$NAME$DEBUGNAME
 FFMPEGOBJECTS=$FFMPEGOBJECTS
 LIBRARY=$LIBRARY
 BINDIR=$BINDIR
@@ -229,6 +365,38 @@ LIBEXTENSION=$LIBEXTENSION
 LIBPREFIX=$LIBPREFIX
 DYNLIBEXTENSION=$DYNLIBEXTENSION
 DYNLIBPREFIX=$DYNLIBPREFIX
+DEBUGNAME=$DEBUGNAME
 CC=$CC
+AR=$AR
 EOF
 
+# remove temporary items
+rm temp
+rm temp.c
+rm temp.log
+rm config.log
+
+echo "Makefile set up to produce the following file: $LIBFILE"
+echo
+if [ "$STATIC" == "yes" ]
+then
+	echo "Library type: static"
+else
+	echo "Library type: dynamic"
+fi
+if [ $OPTI == "yes" ]
+then
+	echo "The library will be compiled with optimazation level: -O2"
+fi
+if [ $DEBUGNAME ]
+then
+	echo "The library will be compiled with debugging symbols"
+else
+	if [ $NOSTRIP == "no" ]
+	then
+		echo "The symbols will be stripped from the library"
+	fi
+fi
+echo
+echo "To compile the library, execute 'make' in the current directory"
+echo

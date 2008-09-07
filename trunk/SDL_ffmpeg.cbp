@@ -9,56 +9,16 @@
 		<Option default_target="example" />
 		<Option compiler="gcc" />
 		<Build>
-			<Target title="staticlibrarydebug">
-				<Option output="lib/libSDL_ffmpegd" prefix_auto="1" extension_auto="1" />
-				<Option working_dir="" />
-				<Option type="2" />
-				<Option compiler="gcc" />
-			</Target>
 			<Target title="staticlibrary">
-				<Option output="lib/libSDL_ffmpeg" prefix_auto="1" extension_auto="1" />
+				<Option output="lib\libSDL_ffmpeg" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option type="2" />
 				<Option compiler="gcc" />
-			</Target>
-			<Target title="dynamiclibrarydebug">
-				<Option output="lib/SDL_ffmpegd" prefix_auto="1" extension_auto="1" />
-				<Option working_dir="lib" />
-				<Option object_output="obj/Debug/library" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-Wall" />
-					<Add option="-g" />
-					<Add option="-fno-strict-aliasing" />
-					<Add option="-DSDL_FFMPEG_LIBRARY" />
-					<Add directory="../../ffmpeg/libavformat" />
-					<Add directory="../../ffmpeg/libavcodec" />
-					<Add directory="../../ffmpeg/libswscale" />
-					<Add directory="../../ffmpeg/libavutil" />
-				</Compiler>
-			</Target>
-			<Target title="dynamiclibrary">
-				<Option output="lib/SDL_ffmpeg" prefix_auto="1" extension_auto="1" />
-				<Option working_dir="lib" />
-				<Option object_output="obj/Debug/library" />
-				<Option type="3" />
-				<Option compiler="gcc" />
-				<Compiler>
-					<Add option="-Wall" />
-					<Add option="-g" />
-					<Add option="-fno-strict-aliasing" />
-					<Add option="-DSDL_FFMPEG_LIBRARY" />
-					<Add directory="../../ffmpeg/libavformat" />
-					<Add directory="../../ffmpeg/libavcodec" />
-					<Add directory="../../ffmpeg/libswscale" />
-					<Add directory="../../ffmpeg/libavutil" />
-				</Compiler>
 			</Target>
 			<Target title="example">
-				<Option output="bin/example" prefix_auto="1" extension_auto="1" />
+				<Option output="bin\example" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
-				<Option object_output="obj/Release/library" />
+				<Option object_output="obj\Release\library" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Option parameters="/home/arjan/Movies/scrtest.mpg" />
@@ -73,9 +33,9 @@
 				</Linker>
 			</Target>
 			<Target title="audioexample">
-				<Option output="bin/audioexample" prefix_auto="1" extension_auto="1" />
+				<Option output="bin\audioexample" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
-				<Option object_output="obj/audio_example" />
+				<Option object_output="obj\audio_example" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Option parameters="/Users/arjan/Music/Armin_van_Buuren_presents_-_A_State_of_Trance_Episode_349.mp3" />
@@ -90,7 +50,7 @@
 				</Linker>
 			</Target>
 			<Target title="multichannelexample">
-				<Option output="bin/multichannelexample" prefix_auto="1" extension_auto="1" />
+				<Option output="bin\multichannelexample" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
 				<Option type="1" />
 				<Option compiler="gcc" />
@@ -103,11 +63,11 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add directory="include" />
-			<Add directory="/home/arjan/ffmpeg" />
-			<Add directory="/home/arjan/ffmpeg/libavcodec" />
-			<Add directory="/home/arjan/ffmpeg/libavformat" />
-			<Add directory="/home/arjan/ffmpeg/libavutil" />
-			<Add directory="/home/arjan/ffmpeg/libswscale" />
+			<Add directory="\home\arjan\ffmpeg" />
+			<Add directory="\home\arjan\ffmpeg\libavcodec" />
+			<Add directory="\home\arjan\ffmpeg\libavformat" />
+			<Add directory="\home\arjan\ffmpeg\libavutil" />
+			<Add directory="\home\arjan\ffmpeg\libswscale" />
 		</Compiler>
 		<Linker>
 			<Add library="SDL" />
@@ -115,24 +75,22 @@
 			<Add library="z" />
 			<Add directory="lib" />
 		</Linker>
-		<Unit filename="include/SDL/SDL_ffmpeg.h">
-			<Option target="dynamiclibrary" />
+		<Unit filename="include\SDL\SDL_ffmpeg.h">
 			<Option target="example" />
-			<Option target="dynamiclibrarydebug" />
 		</Unit>
-		<Unit filename="src/SDL_ffmpeg.c">
+		<Unit filename="src\SDL_ffmpeg.c">
 			<Option compilerVar="CC" />
 			<Option target="example" />
 		</Unit>
-		<Unit filename="src/audioexample.c">
+		<Unit filename="src\audioexample.c">
 			<Option compilerVar="CC" />
 			<Option target="audioexample" />
 		</Unit>
-		<Unit filename="src/example.c">
+		<Unit filename="src\example.c">
 			<Option compilerVar="CC" />
 			<Option target="example" />
 		</Unit>
-		<Unit filename="src/multichannelexample.c">
+		<Unit filename="src\multichannelexample.c">
 			<Option compilerVar="CC" />
 			<Option target="multichannelexample" />
 		</Unit>

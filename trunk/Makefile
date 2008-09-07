@@ -2,12 +2,18 @@
 
 include Makefile.include
 
-all: library dynamiclibrary example audioexample multichannelexample
+all: $(LIBRARY) example audioexample multichannelexample
 	@echo 
 	@echo all done!
 	@echo 
 
 .PHONY: all
+
+Makefile.include:
+	@echo
+	@echo "Please run './configure' script before trying to build the library"
+	@echo
+	@exit -1
 
 
 # SDL_ffmpeg object
@@ -49,9 +55,18 @@ $(LIBDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION): $(FFMPEGOBJECTS) 
 	@echo [ $@ ]
 	@-mkdir $(LIBDIR)
 	$(CC) $(LIBFLAGS) -o $@ $(OBJDIR)$(NAME)$(DEBUGNAME).o $(FFMPEGOBJECTS) $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS)
+	# dll's should be moved to the bin dir
+ifeq ($(DYNLIBEXTENSION),.dll)
+	@-mkdir $(BINDIR)
+	mv $@ $(BINDIR)
+endif
 
 cleandynamiclibrary:
 	-rm -f $(LIBDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION)
+	-rm -f $(LIBDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME).def
+ifeq ($(DYNLIBEXTENSION),.dll)
+	-rm -f $(BINDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION)
+endif
 ifeq ($(shell find $(LIBDIR) -type f | wc -l),0)
 	-rm -r $(LIBDIR)
 endif
@@ -64,9 +79,10 @@ endif
 example: $(BINDIR)example$(BINEXTENSION)
 
 $(BINDIR)example$(BINEXTENSION): $(LIBRARY)
+	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)example.c -l$(NAME)$(DEBUGNAME) $(LDFLAGS) -o $@
+	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)example.c -l$(LIBNAME) $(LDFLAGS) -o $@
 
 .PHONY: example
 
@@ -90,7 +106,7 @@ $(BINDIR)audioexample$(BINEXTENSION): $(LIBRARY)
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)audioexample.c -l$(NAME)$(DEBUGNAME) $(LDFLAGS) -o $@
+	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)audioexample.c -l$(LIBNAME) $(LDFLAGS) -o $@
 
 .PHONY: audioexample
 
@@ -114,7 +130,7 @@ $(BINDIR)multichannelexample$(BINEXTENSION): $(LIBRARY)
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)multichannelexample.c -l$(NAME)$(DEBUGNAME) $(LDFLAGS) -o $@
+	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)multichannelexample.c -l$(LIBNAME) $(LDFLAGS) -o $@
 
 .PHONY: multichannelexample
 
@@ -162,5 +178,6 @@ endif
 
 distclean: clean
 	-rm -rf obj/
+	-rm Makefile.include
 
 .PHONY: distclean

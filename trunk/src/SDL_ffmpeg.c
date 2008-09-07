@@ -121,7 +121,7 @@ void SDL_ffmpegFree(SDL_ffmpegFile* file) {
         if(file->as[i]) {
             if( file->as[i]->_ffmpeg ) avcodec_close( file->as[i]->_ffmpeg->codec );
             for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
-                free( file->as[i]->audioBuffer[f].source );
+                av_free( file->as[i]->audioBuffer[f].source );
             }
             free( file->as[i] );
         }
@@ -264,7 +264,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 
                     /* allocate audiobuffer */
                     for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
-                        stream->audioBuffer[f].source = (uint8_t*)malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE );
+                        stream->audioBuffer[f].source = (uint8_t*)av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof(int16_t) );
                     }
 
                     /* copy metadata from AVStream into our stream */
@@ -483,7 +483,7 @@ int SDL_ffmpegDecodeThread(void* data) {
     if( !inFrame ) return -1;
 
     /* allocate temporary audiobuffer */
-    samples = (int16_t*)malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE );
+    samples = (int16_t*)av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof(int16_t) );
     if( !samples ) {
         return -1;
     }
@@ -949,7 +949,7 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_f
 
     data = pack->data;
     size = pack->size;
-    audioSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * 2;
+    audioSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof( int16_t );
 
 	/* calculate pts to determine wheter or not this frame should be stored */
 	frame->pts = av_rescale((pack->dts-file->audioStream->_ffmpeg->start_time)*1000, file->audioStream->_ffmpeg->time_base.num, file->audioStream->_ffmpeg->time_base.den);
