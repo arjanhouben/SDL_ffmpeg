@@ -1,0 +1,234 @@
+#!/bin/bash
+
+# SDL_ffmpeg - Arjan Houben - 2008
+
+NAME=SDL_ffmpeg
+FFMPEGOBJECTS=
+LIBAVFORMAT=
+LIBAVCODEC=
+LIBAVUTIL=
+STATIC=
+DEBUG=
+LIBRARY=
+BINDIR=bin/
+LIBDIR=lib/
+SRCDIR=src/
+INCDIR=include/
+OBJDIR=obj/
+CFLAGS=-I$INCDIR
+LDFLAGS=-L$LIBDIR\ -lSDL\ -lSDLmain\ -lz
+LIBFLAGS=-shared
+BINEXTENSION=
+LIBEXTENSION=.a
+LIBPREFIX=lib
+DYNLIBEXTENSION=.so
+DYNLIBPREFIX=lib
+CC=gcc
+
+# read command line arguments
+for i in $@;
+do
+	if [[ "$i" =~ "--avformat-header=" ]]
+	then
+		CFLAGS+="-I"${i/--avformat-header=/};
+	fi
+	
+	if [[ "$i" =~ "--avformat-library=" ]]
+	then
+		LIBAVFORMAT+=${i/--avformat-library=/};
+	fi
+	
+	if [[ "$i" =~ "--avcodec-library=" ]]
+	then
+		LIBAVCODEC+=${i/--avcodec-library=/};
+	fi
+	
+	if [[ "$i" =~ "--avutil-library=" ]]
+	then
+		LIBAVUTIL+=${i/--avutil-library=/};
+	fi
+	
+	if [[ "$i" =~ "--static=" ]]
+	then
+		STATIC+=${i/--static=/};
+	fi
+	
+	if [[ "$i" =~ "--debug=" ]]
+	then
+		DEBUG+=${i/--debug=/};
+	fi
+done
+
+
+# set linux specific flags
+
+# set WIN32 mingw specific flags
+if [ `uname` == "MINGW" ]
+then
+	LDFLAGS=-lmingw32 -lSDLmain -lSDL -lwsock32
+	BINEXTENSION=.exe
+	LIBEXTENSION=.lib
+	LIBPREFIX=
+	DYNLIBEXTENSION=.dll
+	DYNLIBPREFIX=
+fi
+
+# set OSX specific flags
+if [ `uname` == "Darwin" ]
+then
+#	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) -lbz2 -lz
+#	CFLAGS=-I/Library/Frameworks/SDL.framework/Headers/ $(BASECFLAGS)
+	LIBFLAGS=-dynamiclib -mdynamic-no-pic
+	ESOURCE=include/SDL/SDLMain.m
+	BINEXTENSION=
+	LIBEXTENSION=.a
+	LIBPREFIX=lib
+	DYNLIBEXTENSION=.dylib
+	DYNLIBPREFIX=lib
+	# force static libraries on OSX
+	STATIC=true
+fi
+
+if [ "$STATIC" != yes ]
+then
+	LIBRARY=$LIBDIR$DYNLIBPREFIX$NAME$DEBUGNAME$DYNLIBEXTENSION
+else
+	LIBRARY=$LIBDIR$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION
+fi
+
+#ifeq ($(findstring MINGW,$(OS)),MINGW)
+#	LDFLAGS+=-Wl,--output-def,$(LIBDIR)$(NAME)$(DEBUGNAME).def,--out-implib,$(LIBDIR)$(LIBPREFIX)$(NAME)$(DEBUGNAME)$(LIBEXTENSION)
+#endif
+
+
+# check for existence of avformat header
+cat > temp.c << EOF
+#include "libavformat/avformat.h"
+int main() {
+	return 0;
+}
+EOF
+$CC $CFLAGS temp.c 2> temp.log
+if [ -s temp.log ]
+then
+	echo "avformat directory could not be found, please install libavformat"
+	echo "If libavformat is installed, please specify where it can be found"
+	echo "example:"
+	echo "$0 --avformat-header=/usr/local/include/"
+	exit -1
+fi
+
+
+# try to find libavformat.a
+if [ -z $LIBAVFORMAT ]
+then
+	echo "no --avformat-library specified, trying to find libavformat.a..."
+	LIBAVFORMAT=$(find /usr/ -name libavformat.a)
+	if [ -z $LIBAVFORMAT ]
+	then
+		echo "No instance of libavformat.a found. please install libavformat"
+		echo "If libavformat is installed, please specify where it can be found"
+		echo "example:"
+		echo "$0 --avformat-library=/usr/local/lib/libavformat.a"
+		exit -1
+	fi
+fi
+
+# libavformat.a found
+echo "libavformat.a found"
+echo "using \"$LIBAVFORMAT\""
+echo
+
+# prepare libavformat objects
+mkdir obj 2> /dev/null
+mkdir obj/libavformat 2> /dev/null
+cd obj/libavformat && ar -x $LIBAVFORMAT
+cd ../../
+
+for i in obj/libavformat/*.o;
+do
+	FFMPEGOBJECTS+=" $i"
+done
+
+
+# try to find libavcodec.a
+if [ -z $LIBAVCODEC ]
+then
+	echo "no --avcodec-library specified, trying to find libavcodec.a..."
+	LIBAVCODEC=$(find /usr/ -name libavcodec.a)
+	if [ -z $LIBAVCODEC ]
+	then
+		echo "No instance of libavcodec.a found. please install libavcodec"
+		echo "If libavcodec is installed, please specify where it can be found"
+		echo "example:"
+		echo "$0 --avcodec-library=/usr/local/lib/libavcodec.a"
+		exit -1
+	fi
+fi
+
+# libavcodec.a found
+echo "libavcodec.a found"
+echo "using \"$LIBAVCODEC\""
+echo
+
+# prepare libavcodec objects
+mkdir obj/libavcodec 2> /dev/null
+cd obj/libavcodec && ar -x $LIBAVCODEC
+cd ../../
+
+for i in obj/libavcodec/*.o;
+do
+	FFMPEGOBJECTS+=" $i"
+done
+
+
+# try to find libavutil.a
+if [ -z $LIBAVUTIL ]
+then
+	echo "no --avutil-library specified, trying to find libavutil.a..."
+	LIBAVUTIL=$(find /usr/ -name libavutil.a)
+	if [ -z $LIBAVUTIL ]
+	then
+		echo "No instance of libavutil.a found. please install libavutil"
+		echo "If libavutil is installed, please specify where it can be found"
+		echo "example:"
+		echo "$0 --avutil-library=/usr/local/lib/libavutil.a"
+		exit -1
+	fi
+fi
+
+# libavutil.a found
+echo "libavutil.a found"
+echo "using \"$LIBAVUTIL\""
+echo
+
+# prepare libavutil objects
+mkdir obj/libavutil 2> /dev/null
+cd obj/libavutil && ar -x $LIBAVUTIL
+cd ../../
+for i in obj/libavutil/*.o;
+do
+	FFMPEGOBJECTS+=" $i"
+done
+
+# write Makefile.include file
+cat > Makefile.include << EOF
+NAME=$NAME
+FFMPEGOBJECTS=$FFMPEGOBJECTS
+LIBRARY=$LIBRARY
+BINDIR=$BINDIR
+LIBDIR=$LIBDIR
+SRCDIR=$SRCDIR
+INCDIR=$INCDIR
+OBJDIR=$OBJDIR
+CFLAGS=$CFLAGS
+LDFLAGS=$LDFLAGS
+LIBFLAGS=$LIBFLAGS
+BINEXTENSION=$BINEXTENSION
+LIBEXTENSION=$LIBEXTENSION
+LIBPREFIX=$LIBPREFIX
+DYNLIBEXTENSION=$DYNLIBEXTENSION
+DYNLIBPREFIX=$DYNLIBPREFIX
+CC=$CC
+EOF
+

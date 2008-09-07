@@ -1,288 +1,166 @@
 # SDL_ffmpeg - Arjan Houben - 2007
 
-SRCDIR=src/
-OBJDIR=obj/
-LIBDIR=lib/
-INCDIR=include/
-BINDIR=bin/
+include Makefile.include
 
-OS=$(shell uname)
-
-CC=gcc
-AR=ar
-LD=ld
-LDFLAGS=-L$(LIBDIR) -L$(SDLDIR)lib/
-BASECFLAGS=-I$(INCDIR) -I$(SDLDIR)include/ -I$(FFMPEGDIR) -I$(FFMPEGDIR)libavutil -I$(FFMPEGDIR)libavformat -I$(FFMPEGDIR)libavcodec $(ECFLAGS)
-CFLAGS=$(BASECFLAGS)
-DLLFLAGS=-fPIC -shared
-RCFLAGS=-O2
-DCFLAGS=-g
-NAME=SDL_ffmpeg
-FFMPEGOBJECTS=$(OBJDIR)libavformat/*.o $(OBJDIR)libavcodec/*.o $(OBJDIR)libavutil/*.o
-
-ifeq ($(strip $(FFMPEGDIR)),)
-	FFMPEGDIR=\ FFMPEGDIR\ NOT\ SET!\ 
-endif
-
-ifeq ($(OS),Linux)
-	LDFLAGS+=-lSDL -lSDLmain -lz
-	EXTEXE=
-	EXTDLL=.so
-	PREDLL=lib
-endif
-
-ifeq ($(findstring MINGW,$(OS)),MINGW)
-	LDFLAGS+=-lmingw32 -lSDLmain -lSDL -lwsock32  -Wl,--output-def,$(LIBDIR)$(NAME).def,--out-implib,$(LIBDIR)$(PREDLL)$(NAME).a
-	CFLAGS=$(BASECFLAGS)
-	EXTEXE=.exe
-	EXTDLL=.dll
-	PREDLL=
-	ifeq ($(strip $(SDLDIR)),)
-		SDLDIR=\ SDLDIR\ NOT\ SET!\ 
-	endif
-endif
-
-ifeq ($(OS),Darwin)
-	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR)  -lbz2 -lz
-	CFLAGS=-I/Library/Frameworks/SDL.framework/Headers/ $(BASECFLAGS)
-	DLLFLAGS=-dynamiclib -mdynamic-no-pic
-	ESOURCE=include/SDL/SDLMain.m
-	EXTEXE=
-	EXTDLL=.dylib
-	PREDLL=lib
-	STATIC=true
-endif
-
-ifeq ($(strip $(STATIC)),)
-  LIBDEBUG=dynamiclibrarydebug
-  LIBRELEASE=dynamiclibrary
-else
-  LIBDEBUG=staticlibrarydebug
-  LIBRELEASE=staticlibrary
-endif
-
-all: $(LIBRELEASE) $(LIBDEBUG) example audioexample multichannelexample
+all: library dynamiclibrary example audioexample multichannelexample
 	@echo 
 	@echo all done!
+	@echo 
 
 .PHONY: all
 
-# ffmpeg objects
-
-ffmpegfiles: $(FFMPEGOBJECTS)
-
-$(FFMPEGOBJECTS): $(FFMPEGDIR)libavformat/libavformat.a $(FFMPEGDIR)libavcodec/libavcodec.a $(FFMPEGDIR)libavutil/libavutil.a
-	@echo
-	@echo [ $@ ]
-	@-mkdir $(OBJDIR)
-	@-mkdir $(OBJDIR)libavformat
-	cd $(OBJDIR)libavformat;$(AR) x $(FFMPEGDIR)libavformat/libavformat.a
-	@-mkdir $(OBJDIR)libavcodec
-	cd $(OBJDIR)libavcodec;$(AR) x $(FFMPEGDIR)libavcodec/libavcodec.a
-	@-mkdir $(OBJDIR)libavutil
-	cd $(OBJDIR)libavutil;$(AR) x $(FFMPEGDIR)libavutil/libavutil.a
-
-.PHONY: ffmpegfiles
-
-cleanffmpegfiles:
-	-rm -f $(OBJDIR)libavformat/*.o
-	-rm -f $(OBJDIR)libavformat/__.SYMDEF\ SORTED
-	-rm -f $(OBJDIR)libavcodec/*.o
-	-rm -f $(OBJDIR)libavcodec/__.SYMDEF\ SORTED
-	-rm -f $(OBJDIR)libavutil/*.o
-	-rm -f $(OBJDIR)libavutil/__.SYMDEF\ SORTED
-ifeq ($(shell ls -1 $(OBJDIR)libavformat | wc -l),0)
-	-rm -r $(OBJDIR)libavformat
-endif
-ifeq ($(shell ls -1 $(OBJDIR)libavcodec | wc -l),0)
-	-rm -r $(OBJDIR)libavcodec
-endif
-ifeq ($(shell ls -1 $(OBJDIR)libavutil | wc -l),0)
-	-rm -r $(OBJDIR)libavutil
-endif
-ifeq ($(shell ls -1 $(OBJDIR) | wc -l),0)
-	-rm -r $(OBJDIR)
-endif
-
-.PHONY: cleanffmpegfiles
 
 # SDL_ffmpeg object
 
-$(OBJDIR)$(NAME).o: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
-	@echo
+$(OBJDIR)$(NAME)$(DEBUGNAME).o: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
+	@echo 
 	@echo [ $@ ]
 	@-mkdir $(OBJDIR)
-	$(CC) $(CFLAGS) $(RCFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME).o
-
-$(OBJDIR)$(NAME)d.o: $(SRCDIR)$(NAME).c $(INCDIR)SDL/$(NAME).h
-	@echo
-	@echo [ $@ ]
-	@-mkdir $(OBJDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) -DSDL_FFMPEG_LIBRARY -c $< -o $(OBJDIR)$(NAME)d.o
+	$(CC) $(CFLAGS) -DSDL_FFMPEG_LIBRARY -c $(SRCDIR)$(NAME).c -o $@
 
 
+# staticlibrary
 
+library: $(LIBDIR)$(LIBPREFIX)$(NAME)$(DEBUGNAME)$(LIBEXTENSION)
 
-# static library
-
-staticlibrary: $(LIBDIR)$(PREDLL)$(NAME).a
-
-$(LIBDIR)$(PREDLL)$(NAME).a: $(FFMPEGOBJECTS) $(OBJDIR)$(NAME).o
+$(LIBDIR)$(LIBPREFIX)$(NAME)$(DEBUGNAME)$(LIBEXTENSION): $(FFMPEGOBJECTS) $(OBJDIR)$(NAME)$(DEBUGNAME).o
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(LIBDIR)
-	$(AR) -rcs $(LIBDIR)$(PREDLL)$(NAME).a $(OBJDIR)$(NAME).o $(FFMPEGOBJECTS)
+	$(AR) -rcs $@ $(OBJDIR)$(NAME)$(DEBUGNAME).o $(FFMPEGOBJECTS)
 
-.PHONY: staticlibrary
+.PHONY: library
 
-cleanstaticlibrary:
-	-rm -f $(LIBDIR)$(PREDLL)$(NAME).a
-ifeq ($(shell ls -1 $(LIBDIR) | wc -l),0)
+cleanlibrary:
+	-rm -f $(LIBDIR)$(LIBPREFIX)$(NAME)$(DEBUGNAME)$(LIBEXTENSION)
+ifeq ($(shell find $(LIBDIR) -type f | wc -l),0)
 	-rm -r $(LIBDIR)
 endif
 
-.PHONY: cleanstaticlibrary
+.PHONY: cleanlibrary
 
-staticlibrarydebug: $(LIBDIR)$(PREDLL)$(NAME)d.a
 
-$(LIBDIR)$(PREDLL)$(NAME)d.a: $(FFMPEGOBJECTS) $(OBJDIR)$(NAME)d.o
+# dynamiclibrary
+
+dynamiclibrary: $(LIBDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION)
+
+$(LIBDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION): $(FFMPEGOBJECTS) $(OBJDIR)$(NAME)$(DEBUGNAME).o
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(LIBDIR)
-	$(AR) -rcs $(LIBDIR)$(PREDLL)$(NAME)d.a $(OBJDIR)$(NAME)d.o $(FFMPEGOBJECTS)
-
-cleanstaticlibrarydebug:
-	-rm -f $(LIBDIR)$(PREDLL)$(NAME)d.a
-ifeq ($(shell ls -1 $(LIBDIR) | wc -l),0)
-	-rm -r $(LIBDIR)
-endif
-
-.PHONY: cleanstaticlibrarydebug
-
-
-
-
-# dynamic library
-
-dynamiclibrary: $(LIBDIR)$(PREDLL)$(NAME)$(EXTDLL)
-
-$(LIBDIR)$(PREDLL)$(NAME)$(EXTDLL): $(OBJDIR)$(NAME).o $(FFMPEGOBJECTS)
-	@echo
-	@echo [ $@ ]
-	@-mkdir $(LIBDIR)
-	$(CC) $(DLLFLAGS) -o $(LIBDIR)$(PREDLL)$(NAME)$(EXTDLL) $(OBJDIR)$(NAME).o $(FFMPEGOBJECTS) $(CFLAGS) $(RCFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS)
-
-.PHONY: dynamiclibrary
+	$(CC) $(LIBFLAGS) -o $@ $(OBJDIR)$(NAME)$(DEBUGNAME).o $(FFMPEGOBJECTS) $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS)
 
 cleandynamiclibrary:
-	-rm -f $(LIBDIR)$(PREDLL)$(NAME)$(EXTDLL)
-	-rm -f $(LIBDIR)$(NAME).def
-ifeq ($(shell ls -1 $(LIBDIR) | wc -l),0)
+	-rm -f $(LIBDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION)
+ifeq ($(shell find $(LIBDIR) -type f | wc -l),0)
 	-rm -r $(LIBDIR)
 endif
 
 .PHONY: cleandynamiclibrary
 
-dynamiclibrarydebug: $(LIBDIR)$(PREDLL)$(NAME)d$(EXTDLL) $(OBJDIR)$(NAME)d.o
-
-$(LIBDIR)$(PREDLL)$(NAME)d$(EXTDLL): $(OBJDIR)$(NAME)d.o $(FFMPEGOBJECTS)
-	@echo
-	@echo [ $@ ]
-	@-mkdir $(LIBDIR)
-	$(CC) $(DLLFLAGS) -o $(LIBDIR)$(PREDLL)$(NAME)d$(EXTDLL) $(OBJDIR)$(NAME)d.o $(FFMPEGOBJECTS) $(CFLAGS) $(DCFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS) -Wl,--output-def,$(LIBDIR)$(NAME)d.def,--out-implib,$(LIBDIR)$(PREDLL)$(NAME)d.a
-
-.PHONY: dynamiclibrarydebug
-
-cleandynamiclibrarydebug:
-	-rm -f $(LIBDIR)$(PREDLL)$(NAME)d$(EXTDLL)
-	-rm -f $(LIBDIR)$(NAME)d.def
-ifeq ($(shell ls -1 $(LIBDIR) | wc -l),0)
-	-rm -r $(LIBDIR)
-endif
-
-.PHONY: cleandynamiclibrarydebug
-
-
-
 
 # example
 
-example: $(BINDIR)example$(EXTEXE)
+example: $(BINDIR)example$(BINEXTENSION)
 
-$(BINDIR)example$(EXTEXE): $(LIBDEBUG)
-	@echo
+$(BINDIR)example$(BINEXTENSION): $(LIBRARY)
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) $(ESOURCE) $(SRCDIR)example.c -l$(NAME)d $(LDFLAGS) -o $(BINDIR)example$(EXTEXE)
+	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)example.c -l$(NAME)$(DEBUGNAME) $(LDFLAGS) -o $@
 
 .PHONY: example
 
 cleanexample:
-	-rm -f $(BINDIR)example$(EXTEXE)
+	-rm -f $(BINDIR)example$(BINEXTENSION)
 	-rm -rf $(BINDIR)example.dSYM
-ifeq ($(shell ls -1 $(BINDIR) | wc -l),0)
+ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
 	-rm -r $(BINDIR)
 endif
 
 .PHONY: cleanexample
 
+
+
+
 # audio example
 
-audioexample: $(BINDIR)audioexample$(EXTEXE)
+audioexample: $(BINDIR)audioexample$(BINEXTENSION)
 
-$(BINDIR)audioexample$(EXTEXE): $(LIBDEBUG)
+$(BINDIR)audioexample$(BINEXTENSION): $(LIBRARY)
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) $(ESOURCE) $(SRCDIR)audioexample.c -l$(NAME)d $(LDFLAGS) -o $(BINDIR)audioexample$(EXTEXE)
+	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)audioexample.c -l$(NAME)$(DEBUGNAME) $(LDFLAGS) -o $@
 
 .PHONY: audioexample
 
 cleanaudioexample:
-	-rm -f $(BINDIR)audioexample$(EXTEXE)
+	-rm -f $(BINDIR)audioexample$(BINEXTENSION)
 	-rm -rf $(BINDIR)audioexample.dSYM
-ifeq ($(shell ls -1 $(BINDIR) | wc -l),0)
+ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
 	-rm -r $(BINDIR)
 endif
 
 .PHONY: cleanaudioexample
 
+
+
+
 # multichannel example
 
-multichannelexample: $(BINDIR)multichannelexample$(EXTEXE)
+multichannelexample: $(BINDIR)multichannelexample$(BINEXTENSION)
 
-$(BINDIR)multichannelexample$(EXTEXE): $(LIBDEBUG)
+$(BINDIR)multichannelexample$(BINEXTENSION): $(LIBRARY)
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
-	$(CC) $(CFLAGS) $(DCFLAGS) $(ESOURCE) $(SRCDIR)multichannelexample.c -l$(NAME)d $(LDFLAGS) -o $(BINDIR)multichannelexample$(EXTEXE)
+	$(CC) $(CFLAGS) $(ESOURCE) $(SRCDIR)multichannelexample.c -l$(NAME)$(DEBUGNAME) $(LDFLAGS) -o $@
 
 .PHONY: multichannelexample
 
 cleanmultichannelexample:
-	-rm -f $(BINDIR)multichannelexample$(EXTEXE)
+	-rm -f $(BINDIR)multichannelexample$(BINEXTENSION)
 	-rm -rf $(BINDIR)multichannelexample.dSYM
-ifeq ($(shell ls -1 $(BINDIR) | wc -l),0)
+ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
 	-rm -r $(BINDIR)
 endif
 
 .PHONY: cleanmultichannelexample
 
+
+
+# install
+
+install: $(LIBRARY)
+	@echo aap
+	cp $(LIBRARY) /usr/lib/
+	cp $(INCDIR) /usr/lib/
+
+.PHONY: install
+
+
 # clean
+
+clean: cleanexample cleanaudioexample cleanmultichannelexample cleanlibrary cleandynamiclibrary
+	-rm -f $(OBJDIR)$(NAME)$(DEBUGNAME).o
+ifeq ($(shell find $(OBJDIR) -type f | wc -l),0)
+	-rm -r $(OBJDIR)
+endif
+ifeq ($(shell find $(LIBDIR) -type f | wc -l),0)
+	-rm -r $(LIBDIR)
+endif
+ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
+	-rm -r $(BINDIR)
+endif
+	@echo 
+	@echo clean done
+	@echo
 
 .PHONY: clean
 
-clean: cleanexample cleanaudioexample cleanmultichannelexample cleanstaticlibrary cleandynamiclibrary cleanstaticlibrarydebug cleandynamiclibrarydebug cleanffmpegfiles
-	-rm -f $(OBJDIR)$(NAME).o
-	-rm -f $(OBJDIR)$(NAME)d.o
-ifeq ($(shell ls -1 $(OBJDIR) | wc -l),0)
-	-rm -r $(OBJDIR)
-endif
-ifeq ($(shell ls -1 $(LIBDIR) | wc -l),0)
-	-rm -r $(LIBDIR)
-endif
-ifeq ($(shell ls -1 $(BINDIR) | wc -l),0)
-	-rm -r $(BINDIR)
-endif
-	@echo
-	@echo clean done
+# distclean
+
+distclean: clean
+	-rm -rf obj/
+
+.PHONY: distclean

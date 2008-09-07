@@ -26,7 +26,7 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_thread.h>
 
-#include "avformat.h"
+#include "libavformat/avformat.h"
 
 #include "SDL/SDL_ffmpeg.h"
 
