@@ -38,7 +38,7 @@
 				<Option object_output="obj\audio_example" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="/Users/arjan/Music/Armin_van_Buuren_presents_-_A_State_of_Trance_Episode_349.mp3" />
+				<Option parameters="c:\LFS\data\sound\SkidSand.wav" />
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-Wall" />
@@ -54,7 +54,7 @@
 				<Option working_dir="bin" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option parameters="/Users/arjan/Music/Armin_van_Buuren_presents_-_A_State_of_Trance_Episode_349.mp3" />
+				<Option parameters="c:\LFS\data\sound\*" />
 			</Target>
 		</Build>
 		<VirtualTargets>

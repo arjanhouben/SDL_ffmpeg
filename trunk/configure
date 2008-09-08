@@ -104,7 +104,7 @@ then
 	CFLAGS=$CFLAGS\ -O2
 fi
 
-if [ $NOSTRIP = "no" ] && [ !DEBUGNAME ] && [ `uname` != "Darwin" ]
+if [ $NOSTRIP = "no" ] && [ -z DEBUGNAME ] && [ `uname` != "Darwin" ]
 then
 	CFLAGS=$CFLAGS\ -s
 fi

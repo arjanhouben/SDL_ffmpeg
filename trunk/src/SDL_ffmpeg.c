@@ -544,7 +544,7 @@ int SDL_ffmpegDecodeThread(void* data) {
         if( decode < 0 ) {
 
             /* first lets check if there is still a frame in the buffer */
-            if( checkBufferedFrame && file->videoStream->id >= 0 ) {
+            if( checkBufferedFrame && file->videoStream && file->videoStream->id >= 0 ) {
 
                 /* prepare packet to check for buffered frame */
                 pack.data = 0;
