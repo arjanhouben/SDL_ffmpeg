@@ -91,7 +91,7 @@ do
 	fi
 done
 
-if [ "$DEBUG" == "yes" ]
+if [ "$DEBUG" = "yes" ]
 then
 	DEBUGNAME=d
 	CFLAGS="$CFLAGS -g -ggdb"
@@ -99,17 +99,17 @@ else
 	DEBUGNAME=
 fi
 
-if [ $OPTI == "yes" ]
+if [ $OPTI = "yes" ]
 then
 	CFLAGS=$CFLAGS\ -O2
 fi
 
-if [ $NOSTRIP == "no" ] && [ !DEBUGNAME ]
+if [ $NOSTRIP = "no" ] && [ !DEBUGNAME ]
 then
 	CFLAGS=$CFLAGS\ -s
 fi
 
-if [ $PROF == "yes" ]
+if [ $PROF = "yes" ]
 then
 	CFLAGS=$CFLAGS\ -pg
 fi
@@ -139,7 +139,7 @@ then
 fi
 
 # set OSX specific flags
-if [ `uname` == "Darwin" ]
+if [ `uname` = "Darwin" ]
 then
 #	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) -lbz2 -lz
 #	CFLAGS=-I/Library/Frameworks/SDL.framework/Headers/ $(BASECFLAGS)
@@ -155,7 +155,7 @@ then
 fi
 
 
-if [ "$STATIC" == "yes" ]
+if [ "$STATIC" = "yes" ]
 then
 	LIBRARY=$LIBDIR$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION
 	LIBFILE=$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION
@@ -378,13 +378,13 @@ rm config.log
 
 echo "Makefile set up to produce the following file: $LIBFILE"
 echo
-if [ "$STATIC" == "yes" ]
+if [ "$STATIC" = "yes" ]
 then
 	echo "Library type: static"
 else
 	echo "Library type: dynamic"
 fi
-if [ $OPTI == "yes" ]
+if [ $OPTI = "yes" ]
 then
 	echo "The library will be compiled with optimazation level: -O2"
 fi
@@ -392,7 +392,7 @@ if [ $DEBUGNAME ]
 then
 	echo "The library will be compiled with debugging symbols"
 else
-	if [ $NOSTRIP == "no" ]
+	if [ $NOSTRIP = "no" ]
 	then
 		echo "The symbols will be stripped from the library"
 	fi
