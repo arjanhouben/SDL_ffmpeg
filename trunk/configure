@@ -104,7 +104,7 @@ then
 	CFLAGS=$CFLAGS\ -O2
 fi
 
-if [ $NOSTRIP = "no" ] && [ !DEBUGNAME ]
+if [ $NOSTRIP = "no" ] && [ !DEBUGNAME ] && [ `uname` != "Darwin" ]
 then
 	CFLAGS=$CFLAGS\ -s
 fi
@@ -141,8 +141,7 @@ fi
 # set OSX specific flags
 if [ `uname` = "Darwin" ]
 then
-#	LDFLAGS=-framework Cocoa -framework SDL -L$(LIBDIR) -lbz2 -lz
-#	CFLAGS=-I/Library/Frameworks/SDL.framework/Headers/ $(BASECFLAGS)
+	LDFLAGS=$LDFLAGS\ -framework\ Cocoa\ -lbz2\ -lz
 	LIBFLAGS=$LDFLAGS\ -dynamiclib\ -mdynamic-no-pic
 	ESOURCE=include/SDL/SDLMain.m
 	BINEXTENSION=
@@ -150,8 +149,8 @@ then
 	LIBPREFIX=lib
 	DYNLIBEXTENSION=.dylib
 	DYNLIBPREFIX=lib
-	# force static libraries on OSX
-	STATIC=true
+	# for now, force static libraries on OSX
+	STATIC=yes
 fi
 
 
