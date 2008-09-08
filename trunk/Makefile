@@ -176,7 +176,7 @@ endif
 
 # distclean
 
-distclean: clean
+distclean:
 	-rm -rf obj/
 	-rm Makefile.include
 
