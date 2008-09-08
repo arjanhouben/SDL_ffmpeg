@@ -30,8 +30,6 @@ extern "C" {
 #include "SDL/SDL_thread.h"
 #include "SDL/SDL.h"
 
-#include "stdint.h"
-
 #ifndef MAX_STREAMS
 #define MAX_STREAMS 20
 #endif
