@@ -204,6 +204,8 @@ int main(int argc, char** argv) {
         SDL_Delay(10);
     }
 
+    SDL_PauseAudio(1);
+
     /* cleanup audio specs */
     free( specs );
 

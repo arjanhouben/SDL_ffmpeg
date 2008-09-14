@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # SDL_ffmpeg - Arjan Houben - 2008
 
@@ -47,7 +47,8 @@ do
 	
 	if [ `echo "$i" | grep "\-\-avformat\-include="` ]
 	then
-		CFLAGS=$CFLAGS" -I"${i/--avformat-include=/};
+		AVFORMATINCLUDE=${i/--avformat-include=/};
+		CFLAGS=$CFLAGS" -I"$AVFORMATINCLUDE
 	fi
 	
 	if [ `echo "$i" | grep "\-\-avformat\-lib="` ]
@@ -262,7 +263,7 @@ fi
 if [ -z $LIBAVFORMAT ]
 then
 	echo "no --avformat-lib specified, trying to find libavformat.a..."
-	LIBAVFORMAT=$(find /usr/ -name libavformat.a)
+	LIBAVFORMAT=$(find /usr/ $AVFORMATINCLUDE -name libavformat.a 2> /dev/null)
 	if [ -z $LIBAVFORMAT ]
 	then
 		echo "No instance of libavformat.a found. please install libavformat"
@@ -271,6 +272,8 @@ then
 		echo "$0 --avformat-lib=/usr/local/lib/libavformat.a"
 		exit -1
 	fi
+else
+	echo aap; $LIBAVFORMAT
 fi
 
 # libavformat.a found
@@ -292,7 +295,7 @@ done
 if [ -z $LIBAVCODEC ]
 then
 	echo "no --avcodec-lib specified, trying to find libavcodec.a..."
-	LIBAVCODEC=$(find /usr/ -name libavcodec.a)
+	LIBAVCODEC=$(find /usr/ $AVFORMATINCLUDE -name libavcodec.a 2> /dev/null)
 	if [ -z $LIBAVCODEC ]
 	then
 		echo "No instance of libavcodec.a found. please install libavcodec"
@@ -321,7 +324,7 @@ done
 if [ -z $LIBAVUTIL ]
 then
 	echo "no --avutil-lib specified, trying to find libavutil.a..."
-	LIBAVUTIL=$(find /usr/ -name libavutil.a)
+	LIBAVUTIL=$(find /usr/ $AVFORMATINCLUDE -name libavutil.a 2> /dev/null)
 	if [ -z $LIBAVUTIL ]
 	then
 		echo "No instance of libavutil.a found. please install libavutil"
@@ -375,7 +378,7 @@ rm temp.c
 rm temp.log
 rm config.log
 
-echo "Makefile set up to produce the following file: $LIBFILE"
+echo "Makefile set up to produce the following library: $LIBFILE"
 echo
 if [ "$STATIC" = "yes" ]
 then

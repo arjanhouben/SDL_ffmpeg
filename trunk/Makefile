@@ -78,7 +78,7 @@ endif
 
 example: $(BINDIR)example$(BINEXTENSION)
 
-$(BINDIR)example$(BINEXTENSION): $(LIBRARY)
+$(BINDIR)example$(BINEXTENSION): $(LIBRARY) $(SRCDIR)example.c
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
@@ -102,7 +102,7 @@ endif
 
 audioexample: $(BINDIR)audioexample$(BINEXTENSION)
 
-$(BINDIR)audioexample$(BINEXTENSION): $(LIBRARY)
+$(BINDIR)audioexample$(BINEXTENSION): $(LIBRARY) $(SRCDIR)audioexample.c
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
@@ -126,7 +126,7 @@ endif
 
 multichannelexample: $(BINDIR)multichannelexample$(BINEXTENSION)
 
-$(BINDIR)multichannelexample$(BINEXTENSION): $(LIBRARY)
+$(BINDIR)multichannelexample$(BINEXTENSION): $(LIBRARY) $(SRCDIR)multichannelexample.c
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(BINDIR)
