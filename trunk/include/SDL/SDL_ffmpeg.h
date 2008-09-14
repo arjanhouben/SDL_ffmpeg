@@ -23,12 +23,12 @@
 #ifndef SDL_FFMPEG_INCLUDED
 #define SDL_FFMPEG_INCLUDED
 
+#include "SDL/SDL_thread.h"
+#include "SDL/SDL.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "SDL/SDL_thread.h"
-#include "SDL/SDL.h"
 
 #ifndef MAX_STREAMS
 #define MAX_STREAMS 20
@@ -116,37 +116,53 @@ typedef struct SDL_ffmpegStream {
 
 } SDL_ffmpegStream;
 
+/** Struct to hold information about file */
 typedef struct SDL_ffmpegFile {
 
-    /* pointer to ffmpeg data, internal use only! */
+    /** Pointer to ffmpeg data, internal use only! */
     struct AVFormatContext *_ffmpeg;
 
-    /* our streams */
+    /** Video streams */
     SDL_ffmpegStream    *vs[MAX_STREAMS],
+    /** Audio streams */
                         *as[MAX_STREAMS];
 
+    /** Pointer to active videoStream, NULL if no video stream is active */
     SDL_ffmpegStream    *videoStream,
+    /** Pointer to active audioStream, NULL if no audio stream is active */
                         *audioStream;
 
-    /* data used for syncing/searching */
+    /** Holds the seek offset when seeking through a file */
     int64_t     offset,
+    /** Holds the playing value to keep track of the amount of loops */
                 loopCount,
+    /** Holds the time at which a stream was started */
                 startTime,
+    /** Holds the position to which a seek will be performed */
                 seekTo;
-
+    /** Value for flagging the decode thread into seek-mode */
     int			mustSeek;
 
-    /* streams and data about threads */
+    /** Amount of video streams in file */
     int     VStreams,
+    /** Amount of audio streams in file */
             AStreams,
+    /** Value to shut down decode thread when needed */
             threadActive;
 
+    /** Holds a pointer to the video frame which is in use by user */
     SDL_ffmpegVideoFrame	*videoFrameInUse,
+    /** Holds a pointer to the first decoded video frame when no previous video
+        frame could be marked */
 							*pendingVideoFrame;
 
+    /** Holds a pointer to the audio frame which is in use by user */
     SDL_ffmpegAudioFrame	*audioFrameInUse,
+    /** Holds a pointer to the first decoded audio frame when no previous video
+        frame could be marked */
 							*pendingAudioFrame;
 
+    /** Keeps track of the decode thread so it can be closed when needed */
     SDL_Thread              *threadID;
 
 } SDL_ffmpegFile;
@@ -178,8 +194,6 @@ int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
 
 int SDL_ffmpegSeekRelative(SDL_ffmpegFile* file, int64_t timestamp);
 
-int SDL_ffmpegFlush(SDL_ffmpegFile *file);
-
 SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file);
 
 int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file);
@@ -197,6 +211,10 @@ int SDL_ffmpegValidVideo(SDL_ffmpegFile *file);
 int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count);
 
 int SDL_ffmpegGetState(SDL_ffmpegFile *file);
+
+/** \cond */
+int SDL_ffmpegFlush(SDL_ffmpegFile *file);
+/** \endcond */
 
 #ifdef __cplusplus
 }
