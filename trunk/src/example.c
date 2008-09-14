@@ -73,9 +73,9 @@ int main(int argc, char** argv) {
 
 	SDL_ffmpegFile *film = 0;
     SDL_ffmpegStream *str = 0;
-	SDL_AudioSpec *specs = 0;
 	SDL_Surface *screen = 0;
 	SDL_ffmpegVideoFrame *frame = 0;
+	SDL_AudioSpec specs;
     int s, w, h, done, x, y;
 	int64_t time;
 
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
     }
 
     /* Open the Audio device */
-    if( SDL_OpenAudio(specs, 0) < 0 ) {
+    if( SDL_OpenAudio(&specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
         SDL_Quit();
         return -1;
@@ -203,11 +203,6 @@ int main(int argc, char** argv) {
         /* we wish not to kill our poor cpu, so we give it some timeoff */
         SDL_Delay(10);
     }
-
-    SDL_PauseAudio(1);
-
-    /* cleanup audio specs */
-    free( specs );
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree(film);

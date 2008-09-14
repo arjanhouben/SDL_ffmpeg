@@ -83,7 +83,7 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
 
 int main(int argc, char** argv) {
 
-    SDL_AudioSpec *specs;
+    SDL_AudioSpec specs;
     int i, f, done;
 
     /* check if we got an argument */
@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
     specs = SDL_ffmpegGetAudioSpec(audioFile[0], 512, audioCallback);
 
     /* Open the Audio device */
-    if( SDL_OpenAudio(specs, 0) < 0 ) {
+    if( SDL_OpenAudio(&specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
         goto freeAndClose;
     }
@@ -177,9 +177,6 @@ int main(int argc, char** argv) {
     }
 
     freeAndClose:
-
-    /* cleanup audio specs */
-    free( specs );
 
     /* after all is said and done, we should call this */
     for(i=0; audioFile[i]; i++) SDL_ffmpegFree( audioFile[i] );

@@ -39,52 +39,80 @@ extern "C" {
 
 typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
+/** Struct to hold audio data */
 typedef struct SDL_ffmpegAudioFrame {
-    int64_t pts,
-            dts;
+    /** Presentation timestamp, time at which this data should be used. */
+    int64_t pts;
+    /** Pointer to audio buffer, user adjustable. */
     uint8_t *buffer;
+    /** Pointer at which this buffer was allocated, internal use only! */
     uint8_t *source;
+    /** Size of this audio frame. */
     uint32_t size;
+    /** Pointer to next SDL_ffmpegAudioFrame */
 	struct SDL_ffmpegAudioFrame *next;
+	/** Value indicating wheter or not this is the last frame before EOF */
 	int last;
 } SDL_ffmpegAudioFrame;
 
+
+/** Struct to hold audio data */
 typedef struct SDL_ffmpegVideoFrame {
-    int64_t pts,
-            dts;
+    /** Presentation timestamp, time at which this data should be used. */
+    int64_t pts;
+    /** Pointer to audio buffer, user adjustable. */
     SDL_Surface *buffer;
+    /** Value indicating if this frame holds data, or that it can be overwritten. */
     int filled;
+    /** Pointer to next SDL_ffmpegVideoFrame */
 	struct SDL_ffmpegVideoFrame *next;
+	/** Value indicating wheter or not this is the last frame before EOF */
 	int last;
 } SDL_ffmpegVideoFrame;
 
-/* this is the basic stream for SDL_ffmpeg */
+/** This is the basic stream for SDL_ffmpeg */
 typedef struct SDL_ffmpegStream {
 
-    int pixFmt,
-        endReached,
+    /** Value indicating when the file has reached EOF */
+    int endReached,
+    /** Value indicating when the file was flushed */
         flushed;
-    /* pointer to ffmpeg data, internal use only! */
+
+    /** Pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
 
-    /* audio/video buffers */
+    /** Audio buffers */
     SDL_ffmpegAudioFrame audioBuffer[ SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES ];
 
+    /** Video buffers */
     SDL_ffmpegVideoFrame videoBuffer[ SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES ];
 
-    /* userinfo */
+    /** Framerate, duration of a single frame can be calculated using
+        frameRate[0] / frameRate[1]. frameRate[1] can be zero, so watch out for
+        devision by zero.
+    */
     double frameRate[2];
+    /** This holds a string representing the language, if available */
     char language[4];
+    /** The samplerate of this stream */
     int sampleRate;
+    /** The channel count of this stream */
     int channels;
+    /** The name of the codec used to decode this stream */
     char codecName[32];
+    /** The duration of a single frame */
     double timeBase;
+    /** Width of video frame */
     uint16_t width;
+    /** Height of video frame */
     uint16_t height;
 
-    /* extra data for audio */
+    /** Id of the stream */
     int id;
-    int64_t lastTimeStamp, dts;
+    /** This holds the lastTimeStamp calculated, usefull when frames don't provide
+        a usefull dts/pts
+    */
+    int64_t lastTimeStamp;
 
 } SDL_ffmpegStream;
 
@@ -130,11 +158,11 @@ int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file);
 
 SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file);
 
-SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, int audioID);
+SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioID);
 
 int SDL_ffmpegSelectAudioStream(SDL_ffmpegFile* file, int audioID);
 
-SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, int audioID);
+SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t audioID);
 
 int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID);
 
@@ -146,7 +174,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
 
 int SDL_ffmpegDecodeThread(void* data);
 
-int SDL_ffmpegSeek(SDL_ffmpegFile* file, int64_t timestamp);
+int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
 
 int SDL_ffmpegSeekRelative(SDL_ffmpegFile* file, int64_t timestamp);
 
@@ -156,7 +184,7 @@ SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file);
 
 int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file);
 
-SDL_AudioSpec* SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
+SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
 
 int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h);
 

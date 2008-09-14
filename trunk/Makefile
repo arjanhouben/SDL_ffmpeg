@@ -148,9 +148,11 @@ endif
 # install
 
 install: $(LIBRARY)
-	@echo aap
-	cp $(LIBRARY) /usr/lib/
-	cp $(INCDIR) /usr/lib/
+	@echo
+	-mkdir $(PREFIX)lib/
+	cp $(LIBRARY) $(PREFIX)lib/
+	-mkdir $(PREFIX)include/
+	cp -r $(INCDIR)SDL/ $(PREFIX)include/
 
 .PHONY: install
 

@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
 
     SDL_ffmpegFile* audioFile;
     SDL_ffmpegStream *str;
-    SDL_AudioSpec *specs;
+    SDL_AudioSpec specs;
     int s, done;
 
     /* check if we got an argument */
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
     specs = SDL_ffmpegGetAudioSpec(audioFile, 512, audioCallback);
 
     /* Open the Audio device */
-    if( SDL_OpenAudio(specs, 0) < 0 ) {
+    if( SDL_OpenAudio(&specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
         goto freeAndClose;
     }
@@ -146,9 +146,6 @@ int main(int argc, char** argv) {
     }
 
     freeAndClose:
-
-    /* cleanup audio specs */
-    free( specs );
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree(audioFile);

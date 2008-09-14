@@ -20,6 +20,16 @@
 *                                                                              *
 *******************************************************************************/
 
+/**
+    @mainpage
+    @version 0.9.0
+    @author Arjan Houben
+
+    SDL_ffmpeg is designed with ease of use in mind.
+    Even the beginning programmer should be able to use this library
+    so he or she can use multimedia in his/her program.
+**/
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -30,7 +40,9 @@
 
 #include "SDL/SDL_ffmpeg.h"
 
-int test = 0;
+/**
+\cond
+*/
 
 int __Y[256];
 int __CrtoR[256];
@@ -97,6 +109,18 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     return file;
 }
 
+/**
+\endcond
+*/
+
+/** \brief  Use this to free an SDL_ffmpegFile.
+
+            This function stops the decoding thread if needed
+            and flushes the buffers before releasing the memory.
+            It also invalidates any frames aquired by
+            SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* ) or SDL_ffmpegGetAudioFrame( SDL_ffmpegFile* ).
+\param      file SDL_ffmpegFile on which an action is required
+*/
 void SDL_ffmpegFree(SDL_ffmpegFile* file) {
 
     int i,f;
@@ -134,6 +158,13 @@ void SDL_ffmpegFree(SDL_ffmpegFile* file) {
     free(file);
 }
 
+/** \brief  Use this to open the multimedia file of your choice.
+
+            This function is used to open a multimedia file.
+
+\param      filename string containing the location of the file
+\returns    a pointer to a SDL_ffmpegFile structure, or NULL if a file could not be opened
+*/
 SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 
     SDL_ffmpegFile *file;
@@ -192,7 +223,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                 /* the timeBase is what we use to calculate from/to pts */
                 stream->timeBase = av_q2d(file->_ffmpeg->streams[i]->time_base) * 1000;
 
-                /* save width, height and pixFmt of our outputframes */
+                /* save width and height of our outputframes */
                 stream->width = file->_ffmpeg->streams[i]->codec->width;
                 stream->height = file->_ffmpeg->streams[i]->codec->height;
 
@@ -285,6 +316,14 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
     return file;
 }
 
+
+/** \brief  Use this to get a pointer to a SDL_ffmpegVideoFrame.
+
+            If you receive a frame, it is valid until you receive a new frame, or
+            until the file is freed, using SDL_ffmpegFree( SDL_ffmpegFile* ).
+\param      file SDL_ffmpegFile from which the information is required
+\returns    Pointer to SDL_ffmpegVideoFrame, or NULL if no frame was available.
+*/
 SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
 
     SDL_ffmpegVideoFrame *f;
@@ -376,7 +415,17 @@ SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
     return f;
 }
 
-SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, int audioID) {
+
+/** \brief  Get the desired audio stream from file.
+
+            This returns a pointer to the requested stream. With this stream pointer you can
+            get information about the stream, like language, samplerate, size etc.
+            Based on this information you can choose the stream you want to use.
+\param      file SDL_ffmpegFile from which the information is required
+\param      audioID is the stream you whish to select.
+\returns    Pointer to SDL_ffmpegStream, or NULL if selected stream could not be found
+*/
+SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioID) {
 
     /* check if we have any audiostreams */
     if( !file || !file->AStreams ) return 0;
@@ -388,6 +437,16 @@ SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, int audioID) {
     return file->as[audioID];
 }
 
+
+/** \brief  Select an audio stream from file.
+
+            Use this function to select an audio stream for decoding.
+            Using SDL_ffmpegGetAudioStream you can get information about the streams.
+            Based on that you can chose the stream you want.
+\param      file SDL_ffmpegFile on which an action is required
+\param      audioID is the stream you whish to select. negative values de-select any audio stream.
+\returns    -1 on error, otherwise 0
+*/
 int SDL_ffmpegSelectAudioStream(SDL_ffmpegFile* file, int audioID) {
 
     /* check if we have any audiostreams */
@@ -396,13 +455,31 @@ int SDL_ffmpegSelectAudioStream(SDL_ffmpegFile* file, int audioID) {
     /* check if the requested id is possible */
     if(audioID >= file->AStreams) return -1;
 
-    /* set current audiostream to stream linked to audioID */
-    file->audioStream = file->as[audioID];
+    if( audioID >= 0 ) {
+
+        /* set current audiostream to stream linked to audioID */
+        file->audioStream = file->as[audioID];
+
+    } else {
+
+        /* reset audiostream */
+        file->audioStream = 0;
+    }
 
     return 0;
 }
 
-SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, int videoID) {
+
+/** \brief  Get the desired video stream from file.
+
+            This returns a pointer to the requested stream. With this stream pointer you can
+            get information about the stream, like language, samplerate, size etc.
+            Based on this information you can choose the stream you want to use.
+\param      file SDL_ffmpegFile from which the information is required
+\param      videoID is the stream you whish to select.
+\returns    Pointer to SDL_ffmpegStream, or NULL if selected stream could not be found
+*/
+SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t videoID) {
 
     /* check if we have any videostreams */
     if( !file || !file->VStreams ) return 0;
@@ -414,6 +491,16 @@ SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, int videoID) {
     return file->vs[videoID];
 }
 
+
+/** \brief  Select a video stream from file.
+
+            Use this function to select a video stream for decoding.
+            Using SDL_ffmpegGetVideoStream you can get information about the streams.
+            Based on that you can chose the stream you want.
+\param      file SDL_ffmpegFile on which an action is required
+\param      videoID is the stream you whish to select.
+\returns    -1 on error, otherwise 0
+*/
 int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
 
     /* check if we have any videostreams */
@@ -428,6 +515,15 @@ int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
     return 0;
 }
 
+
+/** \brief  Starts decoding the file.
+
+            After you call this function, a thread starts filling the buffers with the
+            streams you selected. If you only want audio, you shouldn't select a video
+            stream and vice versa. Doing so would mean extra work for the cpu.
+\param      file SDL_ffmpegFile on which an action is required
+\returns    -1 on error, otherwise 0
+*/
 int SDL_ffmpegStartDecoding(SDL_ffmpegFile* file) {
 
     if( !file ) return -1;
@@ -438,6 +534,14 @@ int SDL_ffmpegStartDecoding(SDL_ffmpegFile* file) {
     return 0;
 }
 
+
+/** \brief  Stops decoding the file.
+
+            This stops the decodethread, this doesn't flush the buffers so you can use the
+            data in them, even after you called this function.
+\param      file SDL_ffmpegFile on which an action is required
+\returns    -1 on error, otherwise 0
+*/
 int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file) {
 
     if( !file ) return -1;
@@ -452,6 +556,380 @@ int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file) {
     return -1;
 }
 
+/** \brief  Seek to a certain point in file.
+
+            Tries to seek to specified point in file.
+\param      file SDL_ffmpegFile on which an action is required
+\param      timestamp is represented in milliseconds.
+\returns    -1 on error, otherwise 0
+*/
+int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp) {
+
+    if( !file || SDL_ffmpegGetDuration( file ) < timestamp ) return -1;
+
+    file->mustSeek = 1;
+
+    /* clamp timestamp */
+    if( timestamp < 0 ) {
+
+        file->seekTo  = 0;
+
+    } else {
+
+        file->seekTo = timestamp;
+    }
+
+    return 0;
+}
+
+/** \brief  Seek to a relative point in file.
+
+            Tries to seek to new location, based on current location in file.
+\param      file SDL_ffmpegFile on which an action is required
+\param      timestamp is represented in milliseconds.
+\returns    -1 on error, otherwise 0
+*/
+int SDL_ffmpegSeekRelative(SDL_ffmpegFile *file, int64_t timestamp) {
+
+    /* same thing as normal seek, just take into account the current position */
+    return SDL_ffmpegSeek(file, SDL_ffmpegGetPosition(file) + timestamp);
+}
+
+/**
+\cond
+*/
+int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
+
+    int i;
+
+    /* check for file and permission to flush buffers */
+    if( !file ) return -1;
+
+    /* if we have a valid audio stream, we flush it */
+    if( file->audioStream ) {
+
+        for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; i++) {
+
+			/* frame which is in use by user should not be flagged free */
+            if(file->audioFrameInUse != &file->audioStream->audioBuffer[i]) {
+                file->audioStream->audioBuffer[i].size = 0;
+                file->audioStream->audioBuffer[i].next = 0;
+                file->audioStream->audioBuffer[i].last = 0;
+            }
+        }
+
+        if(file->audioStream->_ffmpeg) {
+            avcodec_flush_buffers( file->audioStream->_ffmpeg->codec );
+        }
+
+		file->pendingAudioFrame = 0;
+
+        file->audioStream->flushed = 1;
+    }
+
+    /* if we have a valid video stream, we flush some more */
+    if( file->videoStream ) {
+
+        for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; i++) {
+
+			/* frame which is in use by user should not be flagged free */
+			if(file->videoFrameInUse != &file->videoStream->videoBuffer[i]) {
+				file->videoStream->videoBuffer[i].filled = 0;
+                file->videoStream->videoBuffer[i].next = 0;
+                file->videoStream->videoBuffer[i].last = 0;
+			}
+        }
+
+        if(file->videoStream->_ffmpeg) {
+            avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
+        }
+
+        file->videoStream->flushed = 1;
+
+		file->pendingVideoFrame = 0;
+    }
+
+    return 0;
+}
+/**
+\endcond
+*/
+
+
+/** \brief  Use this to get a pointer to a SDL_ffmpegAudioFrame.
+
+            If you receive a frame, it is valid until you receive a new frame, or
+            until the file is freed, using SDL_ffmpegFree( SDL_ffmpegFile* ).
+            I you use data from the frame, you should adjust the size member by
+            the amount of data used in bytes. This is needed so that SDL_ffmpeg can
+            calculate the next frame.
+\param      file SDL_ffmpegFile from which the information is required
+\returns    Pointer to SDL_ffmpegAudioFrame, or NULL if no frame was available.
+*/
+SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
+
+    SDL_ffmpegAudioFrame *f;
+
+    if( !file || !file->audioStream || !file->loopCount || file->audioStream->endReached ) return 0;
+
+	f = 0;
+
+	/* previous frame can indicate which frame should come now */
+	if( file->audioFrameInUse ) {
+
+		if( file->audioFrameInUse->size ) return file->audioFrameInUse;
+
+        if( file->audioFrameInUse->next && file->audioFrameInUse->next->size ) f = file->audioFrameInUse->next;
+
+	} else if( file->pendingAudioFrame ) {
+
+		f = file->pendingAudioFrame;
+
+	} else {
+
+		return 0;
+	}
+
+    /* new frame was selected */
+    if(f) {
+
+        /* check if the timestamp is ready to be played */
+        if( f->pts <= SDL_ffmpegGetPosition(file) ) {
+
+			if( file->audioFrameInUse ) {
+
+				/* release previous frame */
+				file->audioFrameInUse->size = 0;
+			}
+
+			#if 1
+			while( !f->last && f->next && f->next->size && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
+
+				/* flag frame which we are not going to use as empty */
+				f->size = 0;
+
+				/* jump to next frame */
+				f = f->next;
+			}
+			#endif
+
+			/* selected frame is marked as being in use by user */
+			file->audioFrameInUse = f;
+
+			if( f->last ) {
+
+				f->last = 0;
+
+			    /* last audio frame found, check if video is available/done */
+			    if( !file->videoStream || file->videoStream->endReached ) {
+
+			        file->audioStream->endReached = 0;
+			        if(file->videoStream) file->videoStream->endReached = 0;
+
+					/* check if file should loop */
+					if( file->loopCount > 0 ) {
+						file->loopCount--;
+					}
+
+					/* if loopCount is still non-zero, we loop */
+					if( file->loopCount ) {
+
+						file->startTime = SDL_GetTicks();
+
+						file->offset = 0;
+					}
+
+			    } else {
+
+			        file->audioStream->endReached = 1;
+			    }
+			}
+
+        } else {
+            /* we can't show this frame at this moment */
+            f = 0;
+        }
+    }
+
+    /* return whatever we found */
+    return f;
+}
+
+
+/** \brief  Returns the current position of the file in milliseconds.
+
+\param      file SDL_ffmpegFile from which the information is required
+\returns    -1 on error, otherwise the length of the file in milliseconds
+*/
+int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file) {
+
+    if( !file ) return -1;
+
+    /* return the current playposition of our file */
+    return SDL_GetTicks() - file->startTime + file->offset;
+}
+
+
+/** \brief  This can be used to get a SDL_AudioSpec based on values found in file
+
+            This returns a SDL_AudioSpec, if you have selected a valid audio
+            stream. Otherwise, default values are used. 0 if valid audiostream was found, 1 there was no valid audio stream found.
+\param      file SDL_ffmpegFile from which the information is required
+\param      samples Amount of samples required every time the callback is called.
+            Lower values mean less latency, but please note that SDL has a minimal value.
+\param      callback Pointer to callback function
+\returns    SDL_AudioSpec with values filled in according to the selected audio stream.
+            If no valid audio stream was available, all values of returned SDL_AudioSpec are set to 0
+*/
+SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback) {
+
+    /* create audio spec */
+    SDL_AudioSpec spec;
+
+    memset(&spec, 0, sizeof(SDL_AudioSpec));
+
+    /* if we have a valid audiofile, we can use its data to create a
+       more appropriate audio spec */
+    if( file && file->audioStream ) {
+
+        spec.format = AUDIO_S16SYS;
+        spec.samples = samples;
+        spec.userdata = file;
+        spec.callback = callback;
+        spec.freq = 48000;
+        spec.channels = 2;
+        spec.freq = file->audioStream->sampleRate;
+        spec.channels = file->audioStream->channels;
+    }
+
+    return spec;
+}
+
+
+/** \brief  Returns the Duration of the file in milliseconds.
+
+            Please note that this value is guestimated by FFmpeg, it may differ from
+            actual playing time.
+\param      file SDL_ffmpegFile from which the information is required
+\returns    -1 on error, otherwise the length of the file in milliseconds
+*/
+int64_t SDL_ffmpegGetDuration(SDL_ffmpegFile *file) {
+
+    if( !file ) return -1;
+    /* returns the duration of the entire file, please note that ffmpeg doesn't
+       always get this value right! so don't bet your life on it... */
+    return file->_ffmpeg->duration / (AV_TIME_BASE / 1000);
+}
+
+/** \brief  retreive the width/height of a frame beloning to file
+
+            With this function you can get the width and height of a frame, belonging to
+            your file. If there is no (valid) videostream selected w and h default
+            to 320x240. Please not that you will have to make sure the pointers are
+            allocated.
+
+\param      file SDL_ffmpegFile from which the information is required
+\param      w width
+\param      h height
+\returns    -1 on error, otherwise 0
+*/
+int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h) {
+
+    if(!w || !h) return -1;
+
+    /* if we have a valid video file selected, we use it
+       if not, we send default values and return.
+       by checking the return value you can check if you got a valid size */
+    if( file->videoStream ) {
+        *w = file->videoStream->width;
+        *h = file->videoStream->height;
+        return 0;
+    }
+
+    *w = 320;
+    *h = 240;
+    return -1;
+}
+
+
+/** \brief  This is used to check if a valid audio stream is selected.
+
+\param      file SDL_ffmpegFile from which the information is required
+\returns    -1 on error, otherwise 0
+*/
+int SDL_ffmpegValidAudio(SDL_ffmpegFile* file) {
+
+    /* this function is used to check if we selected a valid audio stream */
+    if(file->audioStream) return 1;
+
+    return 0;
+}
+
+
+/** \brief  This is used to check if a valid video stream is selected.
+
+\param      file SDL_ffmpegFile from which the information is required
+\returns    -1 on error, otherwise 0
+*/
+int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
+
+    /* this function is used to check if we selected a valid video stream */
+    if(file->videoStream) return 1;
+
+    return 0;
+}
+
+
+/** \brief  start or pause a file.
+
+            By calling this function you can select file to play, stop or loop.
+\param      file SDL_ffmpegFile on which an action is required
+\param      count the amount of times the file will play.
+            A negative value means the file will loop forever.
+\returns    -1 on error, otherwise 0
+*/
+int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count) {
+
+    if( !file ) return -1;
+
+	/* if we are going to start, we may have to reset startTime */
+    if( count ) {
+
+		/* if current state is paused, we reset the starttime*/
+		if( !file->loopCount ) file->startTime = SDL_GetTicks();
+
+        /* -1 means we play indefenetely, otherwise we play count times */
+        file->loopCount = count;
+
+    } else {
+
+        if( file->loopCount ) {
+            /* we are about to stop playback, record current position as our offset */
+            file->offset = SDL_ffmpegGetPosition(file);
+        }
+
+        /* reset loopCount to disable playback */
+        file->loopCount = 0;
+
+	}
+
+    return 0;
+}
+
+
+/** \brief  Returns the state of the file.
+
+\param      file SDL_ffmpegFile from which the information is required
+\returns    0 if file is stopped, 1 if file is playing and -1 if there was an error
+*/
+int SDL_ffmpegGetState(SDL_ffmpegFile *file) {
+    if( !file ) return -1;
+    return file->loopCount != 0;
+}
+
+/**
+\cond
+*/
 int SDL_ffmpegDecodeThread(void* data) {
 
     SDL_ffmpegFile *file;
@@ -673,275 +1151,6 @@ int SDL_ffmpegDecodeThread(void* data) {
     return 0;
 }
 
-int SDL_ffmpegSeek(SDL_ffmpegFile* file, int64_t timestamp) {
-
-    file->mustSeek = 1;
-
-    /* clamp timestamp */
-    if( timestamp < 0 ) {
-
-        file->seekTo  = 0;
-
-    } else {
-
-        file->seekTo = timestamp;
-    }
-
-    return 0;
-}
-
-int SDL_ffmpegSeekRelative(SDL_ffmpegFile *file, int64_t timestamp) {
-
-    /* same thing as normal seek, just take into account the current position */
-    return SDL_ffmpegSeek(file, SDL_ffmpegGetPosition(file) + timestamp);
-}
-
-int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
-
-    int i;
-
-    /* check for file and permission to flush buffers */
-    if( !file ) return -1;
-
-    /* if we have a valid audio stream, we flush it */
-    if( file->audioStream ) {
-
-        for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; i++) {
-
-			/* frame which is in use by user should not be flagged free */
-            if(file->audioFrameInUse != &file->audioStream->audioBuffer[i]) {
-                file->audioStream->audioBuffer[i].size = 0;
-                file->audioStream->audioBuffer[i].next = 0;
-                file->audioStream->audioBuffer[i].last = 0;
-            }
-        }
-
-        if(file->audioStream->_ffmpeg) {
-            avcodec_flush_buffers( file->audioStream->_ffmpeg->codec );
-        }
-
-		file->pendingAudioFrame = 0;
-
-        file->audioStream->flushed = 1;
-    }
-
-    /* if we have a valid video stream, we flush some more */
-    if( file->videoStream ) {
-
-        for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; i++) {
-
-			/* frame which is in use by user should not be flagged free */
-			if(file->videoFrameInUse != &file->videoStream->videoBuffer[i]) {
-				file->videoStream->videoBuffer[i].filled = 0;
-                file->videoStream->videoBuffer[i].next = 0;
-                file->videoStream->videoBuffer[i].last = 0;
-			}
-        }
-
-        if(file->videoStream->_ffmpeg) {
-            avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
-        }
-
-        file->videoStream->flushed = 1;
-
-		file->pendingVideoFrame = 0;
-    }
-
-    return 0;
-}
-
-SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
-
-    SDL_ffmpegAudioFrame *f;
-
-    if( !file || !file->audioStream || !file->loopCount || file->audioStream->endReached ) return 0;
-
-	f = 0;
-
-	/* previous frame can indicate which frame should come now */
-	if( file->audioFrameInUse ) {
-
-		if( file->audioFrameInUse->size ) return file->audioFrameInUse;
-
-        if( file->audioFrameInUse->next && file->audioFrameInUse->next->size ) f = file->audioFrameInUse->next;
-
-	} else if( file->pendingAudioFrame ) {
-
-		f = file->pendingAudioFrame;
-
-	} else {
-
-		return 0;
-	}
-
-    /* new frame was selected */
-    if(f) {
-
-        /* check if the timestamp is ready to be played */
-        if( f->pts <= SDL_ffmpegGetPosition(file) ) {
-
-			if( file->audioFrameInUse ) {
-
-				/* release previous frame */
-				file->audioFrameInUse->size = 0;
-			}
-
-			#if 1
-			while( !f->last && f->next && f->next->size && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
-
-				/* flag frame which we are not going to use as empty */
-				f->size = 0;
-
-				/* jump to next frame */
-				f = f->next;
-			}
-			#endif
-
-			/* selected frame is marked as being in use by user */
-			file->audioFrameInUse = f;
-
-			if( f->last ) {
-
-				f->last = 0;
-
-			    /* last audio frame found, check if video is available/done */
-			    if( !file->videoStream || file->videoStream->endReached ) {
-
-			        file->audioStream->endReached = 0;
-			        if(file->videoStream) file->videoStream->endReached = 0;
-
-					/* check if file should loop */
-					if( file->loopCount > 0 ) {
-						file->loopCount--;
-					}
-
-					/* if loopCount is still non-zero, we loop */
-					if( file->loopCount ) {
-
-						file->startTime = SDL_GetTicks();
-
-						file->offset = 0;
-					}
-
-			    } else {
-
-			        file->audioStream->endReached = 1;
-			    }
-			}
-
-        } else {
-            /* we can't show this frame at this moment */
-            f = 0;
-        }
-    }
-
-    /* return whatever we found */
-    return f;
-}
-
-int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file) {
-
-    if( !file ) return 0;
-
-    /* return the current playposition of our file */
-    return SDL_GetTicks() - file->startTime + file->offset;
-}
-
-SDL_AudioSpec* SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback) {
-
-    /* create audio spec */
-    SDL_AudioSpec *spec = (SDL_AudioSpec*)malloc( sizeof(SDL_AudioSpec) );
-
-    if(spec) {
-        spec->format = AUDIO_S16SYS;
-        spec->samples = samples;
-        spec->userdata = file;
-        spec->callback = callback;
-        spec->freq = 48000;
-        spec->channels = 2;
-
-        /* if we have a valid audiofile, we can use its data to create a
-           more appropriate audio spec */
-        if( file && file->audioStream ) {
-            spec->freq = file->audioStream->sampleRate;
-            spec->channels = file->audioStream->channels;
-        }
-    }
-
-    return spec;
-}
-
-int64_t SDL_ffmpegGetDuration(SDL_ffmpegFile *file) {
-
-    /* returns the duration of the entire file, please note that ffmpeg doesn't
-       always get this value right! so don't bet your life on it... */
-    return file->_ffmpeg->duration / (AV_TIME_BASE / 1000);
-}
-
-int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h) {
-
-    if(!w || !h) return -1;
-
-    /* if we have a valid video file selected, we use it
-       if not, we send default values and return.
-       by checking the return value you can check if you got a valid size */
-    if( file->videoStream ) {
-        *w = file->videoStream->width;
-        *h = file->videoStream->height;
-        return 0;
-    }
-
-    *w = 320;
-    *h = 240;
-    return -1;
-}
-
-int SDL_ffmpegValidAudio(SDL_ffmpegFile* file) {
-
-    /* this function is used to check if we selected a valid audio stream */
-    if(file->audioStream) return 1;
-
-    return 0;
-}
-
-int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
-
-    /* this function is used to check if we selected a valid video stream */
-    if(file->videoStream) return 1;
-
-    return 0;
-}
-
-int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count) {
-
-	/* if we are going to start, we may have to reset startTime */
-    if( count ) {
-
-		/* if current state is paused, we reset the starttime*/
-		if( !file->loopCount ) file->startTime = SDL_GetTicks();
-
-        /* -1 means we play indefenetely, otherwise we play count times */
-        file->loopCount = count;
-
-    } else {
-
-        if( file->loopCount ) {
-            /* we are about to stop playback, record current position as our offset */
-            file->offset = SDL_ffmpegGetPosition(file);
-        }
-
-        /* reset loopCount to disable playback */
-        file->loopCount = 0;
-
-	}
-
-    return 0;
-}
-
-int SDL_ffmpegGetState(SDL_ffmpegFile *file) {
-    return file->loopCount != 0;
-}
-
 int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_ffmpegAudioFrame *frame, int64_t minimalPTS ) {
 
     uint8_t *data;
@@ -981,9 +1190,6 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_f
 
         /* copy data to frame */
         memcpy(frame->buffer, samples, audioSize);
-
-        /* write decoding time stamp */
-        frame->dts = file->audioStream->dts++;
 
         /* set frame size so it can be used */
         frame->size = audioSize;
@@ -1028,9 +1234,6 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrame, SDL_f
 			/* write digital 'snow' into output */
 			snowFill( frame->buffer );
 		}
-
-		/* write decoding time stamp */
-		frame->dts = file->videoStream->dts++;
 
 		/* we write the lastTimestamp we got */
 		file->videoStream->lastTimeStamp = frame->pts;
@@ -1106,3 +1309,7 @@ void snowFill( SDL_Surface *frame ) {
         *RGB = t;   RGB++;
     }
 }
+
+/**
+\endcond
+*/

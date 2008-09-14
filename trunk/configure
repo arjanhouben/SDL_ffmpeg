@@ -10,6 +10,7 @@ LIBAVUTIL=
 STATIC=
 DEBUG=
 LIBRARY=
+PREFIX=/usr/
 BINDIR=bin/
 LIBDIR=lib/
 SRCDIR=src/
@@ -89,6 +90,11 @@ do
 	if [ `echo "$i" | grep "\-\-enable\-profiling="` ]
 	then
 		PROF=${i/--enable-profiling=/};
+	fi
+	
+	if [ `echo "$i" | grep "\-\-prefix="` ]
+	then
+		PREFIX=${i/--prefix=/};
 	fi
 done
 
@@ -354,6 +360,7 @@ NAME=$NAME
 LIBNAME=$NAME$DEBUGNAME
 FFMPEGOBJECTS=$FFMPEGOBJECTS
 LIBRARY=$LIBRARY
+PREFIX=$PREFIX
 BINDIR=$BINDIR
 LIBDIR=$LIBDIR
 SRCDIR=$SRCDIR
@@ -399,6 +406,9 @@ else
 		echo "The symbols will be stripped from the library"
 	fi
 fi
+echo
+echo "The library will be installed at "$PREFIX"lib/"
+echo "And the header will be located at "$PREFIX"include/SDL/"
 echo
 echo "To compile the library, execute 'make' in the current directory"
 echo
