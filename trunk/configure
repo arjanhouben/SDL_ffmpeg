@@ -264,10 +264,19 @@ then
 	exit -1
 fi
 
-NEWINCLUDE=`echo "$AVFORMATINCLUDE" | sed 's/\(.*\)\/libavformat/\1\//g'`
-if [ $NEWINCLUDE != $AVFORMATINCLUDE ]
+if [ -d $AVFORMATINCLUDE/libavformat ]
 then
-	CFLAGS=$CFLAGS" -I"$NEWINCLUDE
+	CFLAGS=$CFLAGS" -I"$AVFORMATINCLUDE/libavformat
+fi
+
+if [ -d $AVFORMATINCLUDE/libavcodec ]
+then
+	CFLAGS=$CFLAGS" -I"$AVFORMATINCLUDE/libavcodec
+fi
+
+if [ -d $AVFORMATINCLUDE/libavutil ]
+then
+	CFLAGS=$CFLAGS" -I"$AVFORMATINCLUDE/libavutil
 fi
 
 # try to find libavformat.a
