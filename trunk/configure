@@ -264,6 +264,11 @@ then
 	exit -1
 fi
 
+NEWINCLUDE=`echo "$AVFORMATINCLUDE" | sed 's/\(.*\)\/libavformat/\1\//g'`
+if [ $NEWINCLUDE != $AVFORMATINCLUDE ]
+then
+	CFLAGS=$CFLAGS" -I"$NEWINCLUDE
+fi
 
 # try to find libavformat.a
 if [ -z $LIBAVFORMAT ]
@@ -278,8 +283,6 @@ then
 		echo "$0 --avformat-lib=/usr/local/lib/libavformat.a"
 		exit -1
 	fi
-else
-	echo aap; $LIBAVFORMAT
 fi
 
 # libavformat.a found
@@ -290,7 +293,17 @@ echo
 # prepare libavformat objects
 mkdir obj 2> /dev/null
 mkdir obj/libavformat 2> /dev/null
-cd obj/libavformat && ar -x $LIBAVFORMAT && cd ../../
+CURRENT=`pwd`
+cd obj/libavformat && ar -x $LIBAVFORMAT 2> temp.log
+if [ -s temp.log ]
+then
+	echo "No instance of libavformat.a found. please install libavformat"
+	echo "If libavformat is installed, please specify where it can be found"
+	echo "example:"
+	echo "$0 --avformat-lib=/usr/local/lib/libavformat.a"
+	exit -1
+fi
+cd $CURRENT
 for i in obj/libavformat/*.o;
 do
 	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
@@ -319,7 +332,17 @@ echo
 
 # prepare libavcodec objects
 mkdir obj/libavcodec 2> /dev/null
-cd obj/libavcodec && ar -x $LIBAVCODEC && cd ../../
+CURRENT=`pwd`
+cd obj/libavcodec && ar -x $LIBAVCODEC 2> temp.log
+if [ -s temp.log ]
+then
+	echo "No instance of libavcodec.a found. please install libavcodec"
+	echo "If libavcodec is installed, please specify where it can be found"
+	echo "example:"
+	echo "$0 --avcodec-lib=/usr/local/lib/libavcodec.a"
+	exit -1
+fi
+cd $CURRENT
 for i in obj/libavcodec/*.o;
 do
 	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
@@ -348,7 +371,17 @@ echo
 
 # prepare libavutil objects
 mkdir obj/libavutil 2> /dev/null
-cd obj/libavutil && ar -x $LIBAVUTIL && cd ../../
+CURRENT=`pwd`
+cd obj/libavutil && ar -x $LIBAVUTIL 2> temp.log
+if [ -s temp.log ]
+then
+	echo "No instance of libavutil.a found. please install libavutil"
+	echo "If libavutil is installed, please specify where it can be found"
+	echo "example:"
+	echo "$0 --avutil-lib=/usr/local/lib/libavutil.a"
+	exit -1
+fi
+cd $CURRENT
 for i in obj/libavutil/*.o;
 do
 	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
