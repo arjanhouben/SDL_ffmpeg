@@ -18,7 +18,7 @@ INCDIR=include/
 OBJDIR=obj/
 CFLAGS=-I$INCDIR
 LDFLAGS=-L$LIBDIR
-LIBFLAGS=
+LIBFLAGS=-lavformat\ -lavcodec\ -lavutil
 BINEXTENSION=
 LIBEXTENSION=
 LIBPREFIX=
@@ -55,16 +55,19 @@ do
 	if [ `echo "$i" | grep "\-\-avformat\-lib="` ]
 	then
 		LIBAVFORMAT=${i/--avformat\-lib=/};
+		LDFLAGS=$LDFLAGS\ -L$LIBAVFORMAT
 	fi
 	
 	if [ `echo "$i" | grep "\-\-avcodec\-lib="` ]
 	then
 		LIBAVCODEC=${i/--avcodec-lib=/};
+		LDFLAGS=$LDFLAGS\ -L$LIBAVCODEC
 	fi
 	
 	if [ `echo "$i" | grep "\-\-avutil\-lib="` ]
 	then
 		LIBAVUTIL=${i/--avutil-lib=/};
+		LDFLAGS=$LDFLAGS\ -L$LIBAVUTIL
 	fi
 	
 	if [ `echo "$i" | grep "\-\-static="` ]
@@ -279,128 +282,64 @@ then
 	CFLAGS=$CFLAGS" -I"$AVFORMATINCLUDE/libavutil
 fi
 
-# try to find libavformat.a
-if [ -z $LIBAVFORMAT ]
-then
-	echo "no --avformat-lib specified, trying to find libavformat.a..."
-	LIBAVFORMAT=$(find /usr/ $AVFORMATINCLUDE -name libavformat.a 2> /dev/null)
-	if [ -z $LIBAVFORMAT ]
-	then
-		echo "No instance of libavformat.a found. please install libavformat"
-		echo "If libavformat is installed, please specify where it can be found"
-		echo "example:"
-		echo "$0 --avformat-lib=/usr/local/lib/libavformat.a"
-		exit -1
-	fi
-fi
-
-# libavformat.a found
-echo "libavformat.a found"
-echo "using \"$LIBAVFORMAT\""
-echo
-
-# prepare libavformat objects
-mkdir obj 2> /dev/null
-mkdir obj/libavformat 2> /dev/null
-CURRENT=`pwd`
-cd obj/libavformat && ar -x $LIBAVFORMAT 2> temp.log
+# check for existence of avformat library
+cat > temp.c << EOF
+int main(int argc,char **argv) {
+	return 0;
+}
+EOF
+echo $CC -lavformat $LDFLAGS $CFLAGS temp.c -o temp > config.log
+$CC -lavformat $LDFLAGS $CFLAGS temp.c -o temp 2> temp.log
 if [ -s temp.log ]
 then
-	echo "No instance of libavformat.a found. please install libavformat"
+	echo "avformat library could not be found, please install libavformat"
 	echo "If libavformat is installed, please specify where it can be found"
 	echo "example:"
-	echo "$0 --avformat-lib=/usr/local/lib/libavformat.a"
+	echo "$0 --avformat-lib=/usr/local/lib/"
 	exit -1
 fi
-cd $CURRENT
-for i in obj/libavformat/*.o;
-do
-	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
-done
-
-
-# try to find libavcodec.a
-if [ -z $LIBAVCODEC ]
-then
-	echo "no --avcodec-lib specified, trying to find libavcodec.a..."
-	LIBAVCODEC=$(find /usr/ $AVFORMATINCLUDE -name libavcodec.a 2> /dev/null)
-	if [ -z $LIBAVCODEC ]
-	then
-		echo "No instance of libavcodec.a found. please install libavcodec"
-		echo "If libavcodec is installed, please specify where it can be found"
-		echo "example:"
-		echo "$0 --avcodec-lib=/usr/local/lib/libavcodec.a"
-		exit -1
-	fi
-fi
-
-# libavcodec.a found
-echo "libavcodec.a found"
-echo "using \"$LIBAVCODEC\""
-echo
-
-# prepare libavcodec objects
-mkdir obj/libavcodec 2> /dev/null
-CURRENT=`pwd`
-cd obj/libavcodec && ar -x $LIBAVCODEC 2> temp.log
+	
+# check for existence of avcodec library
+cat > temp.c << EOF
+int main(int argc,char **argv) {
+	return 0;
+}
+EOF
+echo $CC -lavcodec $LDFLAGS $CFLAGS temp.c -o temp > config.log
+$CC -lavcodec $LDFLAGS $CFLAGS temp.c -o temp 2> temp.log
 if [ -s temp.log ]
 then
-	echo "No instance of libavcodec.a found. please install libavcodec"
-	echo "If libavcodec is installed, please specify where it can be found"
+	echo "avcodec library could not be found, please install libavcodec"
+	echo "If libavformat is installed, please specify where it can be found"
 	echo "example:"
-	echo "$0 --avcodec-lib=/usr/local/lib/libavcodec.a"
+	echo "$0 --avcodec-lib=/usr/local/lib/"
 	exit -1
 fi
-cd $CURRENT
-for i in obj/libavcodec/*.o;
-do
-	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
-done
 
-
-# try to find libavutil.a
-if [ -z $LIBAVUTIL ]
-then
-	echo "no --avutil-lib specified, trying to find libavutil.a..."
-	LIBAVUTIL=$(find /usr/ $AVFORMATINCLUDE -name libavutil.a 2> /dev/null)
-	if [ -z $LIBAVUTIL ]
-	then
-		echo "No instance of libavutil.a found. please install libavutil"
-		echo "If libavutil is installed, please specify where it can be found"
-		echo "example:"
-		echo "$0 --avutil-lib=/usr/local/lib/libavutil.a"
-		exit -1
-	fi
-fi
-
-# libavutil.a found
-echo "libavutil.a found"
-echo "using \"$LIBAVUTIL\""
-echo
-
-# prepare libavutil objects
-mkdir obj/libavutil 2> /dev/null
-CURRENT=`pwd`
-cd obj/libavutil && ar -x $LIBAVUTIL 2> temp.log
+# check for existence of avutil library
+cat > temp.c << EOF
+int main(int argc,char **argv) {
+	return 0;
+}
+EOF
+echo $CC -lavutil $LDFLAGS $CFLAGS temp.c -o temp > config.log
+$CC -lavutil $LDFLAGS $CFLAGS temp.c -o temp 2> temp.log
 if [ -s temp.log ]
 then
-	echo "No instance of libavutil.a found. please install libavutil"
+	echo "avutil library could not be found, please install libavutil"
 	echo "If libavutil is installed, please specify where it can be found"
 	echo "example:"
-	echo "$0 --avutil-lib=/usr/local/lib/libavutil.a"
+	echo "$0 --avutil-lib=/usr/local/lib/"
 	exit -1
 fi
-cd $CURRENT
-for i in obj/libavutil/*.o;
-do
-	FFMPEGOBJECTS=$FFMPEGOBJECTS" $i"
-done
 
 # write Makefile.include file
 cat > Makefile.include << EOF
 NAME=$NAME
 LIBNAME=$NAME$DEBUGNAME
-FFMPEGOBJECTS=$FFMPEGOBJECTS
+LIBAVFORMAT=$LIBAVFORMAT
+LIBAVCODEC=$LIBAVCODEC
+LIBAVUTIL=$LIBAVUTIL
 LIBRARY=$LIBRARY
 PREFIX=$PREFIX
 BINDIR=$BINDIR
