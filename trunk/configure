@@ -18,7 +18,7 @@ INCDIR=include/
 OBJDIR=obj/
 CFLAGS=-I$INCDIR
 LDFLAGS=-L$LIBDIR
-LIBFLAGS=-lavformat\ -lavcodec\ -lavutil
+FFMPEGLIBS=-lavformat\ -lavcodec\ -lavutil
 BINEXTENSION=
 LIBEXTENSION=
 LIBPREFIX=
@@ -128,7 +128,7 @@ fi
 if [ `uname | grep Linux` ]
 then
 	LDFLAGS=$LDFLAGS\ -L$LIBDIR\ -lSDL\ -lSDLmain\ -lz
-	LIBFLAGS=$LIBFLAGS\ -shared
+	FFMPEGLIBS=-shared\ $FFMPEGLIBS
 	BINEXTENSION=
 	LIBEXTENSION=.a
 	LIBPREFIX=lib
@@ -137,7 +137,7 @@ then
 fi
 
 # set WIN32 mingw specific flags
-if [ `uname | grep MINGW` ]
+if [ `uname | grep MINGW` ] || [ `uname | grep windows` ]
 then
 	LDFLAGS=$LDFLAGS\ -lmingw32\ -lSDLmain\ -lSDL\ -lwsock32
 	BINEXTENSION=.exe
@@ -145,14 +145,14 @@ then
 	LIBPREFIX=lib
 	DYNLIBEXTENSION=.dll
 	DYNLIBPREFIX=
-	LIBFLAGS=$LIBFLAGS\ -shared\ -Wl,--output-def,$LIBDIR$NAME$DEBUGNAME.def,--out-implib,$LIBDIR$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION
+	FFMPEGLIBS=-shared\ -Wl,--output-def,$LIBDIR$NAME$DEBUGNAME.def,--out-implib,$LIBDIR$LIBPREFIX$NAME$DEBUGNAME$LIBEXTENSION\ $FFMPEGLIBS
 fi
 
 # set OSX specific flags
 if [ `uname` = "Darwin" ]
 then
 	LDFLAGS=$LDFLAGS\ -framework\ Cocoa\ -lbz2\ -lz
-	LIBFLAGS=$LDFLAGS\ -dynamiclib\ -mdynamic-no-pic
+	FFMPEGLIBS=$LDFLAGS\ -dynamiclib\ -mdynamic-no-pic\ $FFMPEGLIBS
 	ESOURCE=include/SDL/SDLMain.m
 	BINEXTENSION=
 	LIBEXTENSION=.a
@@ -349,7 +349,7 @@ INCDIR=$INCDIR
 OBJDIR=$OBJDIR
 CFLAGS=$CFLAGS
 LDFLAGS=$LDFLAGS
-LIBFLAGS=$LIBFLAGS
+FFMPEGLIBS=$FFMPEGLIBS
 BINEXTENSION=$BINEXTENSION
 LIBEXTENSION=$LIBEXTENSION
 LIBPREFIX=$LIBPREFIX

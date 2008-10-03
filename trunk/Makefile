@@ -39,7 +39,7 @@ $(LIBDIR)$(LIBPREFIX)$(NAME)$(DEBUGNAME)$(LIBEXTENSION): $(OBJDIR)$(NAME)$(DEBUG
 
 cleanlibrary:
 	-rm -f $(LIBDIR)$(LIBPREFIX)$(NAME)$(DEBUGNAME)$(LIBEXTENSION)
-ifeq ($(shell find $(LIBDIR) -type f | wc -l),0)
+ifeq ($(shell find $(LIBDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(LIBDIR)
 endif
 
@@ -54,7 +54,7 @@ $(LIBDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION): $(OBJDIR)$(NAME)$
 	@echo
 	@echo [ $@ ]
 	@-mkdir $(LIBDIR)
-	$(CC) $(LIBFLAGS) -o $@ $(OBJDIR)$(NAME)$(DEBUGNAME).o $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(LDFLAGS)
+	$(CC) -o $@ $(OBJDIR)$(NAME)$(DEBUGNAME).o $(CFLAGS) -DSDL_FFMPEG_LIBRARY $(FFMPEGLIBS) $(LDFLAGS)
 	# dll's should be moved to the bin dir
 ifeq ($(DYNLIBEXTENSION),.dll)
 	@-mkdir $(BINDIR)
@@ -67,7 +67,7 @@ cleandynamiclibrary:
 ifeq ($(DYNLIBEXTENSION),.dll)
 	-rm -f $(BINDIR)$(DYNLIBPREFIX)$(NAME)$(DEBUGNAME)$(DYNLIBEXTENSION)
 endif
-ifeq ($(shell find $(LIBDIR) -type f | wc -l),0)
+ifeq ($(shell find $(LIBDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(LIBDIR)
 endif
 
@@ -89,7 +89,7 @@ $(BINDIR)example$(BINEXTENSION): $(LIBRARY) $(SRCDIR)example.c
 cleanexample:
 	-rm -f $(BINDIR)example$(BINEXTENSION)
 	-rm -rf $(BINDIR)example.dSYM
-ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
+ifeq ($(shell find $(BINDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(BINDIR)
 endif
 
@@ -113,7 +113,7 @@ $(BINDIR)audioexample$(BINEXTENSION): $(LIBRARY) $(SRCDIR)audioexample.c
 cleanaudioexample:
 	-rm -f $(BINDIR)audioexample$(BINEXTENSION)
 	-rm -rf $(BINDIR)audioexample.dSYM
-ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
+ifeq ($(shell find $(BINDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(BINDIR)
 endif
 
@@ -137,7 +137,7 @@ $(BINDIR)multichannelexample$(BINEXTENSION): $(LIBRARY) $(SRCDIR)multichannelexa
 cleanmultichannelexample:
 	-rm -f $(BINDIR)multichannelexample$(BINEXTENSION)
 	-rm -rf $(BINDIR)multichannelexample.dSYM
-ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
+ifeq ($(shell find $(BINDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(BINDIR)
 endif
 
@@ -161,13 +161,13 @@ install: $(LIBRARY)
 
 clean: cleanexample cleanaudioexample cleanmultichannelexample cleanlibrary cleandynamiclibrary
 	-rm -f $(OBJDIR)$(NAME)$(DEBUGNAME).o
-ifeq ($(shell find $(OBJDIR) -type f | wc -l),0)
+ifeq ($(shell find $(OBJDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(OBJDIR)
 endif
-ifeq ($(shell find $(LIBDIR) -type f | wc -l),0)
+ifeq ($(shell find $(LIBDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(LIBDIR)
 endif
-ifeq ($(shell find $(BINDIR) -type f | wc -l),0)
+ifeq ($(shell find $(BINDIR) -type f | wc -l 2>/dev/null),0)
 	-rm -r $(BINDIR)
 endif
 	@echo 
