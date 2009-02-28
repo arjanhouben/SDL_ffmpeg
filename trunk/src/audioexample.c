@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
     }
 
     /* print some info on detected stream to output */
-    for(s = 0; s<audioFile->AStreams; s++) {
+    for(s = 0; s<audioFile->audioStreams; s++) {
         str = SDL_ffmpegGetAudioStream(audioFile, s);
 
         printf("Info on audiostream #%i:\n", s);

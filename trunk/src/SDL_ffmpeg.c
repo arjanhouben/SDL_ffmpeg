@@ -22,7 +22,7 @@
 
 /**
     @mainpage
-    @version 0.9.0
+    @version 1.0.0
     @author Arjan Houben
 
     SDL_ffmpeg is designed with ease of use in mind.
@@ -74,7 +74,7 @@ int FFMPEG_init_was_called = 0;
 
 int getAudioFrame( SDL_ffmpegFile*, AVPacket*, int16_t*, SDL_ffmpegAudioFrame*, int64_t );
 
-int getVideoFrame( SDL_ffmpegFile*, AVPacket*, AVFrame*, SDL_ffmpegVideoFrame*, int64_t );
+int getVideoFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegVideoFrame* );
 
 void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced );
 
@@ -88,25 +88,7 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)malloc( sizeof(SDL_ffmpegFile) );
     if(!file) return 0;
 
-    /* reset video streams */
-    memset(file->vs, 0, sizeof(SDL_ffmpegStream*) * MAX_STREAMS );
-
-    /* reset audio streams */
-    memset(file->as, 0, sizeof(SDL_ffmpegStream*) * MAX_STREAMS );
-
-    /* initialize variables with standard values */
-    file->audioStream = 0;
-    file->videoStream = 0;
-    file->offset = 0;
-    file->loopCount = 0;
-    file->startTime = 0;
-	file->mustSeek = 0;
-    file->seekPosition = 0;
-    file->videoFrameInUse = 0;
-	file->pendingVideoFrame = 0;
-    file->audioFrameInUse = 0;
-	file->pendingAudioFrame = 0;
-    file->threadID = 0;
+    memset( file, 0, sizeof(SDL_ffmpegFile) );
 
     return file;
 }
@@ -123,39 +105,43 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
             SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* ) or SDL_ffmpegGetAudioFrame( SDL_ffmpegFile* ).
 \param      file SDL_ffmpegFile on which an action is required
 */
-void SDL_ffmpegFree(SDL_ffmpegFile* file) {
-
-    int i,f;
+void SDL_ffmpegFree( SDL_ffmpegFile *file ) {
 
     if( !file ) return;
 
     SDL_ffmpegStopDecoding(file);
 
-    /* invalidate any frame currently in use */
-    file->videoFrameInUse = 0;
-
     SDL_ffmpegFlush(file);
 
-    for(i=0; i<MAX_STREAMS; i++) {
-        if(file->vs[i]) {
-            if( file->vs[i]->_ffmpeg ) avcodec_close( file->vs[i]->_ffmpeg->codec );
-//            for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
-//                SDL_FreeSurface( file->vs[i]->videoBuffer[f].buffer );
-//            }
-            free( file->vs[i] );
-        }
-        if(file->as[i]) {
-            if( file->as[i]->_ffmpeg ) avcodec_close( file->as[i]->_ffmpeg->codec );
-//            for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
-//                av_free( file->as[i]->audioBuffer[f].source );
-//            }
-            free( file->as[i] );
-        }
+    SDL_ffmpegStream *s = file->vs;
+    while( s ) {
+
+        SDL_ffmpegStream *old = s;
+
+        s = s->next;
+
+        SDL_DestroyMutex( old->mutex );
+
+        if( old->_ffmpeg ) avcodec_close( old->_ffmpeg->codec );
+
+        free( old );
     }
 
-    if(file->_ffmpeg) {
-        av_close_input_file( file->_ffmpeg );
+    s = file->as;
+    while( s ) {
+
+        SDL_ffmpegStream *old = s;
+
+        s = s->next;
+
+        SDL_DestroyMutex( old->mutex );
+
+        if( old->_ffmpeg ) avcodec_close( old->_ffmpeg->codec );
+
+        free( old );
     }
+
+    if(file->_ffmpeg) av_close_input_file( file->_ffmpeg );
 
     free(file);
 }
@@ -202,42 +188,27 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
         return 0;
     }
 
-    /* find the streams in the file */
-    file->VStreams = 0;
-    file->AStreams = 0;
-    file->threadActive = 0;
-
     /* iterate through all the streams and store audio/video streams */
     for(i=0; i<file->_ffmpeg->nb_streams; i++) {
 
-        if(file->_ffmpeg->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO) {
+        if( file->_ffmpeg->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO ) {
 
             /* if this is a packet of the correct type we create a new stream */
             SDL_ffmpegStream* stream = (SDL_ffmpegStream*)malloc( sizeof(SDL_ffmpegStream) );
 
             if(stream) {
+
                 /* we set our stream to zero */
                 memset(stream, 0, sizeof(SDL_ffmpegStream));
 
                 /* save unique streamid */
                 stream->id = i;
 
-                /* the timeBase is what we use to calculate from/to pts */
-                stream->timeBase = av_q2d(file->_ffmpeg->streams[i]->time_base) * 1000;
-
-                /* save width and height of our outputframes */
-                stream->width = file->_ffmpeg->streams[i]->codec->width;
-                stream->height = file->_ffmpeg->streams[i]->codec->height;
-
                 /* _ffmpeg holds data about streamcodec */
                 stream->_ffmpeg = file->_ffmpeg->streams[i];
 
                 /* get the correct decoder for this stream */
                 codec = avcodec_find_decoder( stream->_ffmpeg->codec->codec_id );
-
-                /* initialize empty audiobuffer */
-                memset(stream->audioBuffer, 0, sizeof(SDL_ffmpegAudioFrame)*SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES);
-                memset(stream->videoBuffer, 0, sizeof(SDL_ffmpegVideoFrame)*SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES);
 
                 if(!codec) {
                     free(stream);
@@ -247,26 +218,21 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                     fprintf(stderr, "could not open decoder\n");
                 } else {
 
-                    /* allocate videobuffer */
-//                    for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
-//                        stream->videoBuffer[f].buffer = SDL_CreateRGBSurface( 0,
-//                                                    stream->width, stream->height, 32,
-//                                                    0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
-//                    }
+                    stream->mutex = SDL_CreateMutex();
 
-                    /* copy metadata from AVStream into our stream */
-                    stream->frameRate[0] = file->_ffmpeg->streams[i]->time_base.num;
-                    stream->frameRate[1] = file->_ffmpeg->streams[i]->time_base.den;
-                    memcpy(stream->language, file->_ffmpeg->streams[i]->language, 4);
-                    stream->sampleRate = file->_ffmpeg->streams[i]->codec->sample_rate;
-                    stream->channels = file->_ffmpeg->streams[i]->codec->channels;
-                    memcpy(stream->codecName, file->_ffmpeg->streams[i]->codec->codec_name, 32);
+                    stream->decodeFrame = avcodec_alloc_frame();
 
-                    file->vs[file->VStreams] = stream;
-                    file->VStreams++;
+                    SDL_ffmpegStream **s = &file->vs;
+                    while( *s ) {
+                        *s = (*s)->next;
+                    }
+
+                    *s = stream;
+
+                    file->videoStreams++;
                 }
             }
-        } else if(file->_ffmpeg->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO) {
+        } else if( file->_ffmpeg->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO ) {
 
             /* if this is a packet of the correct type we create a new stream */
             SDL_ffmpegStream* stream = (SDL_ffmpegStream*)malloc( sizeof(SDL_ffmpegStream) );
@@ -277,9 +243,6 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 
                 /* save unique streamid */
                 stream->id = i;
-
-                /* the timeBase is what we use to calculate from/to pts */
-                stream->timeBase = av_q2d(file->_ffmpeg->streams[i]->time_base) * 1000;
 
                 /* _ffmpeg holds data about streamcodec */
                 stream->_ffmpeg = file->_ffmpeg->streams[i];
@@ -295,21 +258,16 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                     fprintf(stderr, "could not open decoder\n");
                 } else {
 
-                    /* allocate audiobuffer */
-//                    for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
-//                        stream->audioBuffer[f].source = (uint8_t*)av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof(int16_t) );
-//                    }
+                    stream->mutex = SDL_CreateMutex();
 
-                    /* copy metadata from AVStream into our stream */
-                    stream->frameRate[0] = file->_ffmpeg->streams[i]->time_base.num;
-                    stream->frameRate[1] = file->_ffmpeg->streams[i]->time_base.den;
-                    memcpy(stream->language, file->_ffmpeg->streams[i]->language, 4);
-                    stream->sampleRate = file->_ffmpeg->streams[i]->codec->sample_rate;
-                    stream->channels = file->_ffmpeg->streams[i]->codec->channels;
-                    memcpy(stream->codecName, file->_ffmpeg->streams[i]->codec->codec_name, 32);
+                    SDL_ffmpegStream **s = &file->as;
+                    while( *s ) {
+                        *s = (*s)->next;
+                    }
 
-                    file->as[file->AStreams] = stream;
-                    file->AStreams++;
+                    *s = stream;
+
+                    file->audioStreams++;
                 }
             }
         }
@@ -328,16 +286,19 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 */
 int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame ) {
 
-    if( !frame || !file || !file->videoStream || !file->loopCount || file->videoStream->endReached ) return 0;
+    if( !frame || !file || !file->videoStream || file->videoStream->endReached ) return 0;
 
     /* assume current frame is empty */
     frame->filled = 0;
 
-    SDL_ffmpegPacket *pack = file->videoStream->videoBuffer;
+    SDL_LockMutex( file->videoStream->mutex );
 
-    AVFrame *tempFrame = 0;
+    SDL_ffmpegPacket *pack = file->videoStream->buffer;
 
-    while( pack && !getVideoFrame( file, pack->data, tempFrame, frame, file->seekPosition ) ) {
+    while( pack && !frame->filled ) {
+
+        /* when a frame is received, frame->filled will be set */
+        getVideoFrame( file, pack->data, frame );
 
         /* store used packet for cleaning */
         SDL_ffmpegPacket *used = pack;
@@ -345,21 +306,14 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
         pack = pack->next;
 
         /* destroy used packet */
-        av_free( used->data );
+        av_free_packet( used->data );
         free( used );
     }
 
-    /* check if we have an active packet */
-    if( pack ) {
+    /* next packet will be our starting point */
+    file->videoStream->buffer = pack;
 
-        /* next packet will be our starting point */
-        file->videoStream->videoBuffer = pack->next;
-
-    } else {
-
-        /* next packet unknown at this time */
-        file->videoStream->videoBuffer = 0;
-    }
+    SDL_UnlockMutex( file->videoStream->mutex );
 
     return frame->filled;
 }
@@ -376,14 +330,21 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
 */
 SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioID) {
 
+    int i;
+    SDL_ffmpegStream *s;
+
     /* check if we have any audiostreams */
-    if( !file || !file->AStreams ) return 0;
+    if( !file || !file->audioStreams ) return 0;
 
     /* check if the requested id is possible */
-    if(audioID >= file->AStreams) return 0;
+    if( audioID >= file->audioStreams ) return 0;
+
+    s = file->as;
 
     /* return audiostream linked to audioID */
-    return file->as[audioID];
+    for(i=0; i<audioID && s; i++) s = s->next;
+
+    return s;
 }
 
 
@@ -398,21 +359,25 @@ SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioI
 */
 int SDL_ffmpegSelectAudioStream(SDL_ffmpegFile* file, int audioID) {
 
+    int i;
+
     /* check if we have any audiostreams */
-    if( !file || !file->AStreams ) return -1;
+    if( !file || !file->audioStreams ) return -1;
 
     /* check if the requested id is possible */
-    if(audioID >= file->AStreams) return -1;
+    if( audioID >= file->audioStreams ) return -1;
 
-    if( audioID >= 0 ) {
-
-        /* set current audiostream to stream linked to audioID */
-        file->audioStream = file->as[audioID];
-
-    } else {
+    if( audioID < 0 ) {
 
         /* reset audiostream */
         file->audioStream = 0;
+
+    } else {
+
+        /* set current audiostream to stream linked to audioID */
+        file->audioStream = file->as;
+
+        for(i=0; i<audioID && file->audioStream; i++) file->audioStream = file->audioStream->next;
     }
 
     return 0;
@@ -430,14 +395,21 @@ int SDL_ffmpegSelectAudioStream(SDL_ffmpegFile* file, int audioID) {
 */
 SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t videoID) {
 
-    /* check if we have any videostreams */
-    if( !file || !file->VStreams ) return 0;
+    int i;
+    SDL_ffmpegStream *s;
+
+    /* check if we have any audiostreams */
+    if( !file || !file->videoStreams ) return 0;
 
     /* check if the requested id is possible */
-    if(videoID >= file->VStreams) return 0;
+    if( videoID >= file->videoStreams ) return 0;
 
-    /* return ausiostream linked to videoID */
-    return file->vs[videoID];
+    s = file->vs;
+
+    /* return audiostream linked to audioID */
+    for(i=0; i<videoID && s; i++) s = s->next;
+
+    return s;
 }
 
 
@@ -452,14 +424,26 @@ SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t videoI
 */
 int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
 
-    /* check if we have any videostreams */
-    if( !file || !file->VStreams ) return -1;
+    int i;
+
+    /* check if we have any audiostreams */
+    if( !file || !file->videoStreams ) return -1;
 
     /* check if the requested id is possible */
-    if(videoID >= file->VStreams) return -1;
+    if( videoID >= file->videoStreams ) return -1;
 
-    /* set current videostream to stream linked to videoID */
-    file->videoStream = file->vs[videoID];
+    if( videoID < 0 ) {
+
+        /* reset audiostream */
+        file->videoStream = 0;
+
+    } else {
+
+        /* set current audiostream to stream linked to audioID */
+        file->videoStream = file->vs;
+
+        for(i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
+    }
 
     return 0;
 }
@@ -516,17 +500,8 @@ int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp) {
 
     if( !file || SDL_ffmpegGetDuration( file ) < timestamp ) return -1;
 
-    file->mustSeek = 1;
-
-    /* clamp timestamp */
-    if( timestamp < 0 ) {
-
-        file->seekPosition  = 0;
-
-    } else {
-
-        file->seekPosition = timestamp;
-    }
+    /* set new timestamp */
+    file->seekPosition = timestamp;
 
     return 0;
 }
@@ -557,7 +532,9 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
     /* if we have a valid audio stream, we flush it */
     if( file->audioStream ) {
 
-        SDL_ffmpegPacket *pack = file->audioStream->audioBuffer;
+        SDL_LockMutex( file->audioStream->mutex );
+
+        SDL_ffmpegPacket *pack = file->audioStream->buffer;
 
         while( pack ) {
 
@@ -569,35 +546,40 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
             free( old );
         }
 
-        file->audioStream->audioBuffer = 0;
+        file->audioStream->buffer = 0;
 
         /* flush internal ffmpeg buffers */
         if( file->audioStream->_ffmpeg ) {
 
             avcodec_flush_buffers( file->audioStream->_ffmpeg->codec );
         }
+
+        SDL_UnlockMutex( file->audioStream->mutex );
     }
 
     /* if we have a valid video stream, we flush some more */
     if( file->videoStream ) {
 
-        for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; i++) {
+        SDL_LockMutex( file->videoStream->mutex );
 
-			/* frame which is in use by user should not be flagged free */
-//			if(file->videoFrameInUse != &file->videoStream->videoBuffer[i]) {
-//				file->videoStream->videoBuffer[i].filled = 0;
-//                file->videoStream->videoBuffer[i].next = 0;
-//                file->videoStream->videoBuffer[i].last = 0;
-//			}
+        SDL_ffmpegPacket *pack = file->videoStream->buffer;
+
+        while( pack ) {
+
+            SDL_ffmpegPacket *old = pack;
+
+            pack = pack->next;
+
+            av_free( old->data );
+            free( old );
         }
 
-        if(file->videoStream->_ffmpeg) {
-            avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
-        }
+        file->videoStream->buffer = 0;
 
-        file->videoStream->flushed = 1;
+        /* flush internal ffmpeg buffers */
+        if(file->videoStream->_ffmpeg) avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
 
-		file->pendingVideoFrame = 0;
+        SDL_UnlockMutex( file->videoStream->mutex );
     }
 
     return 0;
@@ -619,91 +601,11 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
 */
 SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file) {
 
-    SDL_ffmpegAudioFrame *f;
+    if( !file || !file->audioStream || file->audioStream->endReached ) return 0;
 
-    if( !file || !file->audioStream || !file->loopCount || file->audioStream->endReached ) return 0;
-
-	f = 0;
-
-	/* previous frame can indicate which frame should come now */
-	if( file->audioFrameInUse ) {
-
-		if( file->audioFrameInUse->size ) return file->audioFrameInUse;
-
-        if( file->audioFrameInUse->next && file->audioFrameInUse->next->size ) f = file->audioFrameInUse->next;
-
-	} else if( file->pendingAudioFrame ) {
-
-		f = file->pendingAudioFrame;
-
-	} else {
-
-		return 0;
-	}
-
-    /* new frame was selected */
-    if(f) {
-
-        /* check if the timestamp is ready to be played */
-        if( f->pts <= SDL_ffmpegGetPosition(file) ) {
-
-			if( file->audioFrameInUse ) {
-
-				/* release previous frame */
-				file->audioFrameInUse->size = 0;
-			}
-
-			#if 1
-			while( !f->last && f->next && f->next->size && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
-
-				/* flag frame which we are not going to use as empty */
-				f->size = 0;
-
-				/* jump to next frame */
-				f = f->next;
-			}
-			#endif
-
-			/* selected frame is marked as being in use by user */
-			file->audioFrameInUse = f;
-
-			if( f->last ) {
-
-				f->last = 0;
-
-			    /* last audio frame found, check if video is available/done */
-			    if( !file->videoStream || file->videoStream->endReached ) {
-
-			        file->audioStream->endReached = 0;
-			        if(file->videoStream) file->videoStream->endReached = 0;
-
-					/* check if file should loop */
-					if( file->loopCount > 0 ) {
-						file->loopCount--;
-					}
-
-					/* if loopCount is still non-zero, we loop */
-					if( file->loopCount ) {
-
-						file->startTime = SDL_GetTicks();
-
-						file->offset = 0;
-					}
-
-			    } else {
-
-			        file->audioStream->endReached = 1;
-			    }
-			}
-
-        } else {
-            /* we can't show this frame at this moment */
-            f = 0;
-        }
-    }
 
     /* return whatever we found */
-    return f;
+    return 0;
 }
 
 
@@ -717,7 +619,7 @@ int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file) {
     if( !file ) return -1;
 
     /* return the current playposition of our file */
-    return SDL_GetTicks() - file->startTime + file->offset;
+    return 0;
 }
 
 
@@ -749,8 +651,8 @@ SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmp
         spec.callback = callback;
         spec.freq = 48000;
         spec.channels = 2;
-        spec.freq = file->audioStream->sampleRate;
-        spec.channels = file->audioStream->channels;
+//        spec.freq = file->audioStream->sampleRate;
+//        spec.channels = file->audioStream->channels;
     }
 
     return spec;
@@ -764,7 +666,7 @@ SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmp
 \param      file SDL_ffmpegFile from which the information is required
 \returns    -1 on error, otherwise the length of the file in milliseconds
 */
-int64_t SDL_ffmpegGetDuration(SDL_ffmpegFile *file) {
+uint64_t SDL_ffmpegGetDuration(SDL_ffmpegFile *file) {
 
     if( !file ) return -1;
     /* returns the duration of the entire file, please note that ffmpeg doesn't
@@ -792,8 +694,8 @@ int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h) {
        if not, we send default values and return.
        by checking the return value you can check if you got a valid size */
     if( file->videoStream ) {
-        *w = file->videoStream->width;
-        *h = file->videoStream->height;
+//        *w = file->videoStream->width;
+//        *h = file->videoStream->height;
         return 0;
     }
 
@@ -830,54 +732,6 @@ int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
     return 0;
 }
 
-
-/** \brief  start or pause a file.
-
-            By calling this function you can select file to play, stop or loop.
-\param      file SDL_ffmpegFile on which an action is required
-\param      count the amount of times the file will play.
-            A negative value means the file will loop forever.
-\returns    -1 on error, otherwise 0
-*/
-int SDL_ffmpegPlay(SDL_ffmpegFile *file, int64_t count) {
-
-    if( !file ) return -1;
-
-	/* if we are going to start, we may have to reset startTime */
-    if( count ) {
-
-		/* if current state is paused, we reset the starttime*/
-		if( !file->loopCount ) file->startTime = SDL_GetTicks();
-
-        /* -1 means we play indefenetely, otherwise we play count times */
-        file->loopCount = count;
-
-    } else {
-
-        if( file->loopCount ) {
-            /* we are about to stop playback, record current position as our offset */
-            file->offset = SDL_ffmpegGetPosition(file);
-        }
-
-        /* reset loopCount to disable playback */
-        file->loopCount = 0;
-
-	}
-
-    return 0;
-}
-
-
-/** \brief  Returns the state of the file.
-
-\param      file SDL_ffmpegFile from which the information is required
-\returns    0 if file is stopped, 1 if file is playing and -1 if there was an error
-*/
-int SDL_ffmpegGetState(SDL_ffmpegFile *file) {
-    if( !file ) return -1;
-    return file->loopCount != 0;
-}
-
 /**
 \cond
 */
@@ -887,8 +741,7 @@ int SDL_ffmpegDecodeThread(void* data) {
 	SDL_ffmpegVideoFrame *lastVideoFrame;
 	SDL_ffmpegAudioFrame *lastAudioFrame;
     AVFrame *inFrame;
-    int64_t seekPos,
-            minimalTimestamp;
+    int64_t seekPos;
     int16_t *samples;
     int decode, a, i, streamLooped = 0, checkBufferedFrame = 0, packetNeedsHandling = 0;
     AVPacket *pack;
@@ -906,54 +759,43 @@ int SDL_ffmpegDecodeThread(void* data) {
     inFrame = avcodec_alloc_frame();
     if( !inFrame ) return -1;
 
-    /* allocate temporary audiobuffer */
+    /* allocate temporary buffer */
     samples = (int16_t*)av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof(int16_t) );
     if( !samples ) {
         return -1;
     }
 
-    minimalTimestamp = AV_NOPTS_VALUE;
+    file->minimalTimestamp = 0;
 
 	lastVideoFrame = 0;
 	lastAudioFrame = 0;
 
+	FILE *f = fopen("decode.txt", "wt");
+
     while( file->threadActive ) {
 
         /* check if a seek operation is pending */
-        if( file->mustSeek ) {
-
+        if( file->seekPosition >= 0 ) {
+printf("seek to %lli\n", file->seekPosition);
             /* convert milliseconds to AV_TIME_BASE units */
             seekPos = file->seekPosition * (AV_TIME_BASE / 1000);
 
             /* AVSEEK_FLAG_BACKWARD means we jump to the first keyframe before seekPos */
-            if( av_seek_frame(file->_ffmpeg, -1, seekPos, AVSEEK_FLAG_BACKWARD) >= 0 ) {
-
-                /*  seek succesfull */
-                if( file->audioStream && file->audioStream->_ffmpeg->codec ) {
-                    avcodec_flush_buffers( file->audioStream->_ffmpeg->codec );
-                }
-
-                if( file->videoStream && file->videoStream->_ffmpeg->codec ) {
-                    avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
-                }
-            }
+            av_seek_frame(file->_ffmpeg, -1, seekPos, AVSEEK_FLAG_BACKWARD);
 
             /* determine the reason for this seek action */
             if( streamLooped ) {
 
-                minimalTimestamp = AV_NOPTS_VALUE;
+                file->minimalTimestamp = 0;
 
             } else {
 
-                file->offset = file->seekPosition;
-                file->startTime = SDL_GetTicks();
-
-                minimalTimestamp = file->offset;
+                file->minimalTimestamp = file->seekPosition;
 
                 SDL_ffmpegFlush(file);
             }
 
-            file->mustSeek = 0;
+            file->seekPosition = -1;
         }
 
         /* create a packet for our data */
@@ -982,7 +824,6 @@ int SDL_ffmpegDecodeThread(void* data) {
             } else {
 
                 streamLooped = 1;
-                file->mustSeek = 1;
                 file->seekPosition = 0;
 
                 /* last frame should be flagged as such */
@@ -1004,66 +845,69 @@ int SDL_ffmpegDecodeThread(void* data) {
 
         /* we got a packet, lets handle it */
 
-        /* If it's an audio packet from our stream... */
-        if( file->audioStream && pack->stream_index == file->audioStream->id ) {
+        /* try to allocate the packet */
+        if( av_dup_packet( pack ) ) {
 
-            /* try to allocate the packet */
-            if( av_dup_packet( pack ) ) {
+            /* error allocating packet */
+            av_free_packet( pack );
 
-                /* error allocating packet */
+        } else {
 
-            } else {
+            /* store pointer to packet */
+            SDL_ffmpegPacket *temp = (SDL_ffmpegPacket*)malloc( sizeof(SDL_ffmpegPacket) );
+            temp->data = pack;
+            temp->next = 0;
 
-                /* store pointer to packet */
-                SDL_ffmpegPacket *temp = (SDL_ffmpegPacket*)malloc( sizeof(SDL_ffmpegPacket) );
-                temp->data = pack;
-                temp->next = 0;
-
-                if( file->audioStream->audioBuffer ) {
-
-                    file->audioStream->audioBuffer->next = temp;
-
-                } else {
-
-                    file->audioStream->audioBuffer = temp;
-                }
-
-                /* packet was handled */
-                packetNeedsHandling = 0;
-            }
-        }
-
-        /* If it's a video packet from our video stream... */
-        if( file->videoStream && pack->stream_index == file->videoStream->id ) {
-
-            /* try to allocate the packet */
-            if( av_dup_packet( pack ) ) {
-
-                /* error allocating packet */
-
-            } else {
+            /* If it's an audio packet from our stream... */
+            if( file->audioStream && pack->stream_index == file->audioStream->id ) {
 
                 /* store pointer to packet */
                 SDL_ffmpegPacket *temp = (SDL_ffmpegPacket*)malloc( sizeof(SDL_ffmpegPacket) );
                 temp->data = pack;
                 temp->next = 0;
 
-                if( file->videoStream->videoBuffer ) {
+                SDL_LockMutex( file->audioStream->mutex );
 
-                    file->videoStream->videoBuffer->next = temp;
+                SDL_ffmpegPacket **p = &file->audioStream->buffer;
 
-                } else {
+                /* find first empty position in the buffer */
+                while( *p ) p = &((*p)->next);
 
-                    file->videoStream->videoBuffer = temp;
-                }
+                *p = temp;
 
-                /* packet was handled */
-                packetNeedsHandling = 0;
+                SDL_UnlockMutex( file->audioStream->mutex );
+            }
+
+            else
+
+            /* If it's a video packet from our video stream... */
+            if( file->videoStream && pack->stream_index == file->videoStream->id ) {
+
+                /* store pointer to packet */
+                SDL_ffmpegPacket *temp = (SDL_ffmpegPacket*)malloc( sizeof(SDL_ffmpegPacket) );
+                temp->data = pack;
+                temp->next = 0;
+
+                fprintf(f, "%X\n", pack);
+
+                SDL_LockMutex( file->videoStream->mutex );
+
+                SDL_ffmpegPacket **p = &file->videoStream->buffer;
+
+                /* find first empty position in the buffer */
+                while( *p ) p = &((*p)->next);
+
+                *p = temp;
+
+                SDL_UnlockMutex( file->videoStream->mutex );
+
+            } else {
+
+                av_free_packet( pack );
             }
         }
 
-        /* check if packets needs to be cleaned up */
-        if( packetNeedsHandling ) av_free_packet( pack );
+        SDL_Delay(10);
     }
 
     return 0;
@@ -1116,7 +960,13 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_f
     return !file->audioStream->_ffmpeg->codec->hurry_up;
 }
 
-int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrame, SDL_ffmpegVideoFrame *frame, int64_t minimalPTS ) {
+FILE *a = 0;
+
+int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *frame ) {
+
+if(!a) a = fopen("getframe.txt", "wt");
+
+fprintf(a, "%X\n", pack);
 
     int got_frame;
 
@@ -1124,31 +974,39 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrame, SDL_f
     if(pack->dts == AV_NOPTS_VALUE) {
         /* if we did not get a valid timestamp, we make one up based on the last
            valid timestamp + the duration of a frame */
-        frame->pts = file->videoStream->lastTimeStamp + file->videoStream->timeBase;
+//        frame->pts = file->videoStream->lastTimeStamp + file->videoStream->timeBase;
     } else {
         /* write timestamp into the buffer */
         frame->pts = av_rescale((pack->dts-file->videoStream->_ffmpeg->start_time)*1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);
     }
 
-	if( frame->pts != AV_NOPTS_VALUE && frame->pts < minimalPTS ) {
+	if( frame->pts != AV_NOPTS_VALUE && frame->pts < file->minimalTimestamp ) {
+
 		file->videoStream->_ffmpeg->codec->hurry_up = 1;
+
     } else {
+
         file->videoStream->_ffmpeg->codec->hurry_up = 0;
     }
 
     got_frame = 0;
 
     /* Decode the packet */
-    avcodec_decode_video(file->videoStream->_ffmpeg->codec, inFrame, &got_frame, pack->data, pack->size);
+    avcodec_decode_video( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack->data, pack->size);
 
     /* if we did not get a frame or we need to hurry, we return */
     if( got_frame && !file->videoStream->_ffmpeg->codec->hurry_up ) {
+
 		if( file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUV420P ) {
+
 			/* convert YUV to RGB data */
-			convertYUV420PtoRGBA( inFrame, frame->buffer, inFrame->interlaced_frame );
+			convertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->buffer, file->videoStream->decodeFrame->interlaced_frame );
+
 		} else {
+
 			/* could not find a valid conversion */
 			printf("couldn't convert image format to RGB\n");
+
 			/* write digital 'snow' into output */
 			snowFill( frame->buffer );
 		}
@@ -1156,7 +1014,7 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, AVFrame *inFrame, SDL_f
 		/* we write the lastTimestamp we got */
 		file->videoStream->lastTimeStamp = frame->pts;
 
-		/* flag this frame as not-empty */
+		/* flag this frame as filled */
 		frame->filled = 1;
 	}
 

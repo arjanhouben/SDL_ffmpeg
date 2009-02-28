@@ -99,28 +99,9 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    /* print some info on detected stream to output */
-    for(s = 0; s<film->AStreams; s++) {
-        str = SDL_ffmpegGetAudioStream(film, s);
-
-        printf("Info on audiostream #%i:\n", s);
-        printf("\tChannels: %i\n",      str->channels);
-        if(strlen(str->language)) printf("\tLanguage: %s\n",      str->language);
-        printf("\tSampleRate: %i\n",    str->sampleRate);
-    }
-
-    for(s = 0; s<film->VStreams; s++) {
-        str = SDL_ffmpegGetVideoStream(film, s);
-
-        printf("Info on videostream #%i:\n", s);
-        if(strlen(str->language)) printf("\tLanguage: %s\n",      str->language);
-        printf("\tFrame: %ix%i\n",  str->width, str->height);
-        printf("\tFrameRate: %.2ffps\n",  1.0 / (str->frameRate[0] / str->frameRate[1]));
-    }
-
     /* select the stream you want to decode (example just uses 0 as a default) */
     SDL_ffmpegSelectVideoStream(film, 0);
-    SDL_ffmpegSelectAudioStream(film, 0);
+//    SDL_ffmpegSelectAudioStream(film, 0);
 
     /* get the audiospec which fits the selected audiostream, if no audiostream */
     /* is selected, default values are used (2 channel, 48Khz) */
@@ -130,6 +111,9 @@ int main(int argc, char** argv) {
     /* exists, width and height are set to default values (320x240) */
     SDL_ffmpegGetVideoSize(film, &w, &h);
 
+w = 720;
+h = 576;
+
     /* Open the Video device */
     screen = SDL_SetVideoMode(w, h, 0, SDL_DOUBLEBUF|SDL_HWSURFACE);
     if(!screen) {
@@ -138,24 +122,27 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    /* Open the Audio device */
-    if( SDL_OpenAudio(&specs, 0) < 0 ) {
-        printf("Couldn't open audio: %s\n", SDL_GetError());
-        SDL_Quit();
-        return -1;
-    }
+frame = malloc( sizeof(SDL_ffmpegVideoFrame) );
+memset(frame, 0, sizeof(SDL_ffmpegVideoFrame) );
+frame->buffer = SDL_CreateRGBSurface( 0, 512, 384, 32, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
+
+//    /* Open the Audio device */
+//    if( SDL_OpenAudio(&specs, 0) < 0 ) {
+//        printf("Couldn't open audio: %s\n", SDL_GetError());
+//        SDL_Quit();
+//        return -1;
+//    }
 
     /* we start our decode thread, this always tries to buffer in some frames */
     /* so we can enjoy smooth playback */
     SDL_ffmpegStartDecoding(film);
 
     /* we unpause the audio so our audiobuffer gets read */
-    SDL_PauseAudio(0);
-
-	/* and start the playback */
-	SDL_ffmpegPlay(film, -1);
+//    SDL_PauseAudio(0);
 
     done = 0;
+
+    int framecount = 0;
 
     while( !done ) {
 
@@ -172,37 +159,34 @@ int main(int argc, char** argv) {
 
                 SDL_PumpEvents();
 
-                SDL_GetMouseState(&x, &y);
+                SDL_GetMouseState( &x, &y );
                 /* by clicking you turn on the stream, seeking to the percentage */
                 /* in time, based on the x-position you clicked on */
                 time = (int64_t)(((double)x / (double)w) * SDL_ffmpegGetDuration(film));
 
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek(film, time);
-
-                /* by passing 0 as our second argument, we pause the file */
-                /* passing -1 means we want to loop this file forever */
-				/* any unsigned value means we play the file that many times */
-                SDL_ffmpegPlay(film, 1);
             }
         }
 
-        /*  we retrieve the current image from the file
-            we get 0 if no frame could be retrieved
-            frame is valid until next frame is received */
-        frame = SDL_ffmpegGetVideoFrame(film);
+        if( SDL_ffmpegGetVideoFrame(film, frame) ) {
 
-        if(frame) {
-
+char c[64];
+sprintf(c, "image%4i.bmp", framecount++);
+SDL_SaveBMP( frame->buffer, c );
+//done = 1;
+SDL_Surface *bmp = SDL_DisplayFormat( frame->buffer );
             /* we got a frame, so we better show this one */
-            SDL_BlitSurface(frame->buffer, 0, screen, 0);
+//            SDL_BlitSurface( frame->buffer, 0, screen, 0 );
+            SDL_BlitSurface( bmp, 0, screen, 0 );
+SDL_FreeSurface( bmp );
 
             /* we flip the double buffered screen so we might actually see something */
             SDL_Flip(screen);
         }
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay(10);
+        SDL_Delay(1);
     }
 
     /* after all is said and done, we should call this */
