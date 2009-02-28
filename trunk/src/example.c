@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
         printf("usage: \"%s\" \"filename\"\n", argv[0]);
         return -1;
     }
+
     /* standard SDL initialization stuff */
     if(SDL_Init(SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "problem initializing SDL: %s\n", SDL_GetError());

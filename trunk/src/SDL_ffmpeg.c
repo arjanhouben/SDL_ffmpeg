@@ -80,6 +80,8 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced
 
 void snowFill( SDL_Surface *frame );
 
+int SDL_ffmpegDecodeThread(void* data);
+
 SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 
     /* create SDL_ffmpegFile pointer */
@@ -99,7 +101,7 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     file->loopCount = 0;
     file->startTime = 0;
 	file->mustSeek = 0;
-    file->seekTo = 0;
+    file->seekPosition = 0;
     file->videoFrameInUse = 0;
 	file->pendingVideoFrame = 0;
     file->audioFrameInUse = 0;
@@ -137,16 +139,16 @@ void SDL_ffmpegFree(SDL_ffmpegFile* file) {
     for(i=0; i<MAX_STREAMS; i++) {
         if(file->vs[i]) {
             if( file->vs[i]->_ffmpeg ) avcodec_close( file->vs[i]->_ffmpeg->codec );
-            for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
-                SDL_FreeSurface( file->vs[i]->videoBuffer[f].buffer );
-            }
+//            for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
+//                SDL_FreeSurface( file->vs[i]->videoBuffer[f].buffer );
+//            }
             free( file->vs[i] );
         }
         if(file->as[i]) {
             if( file->as[i]->_ffmpeg ) avcodec_close( file->as[i]->_ffmpeg->codec );
-            for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
-                av_free( file->as[i]->audioBuffer[f].source );
-            }
+//            for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
+//                av_free( file->as[i]->audioBuffer[f].source );
+//            }
             free( file->as[i] );
         }
     }
@@ -246,11 +248,11 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                 } else {
 
                     /* allocate videobuffer */
-                    for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
-                        stream->videoBuffer[f].buffer = SDL_CreateRGBSurface( 0,
-                                                    stream->width, stream->height, 32,
-                                                    0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
-                    }
+//                    for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; f++) {
+//                        stream->videoBuffer[f].buffer = SDL_CreateRGBSurface( 0,
+//                                                    stream->width, stream->height, 32,
+//                                                    0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
+//                    }
 
                     /* copy metadata from AVStream into our stream */
                     stream->frameRate[0] = file->_ffmpeg->streams[i]->time_base.num;
@@ -294,9 +296,9 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                 } else {
 
                     /* allocate audiobuffer */
-                    for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
-                        stream->audioBuffer[f].source = (uint8_t*)av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof(int16_t) );
-                    }
+//                    for(f=0; f<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; f++) {
+//                        stream->audioBuffer[f].source = (uint8_t*)av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof(int16_t) );
+//                    }
 
                     /* copy metadata from AVStream into our stream */
                     stream->frameRate[0] = file->_ffmpeg->streams[i]->time_base.num;
@@ -324,95 +326,42 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 \param      file SDL_ffmpegFile from which the information is required
 \returns    Pointer to SDL_ffmpegVideoFrame, or NULL if no frame was available.
 */
-SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file) {
+int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame ) {
 
-    SDL_ffmpegVideoFrame *f;
+    if( !frame || !file || !file->videoStream || !file->loopCount || file->videoStream->endReached ) return 0;
 
-    if( !file || !file->videoStream || !file->loopCount || file->videoStream->endReached ) return 0;
+    /* assume current frame is empty */
+    frame->filled = 0;
 
-	f = 0;
+    SDL_ffmpegPacket *pack = file->videoStream->videoBuffer;
 
-	/* previous frame can indicate which frame should come now */
-	if( file->videoFrameInUse ) {
+    AVFrame *tempFrame = 0;
 
-		if( file->videoFrameInUse->next && file->videoFrameInUse->next->filled ) {
+    while( pack && !getVideoFrame( file, pack->data, tempFrame, frame, file->seekPosition ) ) {
 
-			f = file->videoFrameInUse->next;
-		}
+        /* store used packet for cleaning */
+        SDL_ffmpegPacket *used = pack;
 
-	} else if( file->pendingVideoFrame ) {
+        pack = pack->next;
 
-		f = file->pendingVideoFrame;
-
-	} else {
-
-		return 0;
-	}
-
-    /* new frame was selected */
-    if(f) {
-
-        /* check if pts is suited for displaying */
-        if( f->pts <= SDL_ffmpegGetPosition(file) ) {
-
-			if( file->videoFrameInUse ) {
-
-				/* release previous frame */
-				file->videoFrameInUse->filled = 0;
-			}
-
-			#if 1
-			/* check if we can skip this frame */
-			while( !f->last && f->next && f->next->filled && f->next->pts <= SDL_ffmpegGetPosition(file) ) {
-
-				/* current frame will not be used, flag it empty */
-				f->filled = 0;
-//printf("dropped frame\n");
-				/* jump to next frame */
-				f = f->next;
-			}
-			#endif
-
-			/* selected frame is marked as being used by user */
-			file->videoFrameInUse = f;
-
-			if( f->last ) {
-
-				f->last = 0;
-
-			    /* last video frame found, check if audio is available/done */
-			    if( !file->audioStream || file->audioStream->endReached ) {
-
-			        file->videoStream->endReached = 0;
-			        if(file->audioStream) file->audioStream->endReached = 0;
-
-					/* check if file should loop */
-					if( file->loopCount > 0 ) {
-						file->loopCount--;
-					}
-
-					/* if loopCount is still non-zero, we loop */
-					if( file->loopCount ) {
-
-						file->startTime = SDL_GetTicks();
-
-						file->offset = 0;
-					}
-
-			    } else {
-
-			        file->videoStream->endReached = 1;
-			    }
-			}
-
-		} else {
-
-			/* we can't use this frame right now */
-			f = 0;
-		}
+        /* destroy used packet */
+        av_free( used->data );
+        free( used );
     }
 
-    return f;
+    /* check if we have an active packet */
+    if( pack ) {
+
+        /* next packet will be our starting point */
+        file->videoStream->videoBuffer = pack->next;
+
+    } else {
+
+        /* next packet unknown at this time */
+        file->videoStream->videoBuffer = 0;
+    }
+
+    return frame->filled;
 }
 
 
@@ -572,11 +521,11 @@ int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp) {
     /* clamp timestamp */
     if( timestamp < 0 ) {
 
-        file->seekTo  = 0;
+        file->seekPosition  = 0;
 
     } else {
 
-        file->seekTo = timestamp;
+        file->seekPosition = timestamp;
     }
 
     return 0;
@@ -608,23 +557,25 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
     /* if we have a valid audio stream, we flush it */
     if( file->audioStream ) {
 
-        for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES; i++) {
+        SDL_ffmpegPacket *pack = file->audioStream->audioBuffer;
 
-			/* frame which is in use by user should not be flagged free */
-            if(file->audioFrameInUse != &file->audioStream->audioBuffer[i]) {
-                file->audioStream->audioBuffer[i].size = 0;
-                file->audioStream->audioBuffer[i].next = 0;
-                file->audioStream->audioBuffer[i].last = 0;
-            }
+        while( pack ) {
+
+            SDL_ffmpegPacket *old = pack;
+
+            pack = pack->next;
+
+            av_free( old->data );
+            free( old );
         }
 
-        if(file->audioStream->_ffmpeg) {
+        file->audioStream->audioBuffer = 0;
+
+        /* flush internal ffmpeg buffers */
+        if( file->audioStream->_ffmpeg ) {
+
             avcodec_flush_buffers( file->audioStream->_ffmpeg->codec );
         }
-
-		file->pendingAudioFrame = 0;
-
-        file->audioStream->flushed = 1;
     }
 
     /* if we have a valid video stream, we flush some more */
@@ -633,11 +584,11 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file) {
         for(i=0; i<SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES; i++) {
 
 			/* frame which is in use by user should not be flagged free */
-			if(file->videoFrameInUse != &file->videoStream->videoBuffer[i]) {
-				file->videoStream->videoBuffer[i].filled = 0;
-                file->videoStream->videoBuffer[i].next = 0;
-                file->videoStream->videoBuffer[i].last = 0;
-			}
+//			if(file->videoFrameInUse != &file->videoStream->videoBuffer[i]) {
+//				file->videoStream->videoBuffer[i].filled = 0;
+//                file->videoStream->videoBuffer[i].next = 0;
+//                file->videoStream->videoBuffer[i].last = 0;
+//			}
         }
 
         if(file->videoStream->_ffmpeg) {
@@ -939,13 +890,8 @@ int SDL_ffmpegDecodeThread(void* data) {
     int64_t seekPos,
             minimalTimestamp;
     int16_t *samples;
-    int decode, a, streamLooped = 0, checkBufferedFrame = 0;
-
-    /* create a packet for our data */
-    AVPacket pack;
-
-    /* initialize packet */
-    av_init_packet(&pack);
+    int decode, a, i, streamLooped = 0, checkBufferedFrame = 0, packetNeedsHandling = 0;
+    AVPacket *pack;
 
     /* if we got invalid data, return */
     if(!data) return -1;
@@ -971,27 +917,22 @@ int SDL_ffmpegDecodeThread(void* data) {
 	lastVideoFrame = 0;
 	lastAudioFrame = 0;
 
-    while(file->threadActive) {
+    while( file->threadActive ) {
 
         /* check if a seek operation is pending */
-        if(file->mustSeek) {
+        if( file->mustSeek ) {
 
             /* convert milliseconds to AV_TIME_BASE units */
-            seekPos = file->seekTo * (AV_TIME_BASE / 1000);
-
-            /* this seems to have an adverse affect on seeking
-            if(file->_ffmpeg->start_time != AV_NOPTS_VALUE) {
-                / * start_time is in AV_TIME_BASE fractional seconds * /
-                seekPos += file->_ffmpeg->start_time;
-            }
-            */
+            seekPos = file->seekPosition * (AV_TIME_BASE / 1000);
 
             /* AVSEEK_FLAG_BACKWARD means we jump to the first keyframe before seekPos */
             if( av_seek_frame(file->_ffmpeg, -1, seekPos, AVSEEK_FLAG_BACKWARD) >= 0 ) {
+
                 /*  seek succesfull */
                 if( file->audioStream && file->audioStream->_ffmpeg->codec ) {
                     avcodec_flush_buffers( file->audioStream->_ffmpeg->codec );
                 }
+
                 if( file->videoStream && file->videoStream->_ffmpeg->codec ) {
                     avcodec_flush_buffers( file->videoStream->_ffmpeg->codec );
                 }
@@ -1004,7 +945,7 @@ int SDL_ffmpegDecodeThread(void* data) {
 
             } else {
 
-                file->offset = file->seekTo;
+                file->offset = file->seekPosition;
                 file->startTime = SDL_GetTicks();
 
                 minimalTimestamp = file->offset;
@@ -1015,8 +956,14 @@ int SDL_ffmpegDecodeThread(void* data) {
             file->mustSeek = 0;
         }
 
+        /* create a packet for our data */
+        AVPacket *pack = av_malloc( sizeof(AVPacket) );
+
+        /* initialize packet */
+        av_init_packet( pack );
+
         /* read a packet from the file */
-        decode = av_read_frame(file->_ffmpeg, &pack);
+        decode = av_read_frame( file->_ffmpeg, pack );
 
         /* if we did not get a packet, we seek to begin and try again */
         if( decode < 0 ) {
@@ -1024,19 +971,19 @@ int SDL_ffmpegDecodeThread(void* data) {
             /* first lets check if there is still a frame in the buffer */
             if( checkBufferedFrame && file->videoStream && file->videoStream->id >= 0 ) {
 
-                /* prepare packet to check for buffered frame */
-                pack.data = 0;
-                pack.size = 0;
-                pack.stream_index = file->videoStream->id;
-
-                /* make sure we only check once for a buffered frame */
-                checkBufferedFrame = 0;
+//                /* prepare packet to check for buffered frame */
+//                pack.data = 0;
+//                pack.size = 0;
+//                pack.stream_index = file->videoStream->id;
+//
+//                /* make sure we only check once for a buffered frame */
+//                checkBufferedFrame = 0;
 
             } else {
 
                 streamLooped = 1;
                 file->mustSeek = 1;
-                file->seekTo = 0;
+                file->seekPosition = 0;
 
                 /* last frame should be flagged as such */
                 if( lastAudioFrame ) lastAudioFrame->last = 1;
@@ -1050,103 +997,74 @@ int SDL_ffmpegDecodeThread(void* data) {
 
             streamLooped = 0;
             checkBufferedFrame = 1;
+
+            /* packet needs to be handled */
+            packetNeedsHandling = 1;
         }
 
         /* we got a packet, lets handle it */
 
-        /* If it's a audio packet from our stream... */
-        if( file->audioStream && pack.stream_index == file->audioStream->id ) {
+        /* If it's an audio packet from our stream... */
+        if( file->audioStream && pack->stream_index == file->audioStream->id ) {
 
-            a = 0;
-            /*  while thread is active, and buffer position is not empty or
-                equal to the frame in use by user, we seek for an empty frame */
-            while(  file->threadActive && ( file->audioStream->audioBuffer[a].size ||
-                    &file->audioStream->audioBuffer[a] == file->audioFrameInUse ) ) {
+            /* try to allocate the packet */
+            if( av_dup_packet( pack ) ) {
 
-                /* if we need to seek, drop current frame */
-                if(file->mustSeek) goto freePacket;
-                a++;
-                if(a >= SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES) {
-                    a = 0;
-                    /* we tried all buffer options, wait a bit and try them again */
-                    SDL_Delay(10);
-				}
-            }
+                /* error allocating packet */
 
-            /* we got out of the loop, meaning we found an empty space in the audio buffer */
+            } else {
 
-			/* write found audioFrame into empty audiobuffer place */
-			if( getAudioFrame( file, &pack, samples, &file->audioStream->audioBuffer[a], minimalTimestamp ) ) {
+                /* store pointer to packet */
+                SDL_ffmpegPacket *temp = (SDL_ffmpegPacket*)malloc( sizeof(SDL_ffmpegPacket) );
+                temp->data = pack;
+                temp->next = 0;
 
-                if( file->audioStream->flushed ) {
-                    /* after a flush the lastAudioFrame is invalid */
-                    lastAudioFrame = file->audioFrameInUse;
-                    /* we continue with the last frame given to the user */
-                    file->audioStream->flushed = 0;
+                if( file->audioStream->audioBuffer ) {
+
+                    file->audioStream->audioBuffer->next = temp;
+
+                } else {
+
+                    file->audioStream->audioBuffer = temp;
                 }
 
-				if( lastAudioFrame ) lastAudioFrame->next = &file->audioStream->audioBuffer[a];
-
-				lastAudioFrame = &file->audioStream->audioBuffer[a];
-
-				if( !file->audioFrameInUse && !file->pendingAudioFrame ) {
-
-					file->pendingAudioFrame = &file->audioStream->audioBuffer[a];
-
-					file->pendingAudioFrame->next = 0;
-				}
-			}
+                /* packet was handled */
+                packetNeedsHandling = 0;
+            }
         }
 
         /* If it's a video packet from our video stream... */
-        if( file->videoStream && pack.stream_index == file->videoStream->id ) {
+        if( file->videoStream && pack->stream_index == file->videoStream->id ) {
 
-            a = 0;
-            /*  while thread is active, and buffer position is not empty and not
-                equal to the frame in use by user, we seek for an empty frame */
-            while(  file->threadActive && ( file->videoStream->videoBuffer[a].filled ||
-                    &file->videoStream->videoBuffer[a] == file->videoFrameInUse ) ) {
+            /* try to allocate the packet */
+            if( av_dup_packet( pack ) ) {
 
-                /* if we need to seek, drop current frame */
-                if(file->mustSeek) goto freePacket;
-                a++;
-                if(a >= SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES) {
-                    a = 0;
-                    /* we tried all buffer options, wait a bit and try them again */
-                    SDL_Delay(10);				}
-            }
+                /* error allocating packet */
 
-            /* we got out of the loop, meaning we found an empty space in the video buffer */
+            } else {
 
-			/* write found videoFrame into empty videobuffer place */
-			if( getVideoFrame( file, &pack, inFrame, &file->videoStream->videoBuffer[a], minimalTimestamp ) ) {
+                /* store pointer to packet */
+                SDL_ffmpegPacket *temp = (SDL_ffmpegPacket*)malloc( sizeof(SDL_ffmpegPacket) );
+                temp->data = pack;
+                temp->next = 0;
 
-                if( file->videoStream->flushed ) {
-                    /* after a flush the lastAudioFrame is invalid */
-                    lastVideoFrame = file->videoFrameInUse;
-                    /* we continue with the last frame given to the user */
-                    file->videoStream->flushed = 0;
+                if( file->videoStream->videoBuffer ) {
+
+                    file->videoStream->videoBuffer->next = temp;
+
+                } else {
+
+                    file->videoStream->videoBuffer = temp;
                 }
 
-				if( lastVideoFrame ) lastVideoFrame->next = &file->videoStream->videoBuffer[a];
-
-				lastVideoFrame = &file->videoStream->videoBuffer[a];
-
-				if( !file->videoFrameInUse && !file->pendingVideoFrame ) {
-
-					file->pendingVideoFrame = &file->videoStream->videoBuffer[a];
-
-					file->pendingVideoFrame->next = 0;
-				}
-			}
+                /* packet was handled */
+                packetNeedsHandling = 0;
+            }
         }
 
-        freePacket:
-        /* we can release the packet we reserved */
-        av_free_packet(&pack);
+        /* check if packets needs to be cleaned up */
+        if( packetNeedsHandling ) av_free_packet( pack );
     }
-
-    av_free( samples );
 
     return 0;
 }

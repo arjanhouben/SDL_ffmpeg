@@ -39,6 +39,12 @@ extern "C" {
 
 typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
+/** Struct to hold packet buffers */
+typedef struct SDL_ffmpegPacket {
+    AVPacket *data;
+    struct SDL_ffmpegPacket *next;
+} SDL_ffmpegPacket;
+
 /** Struct to hold audio data */
 typedef struct SDL_ffmpegAudioFrame {
     /** Presentation timestamp, time at which this data should be used. */
@@ -60,7 +66,7 @@ typedef struct SDL_ffmpegAudioFrame {
 typedef struct SDL_ffmpegVideoFrame {
     /** Presentation timestamp, time at which this data should be used. */
     int64_t pts;
-    /** Pointer to audio buffer, user adjustable. */
+    /** Pointer to video buffer, user adjustable. */
     SDL_Surface *buffer;
     /** Value indicating if this frame holds data, or that it can be overwritten. */
     int filled;
@@ -82,10 +88,12 @@ typedef struct SDL_ffmpegStream {
     struct AVStream *_ffmpeg;
 
     /** Audio buffers */
-    SDL_ffmpegAudioFrame audioBuffer[ SDL_FFMPEG_MAX_BUFFERED_AUDIOFRAMES ];
+    SDL_ffmpegPacket *audioBuffer;
+    uint32_t audioBufferSize;
 
     /** Video buffers */
-    SDL_ffmpegVideoFrame videoBuffer[ SDL_FFMPEG_MAX_BUFFERED_VIDEOFRAMES ];
+    SDL_ffmpegPacket *videoBuffer;
+    uint32_t videoBufferSize;
 
     /** Framerate, duration of a single frame can be calculated using
         frameRate[0] / frameRate[1]. frameRate[1] can be zero, so watch out for
@@ -139,7 +147,7 @@ typedef struct SDL_ffmpegFile {
     /** Holds the time at which a stream was started */
                 startTime,
     /** Holds the position to which a seek will be performed */
-                seekTo;
+                seekPosition;
     /** Value for flagging the decode thread into seek-mode */
     int			mustSeek;
 
@@ -172,7 +180,7 @@ int SDL_ffmpegStartDecoding(SDL_ffmpegFile* file);
 
 int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file);
 
-SDL_ffmpegVideoFrame* SDL_ffmpegGetVideoFrame(SDL_ffmpegFile* file);
+int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
 SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioID);
 
@@ -187,8 +195,6 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile();
 void SDL_ffmpegFree(SDL_ffmpegFile* file);
 
 SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
-
-int SDL_ffmpegDecodeThread(void* data);
 
 int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
 
