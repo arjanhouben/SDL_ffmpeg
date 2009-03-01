@@ -61,6 +61,8 @@ typedef struct SDL_ffmpegVideoFrame {
     int64_t pts;
     /** Pointer to video buffer, user adjustable. */
     SDL_Surface *buffer;
+    /** Pointer to overlay buffer, user adjustable. */
+    SDL_Overlay *overlay;
     /** Value indicating if this frame holds data, or that it can be overwritten. */
     int filled;
     /** Pointer to next SDL_ffmpegVideoFrame */

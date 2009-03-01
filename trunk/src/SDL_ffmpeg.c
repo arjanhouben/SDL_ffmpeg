@@ -78,7 +78,7 @@ int getVideoFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegVideoFrame* );
 
 void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced );
 
-void snowFill( SDL_Surface *frame );
+void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced);
 
 int SDL_ffmpegDecodeThread(void* data);
 
@@ -426,7 +426,7 @@ int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
 
     int i;
 
-    /* check if we have any audiostreams */
+    /* check if we have any videostreams */
     if( !file || !file->videoStreams ) return -1;
 
     /* check if the requested id is possible */
@@ -434,20 +434,26 @@ int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
 
     if( videoID < 0 ) {
 
-        /* reset audiostream */
+        /* reset videostream */
         file->videoStream = 0;
 
     } else {
 
-        /* set current audiostream to stream linked to audioID */
+        /* set current videostream to stream linked to videoID */
         file->videoStream = file->vs;
 
+        /* keep searching for correct videostream */
         for(i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
+
+        /* check if pixel format is supported */
+        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P ) {
+            printf("unsupported pixel format\n");
+            file->videoStream = 0;
+        }
     }
 
     return 0;
 }
-
 
 /** \brief  Starts decoding the file.
 
@@ -770,13 +776,11 @@ int SDL_ffmpegDecodeThread(void* data) {
 	lastVideoFrame = 0;
 	lastAudioFrame = 0;
 
-	FILE *f = fopen("decode.txt", "wt");
-
     while( file->threadActive ) {
 
         /* check if a seek operation is pending */
         if( file->seekPosition >= 0 ) {
-printf("seek to %lli\n", file->seekPosition);
+
             /* convert milliseconds to AV_TIME_BASE units */
             seekPos = file->seekPosition * (AV_TIME_BASE / 1000);
 
@@ -888,8 +892,6 @@ printf("seek to %lli\n", file->seekPosition);
                 temp->data = pack;
                 temp->next = 0;
 
-                fprintf(f, "%X\n", pack);
-
                 SDL_LockMutex( file->videoStream->mutex );
 
                 SDL_ffmpegPacket **p = &file->videoStream->buffer;
@@ -907,7 +909,7 @@ printf("seek to %lli\n", file->seekPosition);
             }
         }
 
-        SDL_Delay(10);
+        SDL_Delay(0);
     }
 
     return 0;
@@ -960,13 +962,7 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, int16_t *samples, SDL_f
     return !file->audioStream->_ffmpeg->codec->hurry_up;
 }
 
-FILE *a = 0;
-
 int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *frame ) {
-
-if(!a) a = fopen("getframe.txt", "wt");
-
-fprintf(a, "%X\n", pack);
 
     int got_frame;
 
@@ -997,19 +993,16 @@ fprintf(a, "%X\n", pack);
     /* if we did not get a frame or we need to hurry, we return */
     if( got_frame && !file->videoStream->_ffmpeg->codec->hurry_up ) {
 
-		if( file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUV420P ) {
+        /* convert YUV 420 to YUV 444 data */
+        if( frame->overlay && frame->overlay->format == SDL_YUY2_OVERLAY ) {
 
-			/* convert YUV to RGB data */
-			convertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->buffer, file->videoStream->decodeFrame->interlaced_frame );
+            convertYUV420PtoYUY2( file->videoStream->decodeFrame, frame->overlay, file->videoStream->decodeFrame->interlaced_frame );
+        }
 
-		} else {
-
-			/* could not find a valid conversion */
-			printf("couldn't convert image format to RGB\n");
-
-			/* write digital 'snow' into output */
-			snowFill( frame->buffer );
-		}
+        /* convert YUV to RGB data */
+        if( frame->buffer ) {
+//			convertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->buffer, file->videoStream->decodeFrame->interlaced_frame );
+        }
 
 		/* we write the lastTimestamp we got */
 		file->videoStream->lastTimeStamp = frame->pts;
@@ -1074,16 +1067,100 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
     }
 }
 
-void snowFill( SDL_Surface *frame ) {
-    uint8_t *RGB = frame->pixels;
-    int i, t;
-    for(i=0; i<frame->w*frame->h; i++) {
-        t = (int)(((float)rand() / (float)RAND_MAX) * 255.0);
-        *RGB = t;   RGB++;
-        *RGB = t;   RGB++;
-        *RGB = t;   RGB++;
-        *RGB = t;   RGB++;
+void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint8_t *YUVpacked, int w ) {
+
+    /* devide width by 2 */
+    w >>= 1;
+
+    while( w-- ) {
+
+        /* Y0 */
+        *YUVpacked = *Y;
+        YUVpacked++;
+        Y++;
+
+        /* U0 */
+        *YUVpacked = *U;
+        YUVpacked++;
+        U++;
+
+        /* Y1 */
+        *YUVpacked = *Y;
+        YUVpacked++;
+        Y++;
+
+        /* V0 */
+        *YUVpacked = *V;
+        YUVpacked++;
+        V++;
     }
+}
+
+void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced ) {
+
+    int x, y;
+
+    const uint8_t   *Y = YUV420P->data[0],
+                    *U = YUV420P->data[1],
+                    *V = YUV420P->data[2];
+
+    uint8_t *YUVpacked = YUY2->pixels[0];
+
+    SDL_LockYUVOverlay( YUY2 );
+
+    if( interlaced ) {
+
+        for(y=0; y<(YUY2->h>>2); y++){
+
+            /* line 0 */
+            convertYUV420PtoYUY2scanline( Y, U, V, YUVpacked, YUY2->w );
+            YUVpacked += YUY2->pitches[0];
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+
+            /* line 1 */
+            convertYUV420PtoYUY2scanline( Y, U, V, YUVpacked, YUY2->w );
+            YUVpacked += YUY2->pitches[0];
+            Y += YUV420P->linesize[0];
+            U -= YUV420P->linesize[1];
+            V -= YUV420P->linesize[2];
+
+            /* line 2 */
+            convertYUV420PtoYUY2scanline( Y, U, V, YUVpacked, YUY2->w );
+            YUVpacked += YUY2->pitches[0];
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+
+            /* line 3 */
+            convertYUV420PtoYUY2scanline( Y, U, V, YUVpacked, YUY2->w );
+            YUVpacked += YUY2->pitches[0];
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+        }
+
+    } else {
+
+        for(y=0; y<(YUY2->h>>1); y++){
+
+            /* line 0 */
+            convertYUV420PtoYUY2scanline( Y, U, V, YUVpacked, YUY2->w );
+            YUVpacked += YUY2->pitches[0];
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+
+            /* line 1 */
+            convertYUV420PtoYUY2scanline( Y, U, V, YUVpacked, YUY2->w );
+            YUVpacked += YUY2->pitches[0];
+            Y += YUV420P->linesize[0];
+        }
+
+    }
+
+    SDL_UnlockYUVOverlay( YUY2 );
 }
 
 /**
