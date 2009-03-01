@@ -90,6 +90,9 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 
     memset( file, 0, sizeof(SDL_ffmpegFile) );
 
+    /* standard preload size is 1MB */
+    file->preloadSize = 1024 * 1024;
+
     return file;
 }
 
@@ -738,6 +741,51 @@ int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
     return 0;
 }
 
+
+/** \brief  This is used to check the amount of data which is preloaded.
+
+\param      file SDL_ffmpegFile from which the information is required
+\returns    the amount of bytes preloaded by file
+*/
+int SDL_ffmpegPreloaded(SDL_ffmpegFile *file) {
+
+    int size = 0;
+
+    if( file->audioStream ) {
+
+        SDL_LockMutex( file->audioStream->mutex );
+
+        SDL_ffmpegPacket *pack = file->audioStream->buffer;
+
+        while( pack ) {
+
+            size += pack->data->size;
+
+            pack = pack->next;
+        }
+
+        SDL_UnlockMutex( file->audioStream->mutex );
+    }
+
+    if( file->videoStream ) {
+
+        SDL_LockMutex( file->videoStream->mutex );
+
+        SDL_ffmpegPacket *pack = file->videoStream->buffer;
+
+        while( pack ) {
+
+            size += pack->data->size;
+
+            pack = pack->next;
+        }
+
+        SDL_UnlockMutex( file->videoStream->mutex );
+    }
+
+    return size;
+}
+
 /**
 \cond
 */
@@ -802,6 +850,13 @@ int SDL_ffmpegDecodeThread(void* data) {
             file->seekPosition = -1;
         }
 
+        if( SDL_ffmpegPreloaded( file ) >= file->preloadSize ) {
+
+            SDL_Delay(1);
+
+            continue;
+        }
+
         /* create a packet for our data */
         AVPacket *pack = av_malloc( sizeof(AVPacket) );
 
@@ -813,6 +868,9 @@ int SDL_ffmpegDecodeThread(void* data) {
 
         /* if we did not get a packet, we seek to begin and try again */
         if( decode < 0 ) {
+
+            streamLooped = 1;
+            file->seekPosition = 0;
 
             /* first lets check if there is still a frame in the buffer */
             if( checkBufferedFrame && file->videoStream && file->videoStream->id >= 0 ) {
@@ -993,15 +1051,16 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *f
     /* if we did not get a frame or we need to hurry, we return */
     if( got_frame && !file->videoStream->_ffmpeg->codec->hurry_up ) {
 
-        /* convert YUV 420 to YUV 444 data */
+        /* convert YUV 420 to YUYV 422 data */
         if( frame->overlay && frame->overlay->format == SDL_YUY2_OVERLAY ) {
 
             convertYUV420PtoYUY2( file->videoStream->decodeFrame, frame->overlay, file->videoStream->decodeFrame->interlaced_frame );
         }
 
         /* convert YUV to RGB data */
-        if( frame->buffer ) {
-//			convertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->buffer, file->videoStream->decodeFrame->interlaced_frame );
+        if( frame->surface ) {
+
+			convertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->surface, file->videoStream->decodeFrame->interlaced_frame );
         }
 
 		/* we write the lastTimestamp we got */
@@ -1067,31 +1126,18 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
     }
 }
 
-void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint8_t *YUVpacked, int w ) {
+void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint32_t *YUVpacked, int w ) {
 
     /* devide width by 2 */
     w >>= 1;
 
     while( w-- ) {
 
-        /* Y0 */
-        *YUVpacked = *Y;
+        /* Y0 U0 Y1 V0 */
+        *YUVpacked = (*Y) | (*U << 8) | (*(++Y) << 16) | (*V << 24);
         YUVpacked++;
         Y++;
-
-        /* U0 */
-        *YUVpacked = *U;
-        YUVpacked++;
         U++;
-
-        /* Y1 */
-        *YUVpacked = *Y;
-        YUVpacked++;
-        Y++;
-
-        /* V0 */
-        *YUVpacked = *V;
-        YUVpacked++;
         V++;
     }
 }

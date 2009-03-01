@@ -60,7 +60,7 @@ typedef struct SDL_ffmpegVideoFrame {
     /** Presentation timestamp, time at which this data should be used. */
     int64_t pts;
     /** Pointer to video buffer, user adjustable. */
-    SDL_Surface *buffer;
+    SDL_Surface *surface;
     /** Pointer to overlay buffer, user adjustable. */
     SDL_Overlay *overlay;
     /** Value indicating if this frame holds data, or that it can be overwritten. */
@@ -124,7 +124,9 @@ typedef struct SDL_ffmpegFile {
                         minimalTimestamp;
 
     /** Value to shut down decode thread when needed */
-    int                 threadActive;
+    int                 threadActive,
+    /** Amount of bytes to be preloaded to guarantee smooth playback */
+                        preloadSize;
 
     /** Keeps track of the decode thread so it can be closed when needed */
     SDL_Thread          *threadID;
@@ -169,6 +171,8 @@ uint64_t SDL_ffmpegGetDuration(SDL_ffmpegFile *file);
 int SDL_ffmpegValidAudio(SDL_ffmpegFile *file);
 
 int SDL_ffmpegValidVideo(SDL_ffmpegFile *file);
+
+int SDL_ffmpegPreloaded(SDL_ffmpegFile *file);
 
 /** \cond */
 int SDL_ffmpegFlush(SDL_ffmpegFile *file);

@@ -122,10 +122,15 @@ h = 576;
         return -1;
     }
 
-frame = malloc( sizeof(SDL_ffmpegVideoFrame) );
-memset(frame, 0, sizeof(SDL_ffmpegVideoFrame) );
-frame->buffer = SDL_CreateRGBSurface( 0, 720, 576, 32, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
-frame->overlay = SDL_CreateYUVOverlay( w, h, SDL_YUY2_OVERLAY, screen );
+    frame = malloc( sizeof(SDL_ffmpegVideoFrame) );
+    memset(frame, 0, sizeof(SDL_ffmpegVideoFrame) );
+    frame->overlay = SDL_CreateYUVOverlay( w, h, SDL_YUY2_OVERLAY, screen );
+
+    SDL_Rect rect;
+    rect.x = 0;
+    rect.y = 0;
+    rect.w = w;
+    rect.h = h;
 
 //    /* Open the Audio device */
 //    if( SDL_OpenAudio(&specs, 0) < 0 ) {
@@ -172,18 +177,10 @@ frame->overlay = SDL_CreateYUVOverlay( w, h, SDL_YUY2_OVERLAY, screen );
 
         if( SDL_ffmpegGetVideoFrame(film, frame) ) {
 
-SDL_Rect t;
-t.x = 0;
-t.y = 0;
-t.w = w;
-t.h = h;
-SDL_DisplayYUVOverlay( frame->overlay, &t );
-            /* we got a frame, so we better show this one */
-//            SDL_BlitSurface( frame->buffer, 0, screen, 0 );
-
-            /* we flip the double buffered screen so we might actually see something */
-//            SDL_Flip(screen);
+            SDL_DisplayYUVOverlay( frame->overlay, &rect );
         }
+
+printf("bytes in buffer: %i\n", SDL_ffmpegPreloaded(film));
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
         SDL_Delay(1);
