@@ -186,7 +186,7 @@ SDL_DisplayYUVOverlay( frame->overlay, &t );
         }
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay(0);
+        SDL_Delay(1);
     }
 
     /* after all is said and done, we should call this */

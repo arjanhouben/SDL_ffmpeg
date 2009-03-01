@@ -1098,7 +1098,7 @@ void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uin
 
 void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced ) {
 
-    int x, y;
+    int y;
 
     const uint8_t   *Y = YUV420P->data[0],
                     *U = YUV420P->data[1],
@@ -1110,6 +1110,7 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
 
     if( interlaced ) {
 
+        /* handle 4 lines per loop */
         for(y=0; y<(YUY2->h>>2); y++){
 
             /* line 0 */
@@ -1143,6 +1144,7 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
 
     } else {
 
+        /* handle 2 lines per loop */
         for(y=0; y<(YUY2->h>>1); y++){
 
             /* line 0 */
