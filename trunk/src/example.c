@@ -56,13 +56,14 @@ void audioCallback( void *udata, Uint8 *stream, int len ) {
 
 int main(int argc, char** argv) {
 
-	SDL_ffmpegFile *film = 0;
-    SDL_ffmpegStream *str = 0;
-	SDL_Surface *screen = 0;
-	SDL_ffmpegVideoFrame *frame = 0;
-	SDL_AudioSpec specs;
-    int s, w, h, done, x, y, useAudio = 0;
-	int64_t time;
+	SDL_ffmpegFile          *film = 0;
+    SDL_ffmpegStream        *str = 0;
+	SDL_Surface             *screen = 0;
+	SDL_ffmpegVideoFrame    *frame = 0;
+	SDL_AudioSpec           specs;
+    int                     w, h, done,
+                            x, y, useAudio = 0;
+	int64_t                 time;
 
     /* check if we got an argument */
     if(argc < 2) {
@@ -106,7 +107,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    frame = SDL_ffmpegCreateVideoFrame( film, 0, 0 );
+    frame = SDL_ffmpegCreateVideoFrame( film, SDL_YUY2_OVERLAY, screen );
 
     SDL_Rect rect;
     rect.x = 0;
@@ -129,8 +130,6 @@ int main(int argc, char** argv) {
     if( useAudio ) SDL_PauseAudio( 0 );
 
     done = 0;
-
-    int framecount = 0;
 
     while( !done ) {
 
@@ -160,28 +159,31 @@ int main(int argc, char** argv) {
             }
         }
 
-        /* check if frame is ready */
-        if( !frame->ready ) {
+        if( frame ) {
 
-            /* not ready, try to get a new frame */
-            SDL_ffmpegGetVideoFrame( film, frame );
+            /* check if frame is ready */
+            if( !frame->ready ) {
 
-        } else if( !useAudio || frame->pts <= sync ) {
+                /* not ready, try to get a new frame */
+                SDL_ffmpegGetVideoFrame( film, frame );
 
-            if( frame->overlay ) {
+            } else if( !useAudio || frame->pts <= sync ) {
 
-                /* frame ready and in sync, or no audio present */
-                SDL_DisplayYUVOverlay( frame->overlay, &rect );
+                if( frame->overlay ) {
 
-            } else if( frame->surface ) {
+                    /* frame ready and in sync, or no audio present */
+                    SDL_DisplayYUVOverlay( frame->overlay, &rect );
 
-                SDL_BlitSurface( frame->surface, 0, screen, 0 );
+                } else if( frame->surface ) {
 
-                SDL_Flip( screen );
+                    SDL_BlitSurface( frame->surface, 0, screen, 0 );
+
+                    SDL_Flip( screen );
+                }
+
+                /* frame is displayed, make sure we don't show it again */
+                frame->ready = 0;
             }
-
-            /* frame is displayed, make sure we don't show it again */
-            frame->ready = 0;
         }
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */

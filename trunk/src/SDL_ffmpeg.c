@@ -78,7 +78,7 @@ int getVideoFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegVideoFrame* );
 
 void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced );
 
-void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced);
+void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced, int scaled );
 
 int SDL_ffmpegDecodeThread(void* data);
 
@@ -527,8 +527,9 @@ int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
         for(i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
 
         /* check if pixel format is supported */
-        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P ) {
-            printf("unsupported pixel format\n");
+        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P &&
+            file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUVJ420P ) {
+            printf("unsupported pixel format [%i]\n", file->videoStream->_ffmpeg->codec->pix_fmt);
             file->videoStream = 0;
         }
     }
@@ -1240,10 +1241,17 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *f
     /* if we did not get a frame or we need to hurry, we return */
     if( got_frame && !file->videoStream->_ffmpeg->codec->hurry_up ) {
 
+        int scaled = 1;
+
+        /* if YUV data is scaled in the range of 8 - 235 instead of 0 - 255, we need to take this into account */
+        if( file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUVJ420P ||
+            file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUVJ422P ||
+            file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUVJ444P ) scaled = 0;
+
         /* convert YUV 420 to YUYV 422 data */
         if( frame->overlay && frame->overlay->format == SDL_YUY2_OVERLAY ) {
 
-            convertYUV420PtoYUY2( file->videoStream->decodeFrame, frame->overlay, file->videoStream->decodeFrame->interlaced_frame );
+            convertYUV420PtoYUY2( file->videoStream->decodeFrame, frame->overlay, file->videoStream->decodeFrame->interlaced_frame, scaled );
         }
 
         /* convert YUV to RGB data */
@@ -1315,23 +1323,41 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
     }
 }
 
-void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint32_t *YUVpacked, int w ) {
+#define SCALE(i) (uint8_t)(((float)(i-8)/(255-16))*255)
+
+void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint32_t *YUVpacked, int w, int scaled ) {
 
     /* devide width by 2 */
     w >>= 1;
 
-    while( w-- ) {
+    if( scaled ) {
 
-        /* Y0 U0 Y1 V0 */
-        *YUVpacked = (*Y) | (*U << 8) | (*(++Y) << 16) | (*V << 24);
-        YUVpacked++;
-        Y++;
-        U++;
-        V++;
+        while( w-- ) {
+
+            /* Y0 U0 Y1 V0 */
+            *YUVpacked = SCALE(*Y) | (SCALE(*U) << 8) | (SCALE(*(++Y)) << 16) | (SCALE(*V) << 24);
+            YUVpacked++;
+            Y++;
+            U++;
+            V++;
+        }
+
+    } else {
+
+        while( w-- ) {
+
+            /* Y0 U0 Y1 V0 */
+            *YUVpacked = (*Y) | ((*U) << 8) | ((*(++Y)) << 16) | ((*V) << 24);
+            YUVpacked++;
+            Y++;
+            U++;
+            V++;
+        }
+
     }
 }
 
-void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced ) {
+void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced, int scaled ) {
 
     int y;
 
@@ -1349,28 +1375,28 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
         for(y=0; y<(YUY2->h>>2); y++){
 
             /* line 0 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w, scaled );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 1 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w, scaled );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U -= YUV420P->linesize[1];
             V -= YUV420P->linesize[2];
 
             /* line 2 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w, scaled );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 3 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w, scaled );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
@@ -1383,14 +1409,14 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
         for(y=0; y<(YUY2->h>>1); y++){
 
             /* line 0 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w, scaled );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 1 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w, scaled );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
         }

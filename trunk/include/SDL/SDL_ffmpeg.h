@@ -80,13 +80,19 @@ typedef struct SDL_ffmpegStream {
     /** Pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
     struct AVFrame *decodeFrame;
+
+    /** buffer for decoded audio data */
     int8_t *sampleBuffer;
+    /** amount of data in samplebuffer */
     int sampleBufferSize;
+    /** position of data in samplebuffer */
     int sampleBufferOffset;
+    /** timestamp which fits the data in samplebuffer */
     int64_t sampleBufferTime;
 
     /** buffer */
     SDL_ffmpegPacket *buffer;
+    /** mutex for multi threaded acces to buffer */
     SDL_mutex *mutex;
 
     /** Id of the stream */
