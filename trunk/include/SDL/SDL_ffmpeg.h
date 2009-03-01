@@ -44,10 +44,10 @@ typedef struct SDL_ffmpegAudioFrame {
     int64_t pts;
     /** Pointer to audio buffer, user adjustable. */
     uint8_t *buffer;
-    /** Pointer at which this buffer was allocated, internal use only! */
-    uint8_t *source;
     /** Size of this audio frame. */
     uint32_t size;
+    /** Size of the complete audio frame. */
+    uint32_t capacity;
     /** Pointer to next SDL_ffmpegAudioFrame */
 	struct SDL_ffmpegAudioFrame *next;
 	/** Value indicating wheter or not this is the last frame before EOF */
@@ -80,6 +80,9 @@ typedef struct SDL_ffmpegStream {
     /** Pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
     struct AVFrame *decodeFrame;
+    int8_t *sampleBuffer;
+    int sampleBufferSize;
+    int sampleBufferOffset;
 
     /** buffer */
     SDL_ffmpegPacket *buffer;
@@ -152,13 +155,17 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile();
 
 void SDL_ffmpegFree(SDL_ffmpegFile* file);
 
+void SDL_ffmpegFreeFrame(SDL_ffmpegAudioFrame* frame);
+
 SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
 
 int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
 
 int SDL_ffmpegSeekRelative(SDL_ffmpegFile* file, int64_t timestamp);
 
-SDL_ffmpegAudioFrame* SDL_ffmpegGetAudioFrame(SDL_ffmpegFile *file);
+SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t bytes );
+
+int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
 
 int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file);
 
