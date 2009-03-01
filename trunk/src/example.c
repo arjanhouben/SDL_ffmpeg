@@ -183,7 +183,7 @@ h = 576;
 printf("bytes in buffer: %i\n", SDL_ffmpegPreloaded(film));
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay(1);
+        SDL_Delay(400);
     }
 
     /* after all is said and done, we should call this */
