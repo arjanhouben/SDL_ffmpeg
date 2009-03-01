@@ -25,6 +25,8 @@
 
 #include <string.h>
 
+int64_t sync = 0;
+
 void audioCallback( void *udata, Uint8 *stream, int len ) {
 
     /* unpack our void pointer */
@@ -38,6 +40,9 @@ void audioCallback( void *udata, Uint8 *stream, int len ) {
 
         /* copy received data to output */
         memcpy( stream, frame->buffer, frame->size );
+
+        /* store time, so we sync the video frames to this time */
+        sync = frame->pts;
 
     } else {
 
@@ -56,7 +61,7 @@ int main(int argc, char** argv) {
 	SDL_Surface *screen = 0;
 	SDL_ffmpegVideoFrame *frame = 0;
 	SDL_AudioSpec specs;
-    int s, w, h, done, x, y;
+    int s, w, h, done, x, y, useAudio = 0;
 	int64_t time;
 
     /* check if we got an argument */
@@ -81,7 +86,9 @@ int main(int argc, char** argv) {
 
     /* select the stream you want to decode (example just uses 0 as a default) */
     SDL_ffmpegSelectVideoStream( film, 0 );
-    SDL_ffmpegSelectAudioStream( film, 0 );
+
+    /* if no audio can be selected, audio will not be used in this example */
+    useAudio = !SDL_ffmpegSelectAudioStream( film, 0 );
 
     /* get the audiospec which fits the selected audiostream, if no audiostream
        is selected, default values are used (2 channel, 48Khz) */
@@ -99,9 +106,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    frame = malloc( sizeof(SDL_ffmpegVideoFrame) );
-    memset( frame, 0, sizeof(SDL_ffmpegVideoFrame) );
-    frame->overlay = SDL_CreateYUVOverlay( w, h, SDL_YUY2_OVERLAY, screen );
+    frame = SDL_ffmpegCreateVideoFrame( film, 0, 0 );
 
     SDL_Rect rect;
     rect.x = 0;
@@ -110,7 +115,7 @@ int main(int argc, char** argv) {
     rect.h = h;
 
     /* Open the Audio device */
-    if( SDL_OpenAudio( &specs, 0 ) < 0 ) {
+    if( useAudio && SDL_OpenAudio( &specs, 0 ) < 0 ) {
         fprintf( stderr, "Couldn't open audio: %s\n", SDL_GetError() );
         SDL_Quit();
         return -1;
@@ -121,7 +126,7 @@ int main(int argc, char** argv) {
     SDL_ffmpegStartDecoding( film );
 
     /* we unpause the audio so our audiobuffer gets read */
-    SDL_PauseAudio( 0 );
+    if( useAudio ) SDL_PauseAudio( 0 );
 
     done = 0;
 
@@ -149,16 +154,38 @@ int main(int argc, char** argv) {
 
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek( film, time );
+
+                /* invalidate current frame */
+                frame->ready = 0;
             }
         }
 
-        if( SDL_ffmpegGetVideoFrame( film, frame ) ) {
+        /* check if frame is ready */
+        if( !frame->ready ) {
 
-            SDL_DisplayYUVOverlay( frame->overlay, &rect );
+            /* not ready, try to get a new frame */
+            SDL_ffmpegGetVideoFrame( film, frame );
+
+        } else if( !useAudio || frame->pts <= sync ) {
+
+            if( frame->overlay ) {
+
+                /* frame ready and in sync, or no audio present */
+                SDL_DisplayYUVOverlay( frame->overlay, &rect );
+
+            } else if( frame->surface ) {
+
+                SDL_BlitSurface( frame->surface, 0, screen, 0 );
+
+                SDL_Flip( screen );
+            }
+
+            /* frame is displayed, make sure we don't show it again */
+            frame->ready = 0;
         }
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay( 10 );
+        SDL_Delay( 1 );
     }
 
     /* stop audio callback */

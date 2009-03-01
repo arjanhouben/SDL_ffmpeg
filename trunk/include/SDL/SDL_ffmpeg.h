@@ -64,7 +64,7 @@ typedef struct SDL_ffmpegVideoFrame {
     /** Pointer to overlay buffer, user adjustable. */
     SDL_Overlay *overlay;
     /** Value indicating if this frame holds data, or that it can be overwritten. */
-    int filled;
+    int ready;
     /** Pointer to next SDL_ffmpegVideoFrame */
 	struct SDL_ffmpegVideoFrame *next;
 	/** Value indicating wheter or not this is the last frame before EOF */
@@ -83,6 +83,7 @@ typedef struct SDL_ffmpegStream {
     int8_t *sampleBuffer;
     int sampleBufferSize;
     int sampleBufferOffset;
+    int64_t sampleBufferTime;
 
     /** buffer */
     SDL_ffmpegPacket *buffer;
@@ -152,6 +153,8 @@ SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t audioI
 int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID);
 
 SDL_ffmpegFile* SDL_ffmpegCreateFile();
+
+SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen );
 
 void SDL_ffmpegFree(SDL_ffmpegFile* file);
 

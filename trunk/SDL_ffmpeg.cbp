@@ -9,15 +9,15 @@
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="staticlibrary">
-				<Option output="lib\libSDL_ffmpeg" prefix_auto="1" extension_auto="1" />
+				<Option output="lib/libSDL_ffmpeg" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
 				<Option type="2" />
 				<Option compiler="gcc" />
 			</Target>
 			<Target title="example">
-				<Option output="bin\example" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/example" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
-				<Option object_output="obj\Release\library" />
+				<Option object_output="obj/Release/library" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Option parameters="/home/arjan/Movies/scrtest.mpg" />
@@ -32,9 +32,9 @@
 				</Linker>
 			</Target>
 			<Target title="audioexample">
-				<Option output="bin\audioexample" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/audioexample" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
-				<Option object_output="obj\audio_example" />
+				<Option object_output="obj/audio_example" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Option parameters="c:\LFS\data\sound\SkidSand.wav" />
@@ -49,24 +49,26 @@
 				</Linker>
 			</Target>
 			<Target title="multichannelexample">
-				<Option output="bin\multichannelexample" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/multichannelexample" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="bin" />
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Option parameters="c:\LFS\data\sound\*" />
 			</Target>
+			<Target title="all">
+				<Option output="bin/example" prefix_auto="1" extension_auto="1" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+			</Target>
 		</Build>
-		<VirtualTargets>
-			<Add alias="all" targets="multichannelexample;" />
-		</VirtualTargets>
 		<Compiler>
 			<Add option="-Wall" />
 			<Add directory="include" />
-			<Add directory="\home\arjan\ffmpeg" />
-			<Add directory="\home\arjan\ffmpeg\libavcodec" />
-			<Add directory="\home\arjan\ffmpeg\libavformat" />
-			<Add directory="\home\arjan\ffmpeg\libavutil" />
-			<Add directory="\home\arjan\ffmpeg\libswscale" />
+			<Add directory="/home/arjan/ffmpeg" />
+			<Add directory="/home/arjan/ffmpeg/libavcodec" />
+			<Add directory="/home/arjan/ffmpeg/libavformat" />
+			<Add directory="/home/arjan/ffmpeg/libavutil" />
+			<Add directory="/home/arjan/ffmpeg/libswscale" />
 		</Compiler>
 		<Linker>
 			<Add library="SDL" />
@@ -74,22 +76,22 @@
 			<Add library="z" />
 			<Add directory="lib" />
 		</Linker>
-		<Unit filename="include\SDL\SDL_ffmpeg.h">
+		<Unit filename="include/SDL/SDL_ffmpeg.h">
 			<Option target="example" />
 		</Unit>
-		<Unit filename="src\SDL_ffmpeg.c">
+		<Unit filename="src/SDL_ffmpeg.c">
 			<Option compilerVar="CC" />
 			<Option target="example" />
 		</Unit>
-		<Unit filename="src\audioexample.c">
+		<Unit filename="src/audioexample.c">
 			<Option compilerVar="CC" />
 			<Option target="audioexample" />
 		</Unit>
-		<Unit filename="src\example.c">
+		<Unit filename="src/example.c">
 			<Option compilerVar="CC" />
 			<Option target="example" />
 		</Unit>
-		<Unit filename="src\multichannelexample.c">
+		<Unit filename="src/multichannelexample.c">
 			<Option compilerVar="CC" />
 			<Option target="multichannelexample" />
 		</Unit>

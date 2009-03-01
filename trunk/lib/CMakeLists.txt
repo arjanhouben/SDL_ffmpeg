@@ -12,8 +12,9 @@ target_link_libraries(	SDL_ffmpeg
 						avcodec
 						avutil
 						z
-						bz2
 						${SDL_LIBRARY} )
+
+#						bz2
 
 include_directories( ${LIBSDL_FFMPEG_SOURCE_DIR}/include )
 

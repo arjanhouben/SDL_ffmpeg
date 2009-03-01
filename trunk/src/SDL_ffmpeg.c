@@ -91,7 +91,7 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     memset( file, 0, sizeof(SDL_ffmpegFile) );
 
     /* standard preload size is 1MB */
-    file->preloadSize = 1024 * 10;// * 1024;
+    file->preloadSize = 1024 * 1024;
 
     return file;
 }
@@ -284,6 +284,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
                     stream->sampleBuffer = av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof( int16_t ) );
                     stream->sampleBufferSize = 0;
                     stream->sampleBufferOffset = 0;
+                    stream->sampleBufferTime = AV_NOPTS_VALUE;
 
                     SDL_ffmpegStream **s = &file->as;
                     while( *s ) {
@@ -323,7 +324,37 @@ SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t
     /* allocate buffer */
     frame->buffer = av_malloc( bytes );
 
+    /* initialize a non-valid timestamp */
+    frame->pts = AV_NOPTS_VALUE;
+
     return frame;
+}
+
+
+/** \brief  Use this to create a SDL_ffmpegVideoFrame
+
+            With this frame, you can receve video frames from the stream using
+            SDL_ffmpegGetVideoFrame.
+\param      file SDL_ffmpegFile for which a frame needs to be created
+\param      file SDL_ffmpegFile for which a frame needs to be created
+\returns    Pointer to SDL_ffmpegVideoFrame, or NULL if no frame could be created
+*/
+SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen ) {
+
+    if( !file || !file->videoStream ) return 0;
+
+    SDL_ffmpegVideoFrame *frame = malloc( sizeof(SDL_ffmpegVideoFrame) );
+    memset( frame, 0, sizeof(SDL_ffmpegVideoFrame) );
+
+    if( format == SDL_YUY2_OVERLAY && screen ) {
+
+        frame->overlay = SDL_CreateYUVOverlay( file->videoStream->_ffmpeg->codec->width, file->videoStream->_ffmpeg->codec->height, SDL_YUY2_OVERLAY, screen );
+    }
+
+    if( !format ) {
+
+        frame->surface = SDL_CreateRGBSurface( 0, file->videoStream->_ffmpeg->codec->width, file->videoStream->_ffmpeg->codec->height, 32, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
+    }
 }
 
 
@@ -339,15 +370,15 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
     if( !frame || !file || !file->videoStream || file->videoStream->endReached ) return 0;
 
     /* assume current frame is empty */
-    frame->filled = 0;
+    frame->ready = 0;
 
     SDL_LockMutex( file->videoStream->mutex );
 
     SDL_ffmpegPacket *pack = file->videoStream->buffer;
 
-    while( pack && !frame->filled ) {
+    while( pack && !frame->ready ) {
 
-        /* when a frame is received, frame->filled will be set */
+        /* when a frame is received, frame->ready will be set */
         getVideoFrame( file, pack->data, frame );
 
         /* store used packet for cleaning */
@@ -365,7 +396,7 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
 
     SDL_UnlockMutex( file->videoStream->mutex );
 
-    return frame->filled;
+    return frame->ready;
 }
 
 
@@ -559,6 +590,9 @@ int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp) {
     /* set new timestamp */
     file->seekPosition = timestamp;
 
+    /* flush buffers */
+    SDL_ffmpegFlush( file );
+
     return 0;
 }
 
@@ -665,17 +699,19 @@ int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
 
     while( pack && frame->size < frame->capacity ) {
 
-        /* keep collecting data until frame has reached capacity */
-        getAudioFrame( file, pack->data, frame );
+        /* keep collecting data until frame has reached capacity
+           getAudioFrame will return true if data from pack was used */
+        if( getAudioFrame( file, pack->data, frame ) ) {
 
-        /* store used packet for cleaning */
-        SDL_ffmpegPacket *used = pack;
+            /* store used packet for cleaning */
+            SDL_ffmpegPacket *used = pack;
 
-        pack = pack->next;
+            pack = pack->next;
 
-        /* destroy used packet */
-        av_free_packet( used->data );
-        free( used );
+            /* destroy used packet */
+            av_free_packet( used->data );
+            free( used );
+        }
     }
 
     /* next packet will be our starting point */
@@ -709,7 +745,7 @@ int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file) {
 \param      samples Amount of samples required every time the callback is called.
             Lower values mean less latency, but please note that SDL has a minimal value.
 \param      callback Pointer to callback function
-\returns    SDL_AudioSpec with values filled in according to the selected audio stream.
+\returns    SDL_AudioSpec with values ready in according to the selected audio stream.
             If no valid audio stream was available, all values of returned SDL_AudioSpec are set to 0
 */
 SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback) {
@@ -1043,7 +1079,9 @@ int SDL_ffmpegDecodeThread(void* data) {
 int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame *frame ) {
 
     uint8_t *data;
-    int size, len, audioSize;
+    int size,
+        len,
+        audioSize;
 
     data = pack->data;
     size = pack->size;
@@ -1052,65 +1090,61 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame *f
     /* check if there is still data in the buffer */
     if( file->audioStream->sampleBufferSize ) {
 
+        /* set new pts */
+        if( !frame->size ) frame->pts = file->audioStream->sampleBufferTime;
+
+        /* calculate free space in frame */
+        int fs = frame->capacity - frame->size;
+
         /* check the amount of data which needs to be copied */
-        if( (frame->capacity - frame->size) < file->audioStream->sampleBufferSize ) {
+        if( fs < file->audioStream->sampleBufferSize ) {
 
             /* copy data from sampleBuffer into frame buffer until frame buffer is full */
-            memcpy( frame->buffer + frame->size, file->audioStream->sampleBuffer+file->audioStream->sampleBufferOffset, frame->capacity - frame->size );
+            memcpy( frame->buffer+frame->size, file->audioStream->sampleBuffer+file->audioStream->sampleBufferOffset, fs );
 
             /* mark the amount of bytes still in the buffer */
-            file->audioStream->sampleBufferSize -= frame->capacity - frame->size;
+            file->audioStream->sampleBufferSize -= fs;
 
-            /* check if there is still data in the buffer */
-            if( file->audioStream->sampleBufferSize ) {
-
-                /* move offset accordingly */
-                file->audioStream->sampleBufferOffset += frame->capacity - frame->size;
-
-            } else {
-
-                /* no more data in buffer, reset offset */
-                file->audioStream->sampleBufferOffset = 0;
-            }
+            /* move offset accordingly */
+            file->audioStream->sampleBufferOffset += fs;
 
             /* update framesize */
             frame->size = frame->capacity;
 
-            return 1;
-
         } else {
 
             /* copy data from sampleBuffer into frame buffer until sampleBuffer is empty */
-            memcpy( frame->buffer + frame->size, file->audioStream->sampleBuffer+file->audioStream->sampleBufferOffset, file->audioStream->sampleBufferSize );
+            memcpy( frame->buffer+frame->size, file->audioStream->sampleBuffer+file->audioStream->sampleBufferOffset, file->audioStream->sampleBufferSize );
 
             /* update framesize */
             frame->size += file->audioStream->sampleBufferSize;
 
-            /* mark the amount of bytes still in the buffer */
+            /* at this point, samplebuffer should have been handled */
             file->audioStream->sampleBufferSize = 0;
 
             /* no more data in buffer, reset offset */
             file->audioStream->sampleBufferOffset = 0;
         }
+
+        /* return 0 to signal caller that 'pack' was not used */
+        if( frame->size == frame->capacity ) return 0;
     }
 
-	/* calculate pts to determine wheter or not this frame should be stored */
-	frame->pts = av_rescale((pack->dts-file->audioStream->_ffmpeg->start_time)*1000, file->audioStream->_ffmpeg->time_base.num, file->audioStream->_ffmpeg->time_base.den);
+    file->audioStream->_ffmpeg->codec->hurry_up = 0;
+
+    /* calculate pts to determine wheter or not this frame should be stored */
+    file->audioStream->sampleBufferTime = av_rescale( (pack->dts-file->audioStream->_ffmpeg->start_time)*1000, file->audioStream->_ffmpeg->time_base.num, file->audioStream->_ffmpeg->time_base.den );
 
     /* don't decode packets which are too old anyway */
-    if( frame->pts != AV_NOPTS_VALUE && frame->pts < file->minimalTimestamp ) {
+    if( file->audioStream->sampleBufferTime != AV_NOPTS_VALUE && file->audioStream->sampleBufferTime < file->minimalTimestamp ) {
 
         file->audioStream->_ffmpeg->codec->hurry_up = 1;
-
-    } else {
-
-        file->audioStream->_ffmpeg->codec->hurry_up = 0;
-	}
+    }
 
 	while( size > 0 && file->threadActive ) {
 
 		/* Decode the packet */
-		len = avcodec_decode_audio2(file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, data, size);
+		len = avcodec_decode_audio2( file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, data, size );
 
 		/* if an error occured, we skip the frame */
 		if( len <= 0 || !audioSize ) break;
@@ -1122,41 +1156,57 @@ int getAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame *f
 
 	if( !file->audioStream->_ffmpeg->codec->hurry_up ) {
 
-        /* check the amount of data which needs to be copied */
-        if( (frame->capacity - frame->size) < audioSize ) {
+        /* set new pts */
+        if( !frame->size ) frame->pts = file->audioStream->sampleBufferTime;
 
-            /* copy data from sampleBuffer into frame buffer until frame buffer is full */
-            memcpy( frame->buffer + frame->size, file->audioStream->sampleBuffer, frame->capacity - frame->size );
+        /* room in frame */
+        int fs = frame->capacity - frame->size;
 
-            /* update framesize */
-            frame->size = frame->capacity;
+        /* check if there is room at all */
+        if( fs ) {
 
-            /* mark the amount of bytes still in the buffer */
-            file->audioStream->sampleBufferSize = audioSize - (frame->capacity - frame->size);
+            /* check the amount of data which needs to be copied */
+            if( fs < audioSize ) {
 
-            /* set the offset so the remaining data can be found */
-            file->audioStream->sampleBufferOffset = frame->capacity - frame->size;
+                /* copy data from sampleBuffer into frame buffer until frame buffer is full */
+                memcpy( frame->buffer+frame->size, file->audioStream->sampleBuffer, fs );
 
-            return 1;
+                /* mark the amount of bytes still in the buffer */
+                file->audioStream->sampleBufferSize = audioSize - fs;
+
+                /* set the offset so the remaining data can be found */
+                file->audioStream->sampleBufferOffset = fs;
+
+                /* update framesize */
+                frame->size = frame->capacity;
+
+            } else {
+
+                /* copy data from sampleBuffer into frame buffer until sampleBuffer is empty */
+                memcpy( frame->buffer+frame->size, file->audioStream->sampleBuffer, audioSize );
+
+                /* mark the amount of bytes still in the buffer */
+                file->audioStream->sampleBufferSize = 0;
+
+                /* reset buffer offset */
+                file->audioStream->sampleBufferOffset = 0;
+
+                /* update framesize */
+                frame->size += audioSize;
+            }
 
         } else {
 
-            /* copy data from sampleBuffer into frame buffer until sampleBuffer is empty */
-            memcpy( frame->buffer + frame->size, file->audioStream->sampleBuffer, audioSize );
-
-            /* update framesize */
-            frame->size += audioSize;
-
-            /* mark the amount of bytes still in the buffer */
-            file->audioStream->sampleBufferSize = 0;
+            /* no room in frame, mark samplebuffer as full */
+            file->audioStream->sampleBufferSize = audioSize;
 
             /* reset buffer offset */
             file->audioStream->sampleBufferOffset = 0;
         }
-
     }
 
-    return ( frame->size == frame->capacity );
+    /* pack was used, return 1 */
+    return 1;
 }
 
 int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *frame ) {
@@ -1205,11 +1255,11 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *f
 		/* we write the lastTimestamp we got */
 		file->videoStream->lastTimeStamp = frame->pts;
 
-		/* flag this frame as filled */
-		frame->filled = 1;
+		/* flag this frame as ready */
+		frame->ready = 1;
 	}
 
-    return frame->filled;
+    return frame->ready;
 }
 
 inline int clamp0_255(int x) {
