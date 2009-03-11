@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
 	SDL_Surface             *screen = 0;
 	SDL_ffmpegVideoFrame    *frame = 0;
 	SDL_AudioSpec           specs;
-    int                     w, h, done,
+    int                     w, h, done, mouseState = 0,
                             x, y, useAudio = 0;
 	int64_t                 time;
 
@@ -142,8 +142,13 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            if( event.type == SDL_MOUSEBUTTONDOWN ) {
+            if( event.type == SDL_MOUSEBUTTONUP ) mouseState = 0;
 
+            if( event.type == SDL_MOUSEBUTTONDOWN ) mouseState = 1;
+
+            if( mouseState ) {
+
+                /* parse events */
                 SDL_PumpEvents();
 
                 SDL_GetMouseState( &x, &y );
@@ -155,7 +160,7 @@ int main(int argc, char** argv) {
                 SDL_ffmpegSeek( film, time );
 
                 /* invalidate current frame */
-                frame->ready = 0;
+                if( frame ) frame->ready = 0;
             }
         }
 
@@ -169,15 +174,19 @@ int main(int argc, char** argv) {
 
             } else if( !useAudio || frame->pts <= sync ) {
 
+                /* frame ready and in sync, or no audio present */
+
                 if( frame->overlay ) {
 
-                    /* frame ready and in sync, or no audio present */
+                    /* blit overlay */
                     SDL_DisplayYUVOverlay( frame->overlay, &rect );
 
                 } else if( frame->surface ) {
 
+                    /* blit RGB surface */
                     SDL_BlitSurface( frame->surface, 0, screen, 0 );
 
+                    /* flip screen */
                     SDL_Flip( screen );
                 }
 
