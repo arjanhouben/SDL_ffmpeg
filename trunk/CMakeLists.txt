@@ -6,6 +6,8 @@ project ( SDL_FFMPEG )
 #set( CMAKE_C_FLAGS "-ggdb" )
 #set( CMAKE_DEBUG_POSTFIX "d" )
 
+set( CMAKE_BUILD_TYPE "Debug" )
+
 add_subdirectory( lib )
 
 add_subdirectory( bin )

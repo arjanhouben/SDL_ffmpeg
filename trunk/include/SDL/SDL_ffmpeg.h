@@ -30,6 +30,12 @@
 extern "C" {
 #endif
 
+enum SDL_ffmpegStreamType {
+    SDL_ffmpegUninitialized = 0,
+    SDL_ffmpegOutputStream,
+    SDL_ffmpegInputStream
+};
+
 typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
 /** Struct to hold packet buffers */
@@ -110,6 +116,9 @@ typedef struct SDL_ffmpegStream {
 /** Struct to hold information about file */
 typedef struct SDL_ffmpegFile {
 
+    /** type of file */
+    enum SDL_ffmpegStreamType type;
+
     /** Pointer to ffmpeg data, internal use only! */
     struct AVFormatContext *_ffmpeg;
 
@@ -167,6 +176,10 @@ void SDL_ffmpegFree(SDL_ffmpegFile* file);
 void SDL_ffmpegFreeFrame(SDL_ffmpegAudioFrame* frame);
 
 SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
+
+SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename);
+
+SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file );
 
 int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
 

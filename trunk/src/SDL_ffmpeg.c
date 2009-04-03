@@ -148,7 +148,21 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file ) {
         free( old );
     }
 
-    if(file->_ffmpeg) av_close_input_file( file->_ffmpeg );
+    if( file->_ffmpeg ) {
+
+        if( file->type == SDL_ffmpegInputStream ) {
+
+            av_close_input_file( file->_ffmpeg );
+
+        } else if(file->type == SDL_ffmpegOutputStream ) {
+
+            av_write_trailer( file->_ffmpeg );
+
+            url_fclose( file->_ffmpeg->pb );
+
+            av_free( file->_ffmpeg );
+        }
+    }
 
     free(file);
 }
@@ -194,6 +208,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
     if(!file) return 0;
 
     /* information about format is stored in file->_ffmpeg */
+    file->type = SDL_ffmpegInputStream;
 
     /* open the file */
     if(av_open_input_file( (AVFormatContext**)(&file->_ffmpeg), filename, 0, 0, 0) != 0) {
@@ -303,9 +318,63 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 }
 
 
+/** \brief  Use this to create the multimedia file of your choice.
+
+            This function is used to create a multimedia file.
+
+\param      filename string containing the location to which the data will be written
+\returns    a pointer to a SDL_ffmpegFile structure, or NULL if a file could not be opened
+*/
+SDL_ffmpegFile* SDL_ffmpegCreate(const char* filename) {
+
+    /* register all codecs */
+    if(!FFMPEG_init_was_called) {
+        FFMPEG_init_was_called = 1;
+
+        avcodec_register_all();
+        av_register_all();
+        initializeLookupTables();
+    }
+
+    SDL_ffmpegFile *file = SDL_ffmpegCreateFile();
+
+    file->_ffmpeg = avformat_alloc_context();
+
+    /* guess output format based on filename */
+    file->_ffmpeg->oformat = guess_format(0, filename, 0);
+
+    /* preload as shown in ffmpeg.c */
+    file->_ffmpeg->preload = (int)(0.5*AV_TIME_BASE);
+
+    /* max delay as shown in ffmpeg.c */
+    file->_ffmpeg->max_delay = (int)(0.7*AV_TIME_BASE);
+
+    /* open the output file, if needed */
+    if( url_fopen( &file->_ffmpeg->pb, filename, URL_WRONLY ) < 0 ) {
+        fprintf( stderr, "could not open '%s'\n", filename );
+        SDL_ffmpegFree( file );
+        return 0;
+    }
+
+    AVFormatParameters ap;
+    memset( &ap, 0, sizeof(ap) );
+    if( av_set_parameters( file->_ffmpeg, &ap ) < 0 ) {
+        fprintf( stderr, "coult not set encoding parameters\n" );
+        SDL_ffmpegFree( file );
+        return 0;
+    }
+
+    av_write_header( file->_ffmpeg );
+
+    file->type = SDL_ffmpegOutputStream;
+
+    return file;
+}
+
+
 /** \brief  Use this to create a SDL_ffmpegAudioFrame
 
-            With this frame, you can receve audio data from the stream using
+            With this frame, you can receive audio data from the stream using
             SDL_ffmpegGetAudioFrame.
 \param      file SDL_ffmpegFile for which a frame needs to be created
 \returns    Pointer to SDL_ffmpegAudioFrame, or NULL if no frame could be created
@@ -542,6 +611,7 @@ int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
 
     return 0;
 }
+
 
 /** \brief  Starts decoding the file.
 
@@ -896,6 +966,164 @@ int SDL_ffmpegPreloaded(SDL_ffmpegFile *file) {
     return size;
 }
 
+
+/** \brief  This is used to add a video stream to file
+
+\param      file SDL_ffmpegFile to which the stream will be added
+\returns    The stream which was added, or NULL if no stream could be added.
+*/
+SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
+
+    /* add a video stream */
+    AVStream *stream = av_new_stream( file->_ffmpeg, 0 );
+    if( !stream ) {
+        fprintf( stderr, "could not alloc stream\n" );
+        return 0;
+    }
+
+    stream->codec = avcodec_alloc_context();
+
+    avcodec_get_context_defaults2( stream->codec, CODEC_TYPE_VIDEO );
+
+    stream->codec->codec_id = CODEC_ID_MPEG2VIDEO;
+
+    stream->codec->codec_type = CODEC_TYPE_VIDEO;
+
+    stream->codec->me_method = 1;
+
+    stream->codec->bit_rate = 1000000;
+
+    /* emit one intra frame every twelve frames at most */
+    stream->codec->gop_size = 12;
+
+    stream->codec->rc_max_rate = stream->codec->bit_rate;
+    stream->codec->rc_min_rate = stream->codec->bit_rate;
+
+    stream->codec->rc_buffer_size = 224*1024*8;
+
+    /*
+    // calculate the lowest possible fraction
+    double temp[2];
+    temp[0] = codec.height() * codec.aspectNum() / codec.aspectDen();
+    temp[1] = codec.width();
+    int i = 10;
+    while(i>1) {
+        double t1 = temp[0] / (double)i;
+        double t2 = temp[1] / (double)i;
+        if( t1 == round(t1) && t2 == round(t2) ) {
+            temp[0] = t1;
+            temp[1] = t2;
+            i = 10;
+        } else {
+            i--;
+        }
+    }
+    */
+
+    stream->codec->sample_aspect_ratio.num = stream->sample_aspect_ratio.num = 1;
+    stream->codec->sample_aspect_ratio.den = stream->sample_aspect_ratio.den = 1;
+
+    stream->codec->qmin = 2;
+    stream->codec->qmax = 10;
+
+    /* resolution must be a multiple of two */
+    stream->codec->width = 720;
+    stream->codec->height = 576;
+
+    /* set time_base */
+    stream->codec->time_base.num = 1;
+    stream->codec->time_base.den = 25;
+
+    /* set pixel format */
+    stream->codec->pix_fmt = PIX_FMT_YUV420P;
+
+    /* set mpeg2 codec parameters */
+    if( stream->codec->codec_id == CODEC_ID_MPEG2VIDEO ) {
+        stream->codec->max_b_frames = 2;
+        stream->codec->flags |= CODEC_FLAG_CLOSED_GOP | CODEC_FLAG_INTERLACED_DCT;
+        stream->codec->flags2 |= CODEC_FLAG2_STRICT_GOP;
+        stream->codec->scenechange_threshold = 1000000000;
+    }
+
+    /* set mpeg1 codec parameters */
+    if (stream->codec->codec_id == CODEC_ID_MPEG1VIDEO){
+        /* needed to avoid using macroblocks in which some coeffs overflow
+           this doesnt happen with normal video, it just happens here as the
+           motion of the chroma plane doesnt match the luma plane */
+        stream->codec->mb_decision = 2;
+    }
+
+    /* some formats want stream headers to be seperate *
+    if( !strcmp( file->_ffmpeg->oformat->name, "mp4") ||
+        !strcmp( file->_ffmpeg->oformat->name, "mov") ||
+        !strcmp( file->_ffmpeg->oformat->name, "3gp")) {
+
+        stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    }
+    */
+
+    /* find the video encoder */
+    AVCodec *videoCodec = avcodec_find_encoder( stream->codec->codec_id );
+    if( !videoCodec ) {
+        fprintf( stderr, "video codec not found\n" );
+        return 0;
+    }
+
+    /* open the codec */
+    if( avcodec_open( stream->codec, videoCodec ) < 0 ) {
+        fprintf( stderr, "could not open video codec\n" );
+        return 0;
+    }
+
+    /* ? */
+    stream->codec->flags |= CODEC_FLAG_QSCALE;
+    stream->codec->global_quality = (int64_t)FF_QP2LAMBDA * 1;
+    stream->quality = FF_QP2LAMBDA * 1;
+
+    stream->pts.den = 25;
+    stream->pts.num = 90000;
+
+    stream->codec->max_qdiff = 3;
+
+//    stream->codec->flags |= CODEC_FLAG_PASS2;
+
+    SDL_ffmpegStream **s = &file->vs;
+    while( *s ) {
+        *s = (*s)->next;
+    }
+
+    /* create a new stream */
+    *s = (SDL_ffmpegStream*)malloc( sizeof(SDL_ffmpegStream) );
+
+    if( *s ) {
+
+        /* we set our stream to zero */
+        memset( *s, 0, sizeof(SDL_ffmpegStream) );
+
+
+    /* _ffmpeg holds data about streamcodec */
+    stream->_ffmpeg = file->_ffmpeg->streams[i];
+
+    /* get the correct decoder for this stream */
+    codec = avcodec_find_decoder( stream->_ffmpeg->codec->codec_id );
+
+    if(!codec) {
+        free(stream);
+        fprintf(stderr, "could not find codec\n");
+    } else if(avcodec_open(file->_ffmpeg->streams[i]->codec, codec) < 0) {
+        free(stream);
+        fprintf(stderr, "could not open decoder\n");
+    } else {
+
+        stream->mutex = SDL_CreateMutex();
+
+        stream->decodeFrame = avcodec_alloc_frame();
+        file->videoStreams++;
+    }
+
+    return *s;
+}
+
 /**
 \cond
 */
@@ -907,7 +1135,7 @@ int SDL_ffmpegDecodeThread(void* data) {
     AVFrame *inFrame;
     int64_t seekPos;
     int16_t *samples;
-    int decode, a, i, streamLooped = 0, checkBufferedFrame = 0, packetNeedsHandling = 0;
+    int decode, a, i, streamLooped = 0, packetNeedsHandling = 0;
     AVPacket *pack;
 
     /* if we got invalid data, return */
@@ -982,34 +1210,19 @@ int SDL_ffmpegDecodeThread(void* data) {
             streamLooped = 1;
             file->seekPosition = 0;
 
-            /* first lets check if there is still a frame in the buffer */
-            if( checkBufferedFrame && file->videoStream && file->videoStream->id >= 0 ) {
+            streamLooped = 1;
+            file->seekPosition = 0;
 
-//                /* prepare packet to check for buffered frame */
-//                pack.data = 0;
-//                pack.size = 0;
-//                pack.stream_index = file->videoStream->id;
-//
-//                /* make sure we only check once for a buffered frame */
-//                checkBufferedFrame = 0;
+            /* last frame should be flagged as such */
+            if( lastAudioFrame ) lastAudioFrame->last = 1;
 
-            } else {
+            if( lastVideoFrame ) lastVideoFrame->last = 1;
 
-                streamLooped = 1;
-                file->seekPosition = 0;
-
-                /* last frame should be flagged as such */
-                if( lastAudioFrame ) lastAudioFrame->last = 1;
-
-                if( lastVideoFrame ) lastVideoFrame->last = 1;
-
-                continue;
-            }
+            continue;
 
         } else {
 
             streamLooped = 0;
-            checkBufferedFrame = 1;
 
             /* packet needs to be handled */
             packetNeedsHandling = 1;
@@ -1220,18 +1433,17 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *f
 
     int got_frame;
 
-    printf("%lli\n", av_rescale(1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den));
-
     /* usefull when dealing with B frames */
     if(pack->dts == AV_NOPTS_VALUE) {
         /* if we did not get a valid timestamp, we make one up based on the last
            valid timestamp + the duration of a frame */
-        frame->pts = file->videoStream->lastTimeStamp + av_rescale(1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);
+        frame->pts = file->videoStream->lastTimeStamp + av_rescale(1000*pack->duration, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);
     } else {
         /* write timestamp into the buffer */
         frame->pts = av_rescale((pack->dts-file->videoStream->_ffmpeg->start_time)*1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);
     }
 
+    /* check if we are decoding frames which we need not store */
 	if( frame->pts != AV_NOPTS_VALUE && frame->pts < file->minimalTimestamp ) {
 
 		file->videoStream->_ffmpeg->codec->hurry_up = 1;
