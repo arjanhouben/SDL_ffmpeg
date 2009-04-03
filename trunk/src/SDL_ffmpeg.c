@@ -336,7 +336,12 @@ SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t
             With this frame, you can receve video frames from the stream using
             SDL_ffmpegGetVideoFrame.
 \param      file SDL_ffmpegFile for which a frame needs to be created
-\param      file SDL_ffmpegFile for which a frame needs to be created
+\param      format flag as used by SDL. The following options are implemented
+            SDL_YUY2_OVERLAY. If you would like to receive a RGBA image, you can
+            set both format and screen parameter to NULL.
+\param      screen This is a pointer to the SDL_Surface as returned by SDL_SetVideoMode.
+            This parameter is only required when YUV data is desired. When RGBA
+            data is required, this parameter can be set to NULL.
 \returns    Pointer to SDL_ffmpegVideoFrame, or NULL if no frame could be created
 */
 SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen ) {
@@ -358,11 +363,12 @@ SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, co
 }
 
 
-/** \brief  Use this to get a pointer to a SDL_ffmpegVideoFrame.
+/** \brief  Use this to get new video data from file.
 
-            If you receive a frame, it is valid until you receive a new frame, or
-            until the file is freed, using SDL_ffmpegFree( SDL_ffmpegFile* ).
-\param      file SDL_ffmpegFile from which the information is required
+            Using this function, you can retreive video data from file. This data
+            gets written to frame.
+\param      file SDL_ffmpegFile from which the data is required
+\param      frame SDL_ffmpegVideoFrame to which the data will be written
 \returns    Pointer to SDL_ffmpegVideoFrame, or NULL if no frame was available.
 */
 int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame ) {
@@ -812,8 +818,8 @@ int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h) {
         return 0;
     }
 
-    *w = 320;
-    *h = 240;
+    *w = 0;
+    *h = 0;
     return -1;
 }
 
@@ -1214,11 +1220,13 @@ int getVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *f
 
     int got_frame;
 
+    printf("%lli\n", av_rescale(1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den));
+
     /* usefull when dealing with B frames */
     if(pack->dts == AV_NOPTS_VALUE) {
         /* if we did not get a valid timestamp, we make one up based on the last
            valid timestamp + the duration of a frame */
-//        frame->pts = file->videoStream->lastTimeStamp + file->videoStream->timeBase;
+        frame->pts = file->videoStream->lastTimeStamp + av_rescale(1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);
     } else {
         /* write timestamp into the buffer */
         frame->pts = av_rescale((pack->dts-file->videoStream->_ffmpeg->start_time)*1000, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den);

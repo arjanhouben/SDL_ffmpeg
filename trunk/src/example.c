@@ -25,6 +25,7 @@
 
 #include <string.h>
 
+/* simple way of syncing, just for example purposes */
 int64_t sync = 0;
 
 void audioCallback( void *udata, Uint8 *stream, int len ) {
@@ -46,9 +47,11 @@ void audioCallback( void *udata, Uint8 *stream, int len ) {
 
     } else {
 
+        /* could not get frame, just set output to zero */
         memset( stream, 0, len );
     }
 
+    /* clean up frame */
     SDL_ffmpegFreeFrame( frame );
 
     return;
@@ -56,7 +59,7 @@ void audioCallback( void *udata, Uint8 *stream, int len ) {
 
 int main(int argc, char** argv) {
 
-	SDL_ffmpegFile          *film = 0;
+    SDL_ffmpegFile          *file = 0;
     SDL_ffmpegStream        *str = 0;
 	SDL_Surface             *screen = 0;
 	SDL_ffmpegVideoFrame    *frame = 0;
@@ -78,26 +81,26 @@ int main(int argc, char** argv) {
     }
 
     /* open file from arg[1] */
-    film = SDL_ffmpegOpen( argv[1] );
-    if( !film ) {
+    file = SDL_ffmpegOpen( argv[1] );
+    if( !file ) {
         fprintf( stderr, "error opening file\n" );
         SDL_Quit();
         return -1;
     }
 
     /* select the stream you want to decode (example just uses 0 as a default) */
-    SDL_ffmpegSelectVideoStream( film, 0 );
+    SDL_ffmpegSelectVideoStream( file, 0 );
 
     /* if no audio can be selected, audio will not be used in this example */
-    useAudio = !SDL_ffmpegSelectAudioStream( film, 0 );
+    useAudio = !SDL_ffmpegSelectAudioStream( file, 0 );
 
     /* get the audiospec which fits the selected audiostream, if no audiostream
        is selected, default values are used (2 channel, 48Khz) */
-    specs = SDL_ffmpegGetAudioSpec( film, 512, audioCallback );
+    specs = SDL_ffmpegGetAudioSpec( file, 512, audioCallback );
 
     /* we get the size from our active video stream, if no active video stream
-       exists, width and height are set to default values (320x240) */
-    SDL_ffmpegGetVideoSize( film, &w, &h );
+       exists, width and height are set to zero */
+    SDL_ffmpegGetVideoSize( file, &w, &h );
 
     /* Open the Video device */
     screen = SDL_SetVideoMode( w, h, 0, SDL_DOUBLEBUF|SDL_HWSURFACE );
@@ -107,8 +110,13 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    frame = SDL_ffmpegCreateVideoFrame( film, SDL_YUY2_OVERLAY, screen );
+    /* create a video frame which will be used to receive the video data.
+       If you want to receive YCbCr data, you have to define the second parameter
+       with the format you would like to receive and the last parameter needs to
+       be a pointer to the SDL_surface as returned by SDL_SetVideoMode */
+    frame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
 
+    /* create a SDL_Rect for blitting of image data */
     SDL_Rect rect;
     rect.x = 0;
     rect.y = 0;
@@ -124,7 +132,7 @@ int main(int argc, char** argv) {
 
     /* we start our decode thread, this always tries to buffer in some frames
        so we can enjoy smooth playback */
-    SDL_ffmpegStartDecoding( film );
+    SDL_ffmpegStartDecoding( file );
 
     /* we unpause the audio so our audiobuffer gets read */
     if( useAudio ) SDL_PauseAudio( 0 );
@@ -154,10 +162,10 @@ int main(int argc, char** argv) {
                 SDL_GetMouseState( &x, &y );
                 /* by clicking you turn on the stream, seeking to the percentage
                    in time, based on the x-position you clicked on */
-                time = (int64_t)(((double)x / (double)w) * SDL_ffmpegGetDuration( film ));
+                time = (int64_t)(((double)x / (double)w) * SDL_ffmpegGetDuration( file ));
 
                 /* we seek to time (milliseconds) */
-                SDL_ffmpegSeek( film, time );
+                SDL_ffmpegSeek( file, time );
 
                 /* invalidate current frame */
                 if( frame ) frame->ready = 0;
@@ -170,7 +178,7 @@ int main(int argc, char** argv) {
             if( !frame->ready ) {
 
                 /* not ready, try to get a new frame */
-                SDL_ffmpegGetVideoFrame( film, frame );
+                SDL_ffmpegGetVideoFrame( file, frame );
 
             } else if( !useAudio || frame->pts <= sync ) {
 
@@ -200,10 +208,10 @@ int main(int argc, char** argv) {
     }
 
     /* stop audio callback */
-    SDL_PauseAudio( 1 );
+    if( useAudio ) SDL_PauseAudio( 1 );
 
     /* after all is said and done, we should call this */
-    SDL_ffmpegFree( film );
+    SDL_ffmpegFree( file );
 
     /* the SDL_Quit function offcourse... */
     SDL_Quit();
