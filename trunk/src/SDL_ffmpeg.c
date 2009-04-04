@@ -358,24 +358,6 @@ SDL_ffmpegFile* SDL_ffmpegCreate(const char* filename) {
         SDL_ffmpegFree( file );
         return 0;
     }
-//
-//    SDL_ffmpegAddAudioStream(file);
-//    SDL_ffmpegAddVideoStream(file);
-//    SDL_ffmpegSelectAudioStream(file,0);
-//    SDL_ffmpegSelectVideoStream(file,0);
-//
-////    AVFormatParameters ap;
-////    memset( &ap, 0, sizeof(ap) );
-//    if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
-//        fprintf( stderr, "coult not set encoding parameters\n" );
-//        SDL_ffmpegFree( file );
-//        return 0;
-//    }
-//
-//    dump_format( file->_ffmpeg, 0, filename, 1);
-//
-//    /* if av_write_header returns 0, we should also write a trailer */
-//    file->writeTrailer = !av_write_header( file->_ffmpeg );
 
     file->type = SDL_ffmpegOutputStream;
 
@@ -400,7 +382,7 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
     file->videoStream->encodeFrame->top_field_first = 1;
 
     int out_size = 0;
-    out_size = avcodec_encode_video( file->videoStream->_ffmpeg->codec, file->videoStream->encodeBuffer, file->videoStream->encodeBufferSize, file->videoStream->encodeFrame );
+    out_size = avcodec_encode_video( file->videoStream->_ffmpeg->codec, file->videoStream->encodeFrameBuffer, file->videoStream->encodeFrameBufferSize, file->videoStream->encodeFrame );
 
     // if zero size, it means the image was buffered
     if( out_size > 0 ) {
@@ -413,7 +395,7 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
         // set keyframe flag if needed
         if( file->videoStream->_ffmpeg->codec->coded_frame->key_frame ) pkt.flags |= PKT_FLAG_KEY;
         // write encoded data into packet
-        pkt.data = file->videoStream->encodeBuffer;
+        pkt.data = file->videoStream->encodeFrameBuffer;
         // set the correct size of this packet
         pkt.size = out_size;
         // set the correct duration of this packet
@@ -432,6 +414,47 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
     return 0;
 }
 
+
+/** \brief  Use this to add a SDL_ffmpegVideoFrame to file
+
+            By adding frames to file, a video stream is build. If an audio stream
+            is present, syncing of both streams needs to be done by user.
+\param      file SDL_ffmpegFile to which a frame needs to be added
+\returns    0 if frame was added, non-zero if an error occured
+*/
+int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame ) {
+
+    if( !file  || !file->audioStream || !frame ) return -1;
+
+
+    /* initialize a packet to write */
+    AVPacket pkt;
+    av_init_packet( &pkt );
+
+    /* set correct stream index for this packet */
+    pkt.stream_index = file->audioStream->_ffmpeg->index;
+
+    /* set keyframe flag if needed */
+    pkt.flags |= PKT_FLAG_KEY;
+
+    /* set the correct size of this packet */
+    pkt.size = avcodec_encode_audio( file->audioStream->_ffmpeg->codec, (uint8_t*)file->audioStream->sampleBuffer, file->audioStream->sampleBufferSize, (int16_t*)frame->buffer );
+
+    /* write encoded data into packet */
+    pkt.data = (uint8_t*)file->audioStream->sampleBuffer;
+
+    /* if needed info is available, write pts for this packet */
+    if( file->audioStream->_ffmpeg->codec->coded_frame && file->audioStream->_ffmpeg->codec->coded_frame->pts != AV_NOPTS_VALUE ) {
+        pkt.pts = av_rescale_q( file->audioStream->_ffmpeg->codec->coded_frame->pts, file->audioStream->_ffmpeg->codec->time_base, file->audioStream->_ffmpeg->time_base );
+    }
+
+    /* write packet to stream */
+    av_write_frame( file->_ffmpeg, &pkt );
+
+    av_free_packet( &pkt );
+
+    return 0;
+}
 
 /** \brief  Use this to create a SDL_ffmpegAudioFrame
 
@@ -456,6 +479,9 @@ SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t
 
     /* initialize a non-valid timestamp */
     frame->pts = AV_NOPTS_VALUE;
+
+    //        str->encodeAudioInput = av_malloc( str->encodeAudioInputSize * 2 * stream->codec->channels );
+
 
     return frame;
 }
@@ -1171,9 +1197,9 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
         picture_buf = (uint8_t*)av_malloc( size + FF_INPUT_BUFFER_PADDING_SIZE );
         avpicture_fill( (AVPicture*)str->encodeFrame, picture_buf, stream->codec->pix_fmt, stream->codec->width, stream->codec->height );
 
-        str->encodeBufferSize = stream->codec->width * stream->codec->height * 4 + FF_INPUT_BUFFER_PADDING_SIZE;
+        str->encodeFrameBufferSize = stream->codec->width * stream->codec->height * 4 + FF_INPUT_BUFFER_PADDING_SIZE;
 
-        str->encodeBuffer = (uint8_t*)av_malloc( str->encodeBufferSize );
+        str->encodeFrameBuffer = (uint8_t*)av_malloc( str->encodeFrameBufferSize );
 
         file->videoStreams++;
 
@@ -1185,15 +1211,15 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 
         *s = str;
 
-    if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
-        fprintf( stderr, "could not set encoding parameters\n" );
-        return 0;
-    }
+        if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
+            fprintf( stderr, "could not set encoding parameters\n" );
+//            return 0;
+        }
 
-    dump_format( file->_ffmpeg, 0, "aap", 1 );
+        /* if av_write_header returns 0, we should also write a trailer */
+        file->writeTrailer |= !av_write_header( file->_ffmpeg );
 
-    /* if av_write_header returns 0, we should also write a trailer */
-    file->writeTrailer = !av_write_header( file->_ffmpeg );
+        dump_format( file->_ffmpeg, 0, "VIDEO", 1 );
     }
 
     return str;
@@ -1231,7 +1257,7 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
     }
 
     // open the codec
-    if(avcodec_open(stream->codec, audioCodec) < 0) {
+    if(avcodec_open( stream->codec, audioCodec ) < 0) {
         fprintf( stderr, "could not open audio codec\n" );
         return 0;
     }
@@ -1247,23 +1273,57 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
         /* we set our stream to zero */
         memset( str, 0, sizeof(SDL_ffmpegStream) );
 
+        str->id = file->audioStreams + file->videoStreams;
+
+        /* _ffmpeg holds data about streamcodec */
+        str->_ffmpeg = stream;
+
+        str->mutex = SDL_CreateMutex();
+
+        str->sampleBufferSize = 10000;
+
+        str->sampleBuffer = (int8_t*)av_malloc( str->sampleBufferSize );
+
+        /* ugly hack for PCM codecs (will be removed ASAP with new PCM
+           support to compute the input frame size in samples */
+        if( stream->codec->frame_size <= 1 ) {
+
+            str->encodeAudioInputSize = str->sampleBufferSize / stream->codec->channels;
+
+            switch( stream->codec->codec_id ) {
+
+                case CODEC_ID_PCM_S16LE:
+                case CODEC_ID_PCM_S16BE:
+                case CODEC_ID_PCM_U16LE:
+                case CODEC_ID_PCM_U16BE:
+                    str->encodeAudioInputSize >>= 1;
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            str->encodeAudioInputSize = stream->codec->frame_size;
+        }
+
+        file->audioStreams++;
+
         /* find correct place to save the stream */
-        SDL_ffmpegStream **s = &file->vs;
+        SDL_ffmpegStream **s = &file->as;
         while( *s ) {
             *s = (*s)->next;
         }
 
         *s = str;
 
-    if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
-        fprintf( stderr, "could not set encoding parameters\n" );
-        return 0;
-    }
+        if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
+            fprintf( stderr, "could not set encoding parameters\n" );
+            return 0;
+        }
 
-    dump_format( file->_ffmpeg, 0, "aap", 1 );
+        /* if av_write_header returns 0, we should also write a trailer */
+        file->writeTrailer |= !av_write_header( file->_ffmpeg );
 
-    /* if av_write_header returns 0, we should also write a trailer */
-    file->writeTrailer = !av_write_header( file->_ffmpeg );
+        dump_format( file->_ffmpeg, 0, "AUDIO", 1 );
     }
 
     return str;

@@ -90,8 +90,10 @@ typedef struct SDL_ffmpegStream {
     /** Intermediate frame which will be used when encoding */
     struct AVFrame *encodeFrame;
 
-    int encodeBufferSize;
-    uint8_t *encodeBuffer;
+    int encodeFrameBufferSize;
+    uint8_t *encodeFrameBuffer;
+
+    int encodeAudioInputSize;
 
     /** buffer for decoded audio data */
     int8_t *sampleBuffer;
@@ -190,7 +192,11 @@ SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename);
 
 SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file );
 
+int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
+
 SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file );
+
+int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
 int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
 

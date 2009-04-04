@@ -7,137 +7,137 @@
       <Option compiler="gcc" />
       <Build>
       <Target title="all">
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk" />
          <Option type="4" />
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; all" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; all" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       <Target title="rebuild_cache">
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk" />
          <Option type="4" />
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; rebuild_cache" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; rebuild_cache" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       <Target title="SDL_ffmpeg">
-         <Option output="/home/arjan/C/SDL_ffmpeg/trunk/lib/libSDL_ffmpeg.a" prefix_auto="0" extension_auto="0" />
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk/lib" />
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/lib/libSDL_ffmpeg.a" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/lib" />
          <Option object_output="./" />
          <Option type="2" />
          <Option compiler="gcc" />
          <Compiler>
-            <Add directory="/usr/include/SDL" />
-            <Add directory="/home/arjan/C/SDL_ffmpeg/trunk/include" />
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
             <Add directory="/include" />
          </Compiler>
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; SDL_ffmpeg" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; SDL_ffmpeg" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       <Target title="SDL_ffmpeg/fast">
-         <Option output="/home/arjan/C/SDL_ffmpeg/trunk/lib/libSDL_ffmpeg.a" prefix_auto="0" extension_auto="0" />
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk/lib" />
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/lib/libSDL_ffmpeg.a" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/lib" />
          <Option object_output="./" />
          <Option type="2" />
          <Option compiler="gcc" />
          <Compiler>
-            <Add directory="/usr/include/SDL" />
-            <Add directory="/home/arjan/C/SDL_ffmpeg/trunk/include" />
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
             <Add directory="/include" />
          </Compiler>
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; SDL_ffmpeg/fast" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; SDL_ffmpeg/fast" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/lib/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       <Target title="example">
-         <Option output="/home/arjan/C/SDL_ffmpeg/trunk/bin/example" prefix_auto="0" extension_auto="0" />
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk/bin" />
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/bin/example" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/bin" />
          <Option object_output="./" />
          <Option type="1" />
          <Option compiler="gcc" />
          <Compiler>
-            <Add directory="/usr/include/SDL" />
-            <Add directory="/home/arjan/C/SDL_ffmpeg/trunk/include" />
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
          </Compiler>
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; example" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; example" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       <Target title="example/fast">
-         <Option output="/home/arjan/C/SDL_ffmpeg/trunk/bin/example" prefix_auto="0" extension_auto="0" />
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk/bin" />
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/bin/example" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/bin" />
          <Option object_output="./" />
          <Option type="1" />
          <Option compiler="gcc" />
          <Compiler>
-            <Add directory="/usr/include/SDL" />
-            <Add directory="/home/arjan/C/SDL_ffmpeg/trunk/include" />
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
          </Compiler>
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; example/fast" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; example/fast" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       <Target title="record">
-         <Option output="/home/arjan/C/SDL_ffmpeg/trunk/bin/record" prefix_auto="0" extension_auto="0" />
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk/bin" />
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/bin/record" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/bin" />
          <Option object_output="./" />
          <Option type="1" />
          <Option compiler="gcc" />
          <Compiler>
-            <Add directory="/usr/include/SDL" />
-            <Add directory="/home/arjan/C/SDL_ffmpeg/trunk/include" />
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
          </Compiler>
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; record" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; record" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       <Target title="record/fast">
-         <Option output="/home/arjan/C/SDL_ffmpeg/trunk/bin/record" prefix_auto="0" extension_auto="0" />
-         <Option working_dir="/home/arjan/C/SDL_ffmpeg/trunk/bin" />
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/bin/record" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/bin" />
          <Option object_output="./" />
          <Option type="1" />
          <Option compiler="gcc" />
          <Compiler>
-            <Add directory="/usr/include/SDL" />
-            <Add directory="/home/arjan/C/SDL_ffmpeg/trunk/include" />
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
          </Compiler>
          <MakeCommands>
-            <Build command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; record/fast" />
-            <CompileFile command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
-            <Clean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
-            <DistClean command="/usr/bin/make -f &quot;/home/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; record/fast" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
       </Build>
-      <Unit filename="/home/arjan/C/SDL_ffmpeg/trunk/include/SDL/SDLMain.m">
+      <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/include/SDL/SDLMain.m">
       </Unit>
-      <Unit filename="/home/arjan/C/SDL_ffmpeg/trunk/src/SDL_ffmpeg.c">
+      <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/src/SDL_ffmpeg.c">
       </Unit>
-      <Unit filename="/home/arjan/C/SDL_ffmpeg/trunk/src/example.c">
+      <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/src/example.c">
       </Unit>
-      <Unit filename="/home/arjan/C/SDL_ffmpeg/trunk/src/record.c">
+      <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/src/record.c">
       </Unit>
    </Project>
 </CodeBlocks_project_file>

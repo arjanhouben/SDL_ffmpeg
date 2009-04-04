@@ -1,5 +1,3 @@
-#				SHARED
-
 add_library( 	SDL_ffmpeg
 				${SDL_FFMPEG_SOURCE_DIR}/src/SDL_ffmpeg.c )
 
@@ -9,19 +7,20 @@ include_directories(	${SDL_INCLUDE_DIR}
 
 find_package( ZLIB )
 
-#find_package( BZ2 )
+set( SDL_FFMPEG_LIBRARIES	avformat
+							avcodec
+							avutil
+							${ZLIB_LIBRARY}
+							${SDL_LIBRARY} )
 
-target_link_libraries(	SDL_ffmpeg
-						avformat
-						avcodec
-						avutil
-						${ZLIB_LIBRARY}
-						${SDL_LIBRARY} )
+if( APPLE )
 
-if(apple)
-	target_link_libraries(	SDL_ffmpeg
-							bz2 )
-endif(apple)
+	set( SDL_FFMPEG_LIBRARIES	${SDL_FFMPEG_LIBRARIES}
+								bz2 )
+
+endif( APPLE )
+
+target_link_libraries(	SDL_ffmpeg ${SDL_FFMPEG_LIBRARIES} )
 
 include_directories( ${LIBSDL_FFMPEG_SOURCE_DIR}/include )
 
