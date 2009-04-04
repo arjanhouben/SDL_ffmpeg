@@ -118,6 +118,11 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file ) {
 
     SDL_ffmpegFlush(file);
 
+    /* only write trailer when handling output streams */
+    if( file->type == SDL_ffmpegOutputStream ) {
+        av_write_trailer( file->_ffmpeg );
+    }
+
     SDL_ffmpegStream *s = file->vs;
     while( s ) {
 
@@ -157,9 +162,6 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file ) {
             av_close_input_file( file->_ffmpeg );
 
         } else if(file->type == SDL_ffmpegOutputStream ) {
-
-            /* only write trailer if format requires it */
-            av_write_trailer( file->_ffmpeg );
 
             url_fclose( file->_ffmpeg->pb );
 
@@ -1058,28 +1060,24 @@ int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h) {
 /** \brief  This is used to check if a valid audio stream is selected.
 
 \param      file SDL_ffmpegFile from which the information is required
-\returns    -1 on error, otherwise 0
+\returns    1 if a valid video stream is selected, otherwise 0
 */
 int SDL_ffmpegValidAudio(SDL_ffmpegFile* file) {
 
     /* this function is used to check if we selected a valid audio stream */
-    if(file->audioStream) return 1;
-
-    return 0;
+    return !!file->audioStream;
 }
 
 
 /** \brief  This is used to check if a valid video stream is selected.
 
 \param      file SDL_ffmpegFile from which the information is required
-\returns    -1 on error, otherwise 0
+\returns    1 if a valid video stream is selected, otherwise 0
 */
 int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
 
     /* this function is used to check if we selected a valid video stream */
-    if(file->videoStream) return 1;
-
-    return 0;
+    return !!file->videoStream;
 }
 
 
