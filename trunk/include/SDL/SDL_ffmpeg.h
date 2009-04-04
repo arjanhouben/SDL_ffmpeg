@@ -85,7 +85,13 @@ typedef struct SDL_ffmpegStream {
 
     /** Pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
+    /** Intermediate frame which will be used when decoding */
     struct AVFrame *decodeFrame;
+    /** Intermediate frame which will be used when encoding */
+    struct AVFrame *encodeFrame;
+
+    int encodeBufferSize;
+    uint8_t *encodeBuffer;
 
     /** buffer for decoded audio data */
     int8_t *sampleBuffer;
@@ -121,6 +127,9 @@ typedef struct SDL_ffmpegFile {
 
     /** Pointer to ffmpeg data, internal use only! */
     struct AVFormatContext *_ffmpeg;
+
+    /** Tell encoder wheter or not a trailer is needed */
+    int writeTrailer;
 
     /** Video streams */
     SDL_ffmpegStream    *vs,

@@ -156,7 +156,10 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file ) {
 
         } else if(file->type == SDL_ffmpegOutputStream ) {
 
-            av_write_trailer( file->_ffmpeg );
+            /* only write trailer if format requires it */
+            if( file->writeTrailer ) {
+                av_write_trailer( file->_ffmpeg );
+            }
 
             url_fclose( file->_ffmpeg->pb );
 
@@ -364,11 +367,62 @@ SDL_ffmpegFile* SDL_ffmpegCreate(const char* filename) {
         return 0;
     }
 
-    av_write_header( file->_ffmpeg );
+    /* if av_write_header returns 0, we should also write a trailer */
+    file->writeTrailer = !av_write_header( file->_ffmpeg );
 
     file->type = SDL_ffmpegOutputStream;
 
     return file;
+}
+
+
+/** \brief  Use this to add a SDL_ffmpegVideoFrame to file
+
+            By adding frames to file, a video stream is build. If an audio stream
+            is present, syncing of both streams needs to be done by user.
+\param      file SDL_ffmpegFile to which a frame needs to be added
+\returns    0 if frame was added, non-zero if an error occured
+*/
+int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame ) {
+
+    if( !file  || !file->videoStream || !frame || !frame->surface ) return -1;
+
+
+
+    // PAL = upper field first
+    file->videoStream->encodeFrame->top_field_first = 1;
+
+    int out_size = 0;
+    out_size = avcodec_encode_video( file->videoStream->_ffmpeg->codec, file->videoStream->encodeBuffer, file->videoStream->encodeBufferSize, file->videoStream->encodeFrame );
+
+    // if zero size, it means the image was buffered
+    if( out_size > 0 ) {
+
+        AVPacket pkt;
+        av_init_packet( &pkt );
+
+        // set correct stream index for this packet
+        pkt.stream_index = file->videoStream->_ffmpeg->index;
+        // set keyframe flag if needed
+        if( file->videoStream->_ffmpeg->codec->coded_frame->key_frame ) pkt.flags |= PKT_FLAG_KEY;
+        // write encoded data into packet
+        pkt.data = file->videoStream->encodeBuffer;
+        // set the correct size of this packet
+        pkt.size = out_size;
+        // set the correct duration of this packet
+        pkt.duration = AV_TIME_BASE / file->videoStream->_ffmpeg->time_base.den;
+
+        // if needed info is available, write pts for this packet
+        if( file->videoStream->_ffmpeg->codec->coded_frame && file->videoStream->_ffmpeg->codec->coded_frame->pts != AV_NOPTS_VALUE ) {
+            pkt.pts = av_rescale_q( file->videoStream->_ffmpeg->codec->coded_frame->pts, file->videoStream->_ffmpeg->codec->time_base, file->videoStream->_ffmpeg->codec->time_base );
+        }
+
+        av_write_frame( file->_ffmpeg, &pkt );
+
+        av_free_packet( &pkt );
+    }
+
+    return 0;
 }
 
 
@@ -602,12 +656,14 @@ int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
         for(i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
 
         /* check if pixel format is supported */
-        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P &&
-            file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUVJ420P ) {
-            printf("unsupported pixel format [%i]\n", file->videoStream->_ffmpeg->codec->pix_fmt);
+        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P/* &&
+            file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUVJ420P*/ ) {
+            printf( "unsupported pixel format [%i]\n", file->videoStream->_ffmpeg->codec->pix_fmt );
             file->videoStream = 0;
         }
     }
+
+    printf("videoStream: %X\n", file->videoStream);
 
     return 0;
 }
@@ -991,7 +1047,7 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 
     stream->codec->me_method = 1;
 
-    stream->codec->bit_rate = 1000000;
+    stream->codec->bit_rate = 9600000;
 
     /* emit one intra frame every twelve frames at most */
     stream->codec->gop_size = 12;
@@ -1087,41 +1143,45 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 
 //    stream->codec->flags |= CODEC_FLAG_PASS2;
 
-    SDL_ffmpegStream **s = &file->vs;
-    while( *s ) {
-        *s = (*s)->next;
-    }
-
     /* create a new stream */
-    *s = (SDL_ffmpegStream*)malloc( sizeof(SDL_ffmpegStream) );
+    SDL_ffmpegStream *str = (SDL_ffmpegStream*)malloc( sizeof(SDL_ffmpegStream) );
 
-    if( *s ) {
+    if( str ) {
 
         /* we set our stream to zero */
-        memset( *s, 0, sizeof(SDL_ffmpegStream) );
+        memset( str, 0, sizeof(SDL_ffmpegStream) );
 
+        str->id = file->audioStreams + file->videoStreams;
 
-    /* _ffmpeg holds data about streamcodec */
-    stream->_ffmpeg = file->_ffmpeg->streams[i];
+        /* _ffmpeg holds data about streamcodec */
+        str->_ffmpeg = stream;
 
-    /* get the correct decoder for this stream */
-    codec = avcodec_find_decoder( stream->_ffmpeg->codec->codec_id );
+        str->mutex = SDL_CreateMutex();
 
-    if(!codec) {
-        free(stream);
-        fprintf(stderr, "could not find codec\n");
-    } else if(avcodec_open(file->_ffmpeg->streams[i]->codec, codec) < 0) {
-        free(stream);
-        fprintf(stderr, "could not open decoder\n");
-    } else {
+        str->decodeFrame = avcodec_alloc_frame();
 
-        stream->mutex = SDL_CreateMutex();
+        str->encodeFrame = avcodec_alloc_frame();
+        uint8_t *picture_buf;
+        int size = avpicture_get_size( stream->codec->pix_fmt, stream->codec->width, stream->codec->height );
+        picture_buf = (uint8_t*)av_malloc( size + FF_INPUT_BUFFER_PADDING_SIZE );
+        avpicture_fill( (AVPicture*)str->encodeFrame, picture_buf, stream->codec->pix_fmt, stream->codec->width, stream->codec->height );
 
-        stream->decodeFrame = avcodec_alloc_frame();
+        str->encodeBufferSize = stream->codec->width * stream->codec->height * 4;
+
+        str->encodeBuffer = (uint8_t*)av_malloc( str->encodeBufferSize + FF_INPUT_BUFFER_PADDING_SIZE );
+
         file->videoStreams++;
+
+        /* find correct place to save the stream */
+        SDL_ffmpegStream **s = &file->vs;
+        while( *s ) {
+            *s = (*s)->next;
+        }
+
+        *s = str;
     }
 
-    return *s;
+    return str;
 }
 
 /**
