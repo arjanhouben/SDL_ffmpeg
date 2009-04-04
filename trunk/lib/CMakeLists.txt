@@ -16,8 +16,12 @@ target_link_libraries(	SDL_ffmpeg
 						avcodec
 						avutil
 						${ZLIB_LIBRARY}
-						bz2
 						${SDL_LIBRARY} )
+
+if(apple)
+	target_link_libraries(	SDL_ffmpeg
+							bz2 )
+endif(apple)
 
 include_directories( ${LIBSDL_FFMPEG_SOURCE_DIR}/include )
 
