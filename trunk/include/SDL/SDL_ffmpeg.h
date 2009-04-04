@@ -94,6 +94,7 @@ typedef struct SDL_ffmpegStream {
     uint8_t *encodeFrameBuffer;
 
     int encodeAudioInputSize;
+    uint64_t frameCount;
 
     /** buffer for decoded audio data */
     int8_t *sampleBuffer;
@@ -129,9 +130,6 @@ typedef struct SDL_ffmpegFile {
 
     /** Pointer to ffmpeg data, internal use only! */
     struct AVFormatContext *_ffmpeg;
-
-    /** Tell encoder wheter or not a trailer is needed */
-    int writeTrailer;
 
     /** Video streams */
     SDL_ffmpegStream    *vs,
@@ -212,7 +210,11 @@ SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmp
 
 int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h);
 
-uint64_t SDL_ffmpegGetDuration(SDL_ffmpegFile *file);
+uint64_t SDL_ffmpegDuration(SDL_ffmpegFile *file);
+
+uint64_t SDL_ffmpegAudioDuration( SDL_ffmpegFile *file );
+
+uint64_t SDL_ffmpegVideoDuration( SDL_ffmpegFile *file );
 
 int SDL_ffmpegValidAudio(SDL_ffmpegFile *file);
 

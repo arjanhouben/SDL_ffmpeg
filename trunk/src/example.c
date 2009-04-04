@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
                 SDL_GetMouseState( &x, &y );
                 /* by clicking you turn on the stream, seeking to the percentage
                    in time, based on the x-position you clicked on */
-                time = (int64_t)(((double)x / (double)w) * SDL_ffmpegGetDuration( file ));
+                time = (int64_t)(((double)x / (double)w) * SDL_ffmpegDuration( file ));
 
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek( file, time );

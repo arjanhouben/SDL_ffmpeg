@@ -80,6 +80,8 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced
 
 void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced );
 
+void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced );
+
 int SDL_ffmpegDecodeThread(void* data);
 
 SDL_ffmpegFile* SDL_ffmpegCreateFile() {
@@ -157,9 +159,7 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file ) {
         } else if(file->type == SDL_ffmpegOutputStream ) {
 
             /* only write trailer if format requires it */
-            if( file->writeTrailer ) {
-                av_write_trailer( file->_ffmpeg );
-            }
+            av_write_trailer( file->_ffmpeg );
 
             url_fclose( file->_ffmpeg->pb );
 
@@ -346,6 +346,11 @@ SDL_ffmpegFile* SDL_ffmpegCreate(const char* filename) {
     /* guess output format based on filename */
     file->_ffmpeg->oformat = guess_format(0, filename, 0);
 
+    if( !file->_ffmpeg->oformat ) {
+
+        file->_ffmpeg->oformat = guess_format("dvd", 0, 0);
+    }
+
     /* preload as shown in ffmpeg.c */
     file->_ffmpeg->preload = (int)(0.5*AV_TIME_BASE);
 
@@ -376,7 +381,7 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
 
     if( !file  || !file->videoStream || !frame || !frame->surface ) return -1;
 
-
+    convertRGBAtoYUV420P( frame->surface, file->videoStream->encodeFrame, 0 );
 
     // PAL = upper field first
     file->videoStream->encodeFrame->top_field_first = 1;
@@ -409,15 +414,17 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
         av_write_frame( file->_ffmpeg, &pkt );
 
         av_free_packet( &pkt );
+
+        file->videoStream->frameCount++;
     }
 
     return 0;
 }
 
 
-/** \brief  Use this to add a SDL_ffmpegVideoFrame to file
+/** \brief  Use this to add a SDL_ffmpegAudioFrame to file
 
-            By adding frames to file, a video stream is build. If an audio stream
+            By adding frames to file, an audio stream is build. If a video stream
             is present, syncing of both streams needs to be done by user.
 \param      file SDL_ffmpegFile to which a frame needs to be added
 \returns    0 if frame was added, non-zero if an error occured
@@ -453,6 +460,8 @@ int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
 
     av_free_packet( &pkt );
 
+    file->audioStream->frameCount++;
+
     return 0;
 }
 
@@ -465,11 +474,15 @@ int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
 */
 SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t bytes ) {
 
-    if( !file || !file->audioStream || !bytes ) return 0;
+    if( !file || !file->audioStream || ( !bytes && file->type == SDL_ffmpegInputStream ) ) return 0;
 
     /* allocate new frame */
     SDL_ffmpegAudioFrame *frame = (SDL_ffmpegAudioFrame*)malloc( sizeof( SDL_ffmpegAudioFrame ) );
     memset( frame, 0, sizeof( SDL_ffmpegAudioFrame ) );
+
+    if( file->type == SDL_ffmpegOutputStream ) {
+        bytes = file->audioStream->encodeAudioInputSize * 2 * file->audioStream->_ffmpeg->codec->channels;
+    }
 
     /* set capacity of new frame */
     frame->capacity = bytes;
@@ -479,9 +492,6 @@ SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t
 
     /* initialize a non-valid timestamp */
     frame->pts = AV_NOPTS_VALUE;
-
-    //        str->encodeAudioInput = av_malloc( str->encodeAudioInputSize * 2 * stream->codec->channels );
-
 
     return frame;
 }
@@ -749,7 +759,7 @@ int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file) {
 */
 int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp) {
 
-    if( !file || SDL_ffmpegGetDuration( file ) < timestamp ) return -1;
+    if( !file || SDL_ffmpegDuration( file ) < timestamp ) return -1;
 
     /* set new timestamp */
     file->seekPosition = timestamp;
@@ -942,12 +952,76 @@ SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmp
 \param      file SDL_ffmpegFile from which the information is required
 \returns    -1 on error, otherwise the length of the file in milliseconds
 */
-uint64_t SDL_ffmpegGetDuration(SDL_ffmpegFile *file) {
+uint64_t SDL_ffmpegDuration(SDL_ffmpegFile *file) {
 
-    if( !file ) return -1;
-    /* returns the duration of the entire file, please note that ffmpeg doesn't
-       always get this value right! so don't bet your life on it... */
-    return file->_ffmpeg->duration / (AV_TIME_BASE / 1000);
+    if( !file ) return 0;
+
+    if( file->type == SDL_ffmpegInputStream ) {
+        /* returns the duration of the entire file, please note that ffmpeg doesn't
+           always get this value right! so don't bet your life on it... */
+        return file->_ffmpeg->duration / (AV_TIME_BASE / 1000);
+    }
+
+    if( file->type == SDL_ffmpegOutputStream ) {
+
+        uint64_t v = SDL_ffmpegVideoDuration(file);
+        uint64_t a = SDL_ffmpegAudioDuration(file);
+
+        if( v > a ) return v;
+        return a;
+    }
+
+    return 0;
+}
+
+
+/** \brief  Returns the duration of the audio stream in milliseconds.
+
+            This value can be used to sync two output streams.
+\param      file SDL_ffmpegFile from which the information is required
+\returns    -1 on error, otherwise the length of the file in milliseconds
+*/
+uint64_t SDL_ffmpegAudioDuration(SDL_ffmpegFile *file) {
+
+    if( !file || !file->audioStream ) return 0;
+
+    if( file->type == SDL_ffmpegInputStream ) {
+
+        return av_rescale( 1000 * file->audioStream->_ffmpeg->duration, file->audioStream->_ffmpeg->time_base.num, file->audioStream->_ffmpeg->time_base.den );
+    }
+
+    if( file->type == SDL_ffmpegOutputStream ) {
+
+        return file->audioStream->frameCount * file->audioStream->encodeAudioInputSize / ( file->audioStream->_ffmpeg->codec->sample_rate / 1000 );
+
+        return av_rescale( 1000 * file->audioStream->frameCount, file->audioStream->_ffmpeg->codec->time_base.num, file->audioStream->_ffmpeg->codec->time_base.den );
+    }
+
+    return 0;
+}
+
+
+/** \brief  Returns the duration of the video stream in milliseconds.
+
+            This value can be used to sync two output streams.
+\param      file SDL_ffmpegFile from which the information is required
+\returns    -1 on error, otherwise the length of the file in milliseconds
+*/
+uint64_t SDL_ffmpegVideoDuration(SDL_ffmpegFile *file) {
+
+    if( !file || !file->videoStream ) return 0;
+
+    if( file->type == SDL_ffmpegInputStream ) {
+
+        return av_rescale( 1000 * file->videoStream->_ffmpeg->duration, file->videoStream->_ffmpeg->time_base.num, file->videoStream->_ffmpeg->time_base.den );
+    }
+
+    if( file->type == SDL_ffmpegOutputStream ) {
+
+        return av_rescale( 1000 * file->videoStream->frameCount, file->videoStream->_ffmpeg->codec->time_base.num, file->videoStream->_ffmpeg->codec->time_base.den );
+    }
+
+    return 0;
 }
 
 /** \brief  retreive the width/height of a frame beloning to file
@@ -1072,46 +1146,11 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 
     avcodec_get_context_defaults2( stream->codec, CODEC_TYPE_VIDEO );
 
-    stream->codec->codec_id = CODEC_ID_MPEG2VIDEO;
+    stream->codec->codec_id = file->_ffmpeg->oformat->video_codec;
 
     stream->codec->codec_type = CODEC_TYPE_VIDEO;
 
-    stream->codec->me_method = 1;
-
-    stream->codec->bit_rate = 9600000;
-
-    /* emit one intra frame every twelve frames at most */
-    stream->codec->gop_size = 12;
-
-    stream->codec->rc_max_rate = stream->codec->bit_rate;
-    stream->codec->rc_min_rate = stream->codec->bit_rate;
-
-    stream->codec->rc_buffer_size = 224*1024*8;
-
-    /*
-    // calculate the lowest possible fraction
-    double temp[2];
-    temp[0] = codec.height() * codec.aspectNum() / codec.aspectDen();
-    temp[1] = codec.width();
-    int i = 10;
-    while(i>1) {
-        double t1 = temp[0] / (double)i;
-        double t2 = temp[1] / (double)i;
-        if( t1 == round(t1) && t2 == round(t2) ) {
-            temp[0] = t1;
-            temp[1] = t2;
-            i = 10;
-        } else {
-            i--;
-        }
-    }
-    */
-
-    stream->codec->sample_aspect_ratio.num = stream->sample_aspect_ratio.num = 1;
-    stream->codec->sample_aspect_ratio.den = stream->sample_aspect_ratio.den = 1;
-
-    stream->codec->qmin = 2;
-    stream->codec->qmax = 10;
+    stream->codec->bit_rate = 1500000;
 
     /* resolution must be a multiple of two */
     stream->codec->width = 720;
@@ -1121,15 +1160,19 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
     stream->codec->time_base.num = 1;
     stream->codec->time_base.den = 25;
 
+    /* emit one intra frame every twelve frames at most */
+    stream->codec->gop_size = 12;
+
     /* set pixel format */
     stream->codec->pix_fmt = PIX_FMT_YUV420P;
 
     /* set mpeg2 codec parameters */
     if( stream->codec->codec_id == CODEC_ID_MPEG2VIDEO ) {
         stream->codec->max_b_frames = 2;
-        stream->codec->flags |= CODEC_FLAG_CLOSED_GOP | CODEC_FLAG_INTERLACED_DCT;
-        stream->codec->flags2 |= CODEC_FLAG2_STRICT_GOP;
-        stream->codec->scenechange_threshold = 1000000000;
+
+//        stream->codec->flags |= CODEC_FLAG_CLOSED_GOP | CODEC_FLAG_INTERLACED_DCT;
+//        stream->codec->flags2 |= CODEC_FLAG2_STRICT_GOP;
+//        stream->codec->scenechange_threshold = 1000000000;
     }
 
     /* set mpeg1 codec parameters */
@@ -1140,14 +1183,11 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
         stream->codec->mb_decision = 2;
     }
 
-    /* some formats want stream headers to be seperate *
-    if( !strcmp( file->_ffmpeg->oformat->name, "mp4") ||
-        !strcmp( file->_ffmpeg->oformat->name, "mov") ||
-        !strcmp( file->_ffmpeg->oformat->name, "3gp")) {
+    /* some formats want stream headers to be separate */
+    if( file->_ffmpeg->oformat->flags & AVFMT_GLOBALHEADER ) {
 
         stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
     }
-    */
 
     /* find the video encoder */
     AVCodec *videoCodec = avcodec_find_encoder( stream->codec->codec_id );
@@ -1161,18 +1201,6 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
         fprintf( stderr, "could not open video codec\n" );
         return 0;
     }
-
-    /* ? */
-    stream->codec->flags |= CODEC_FLAG_QSCALE;
-    stream->codec->global_quality = (int64_t)FF_QP2LAMBDA * 1;
-    stream->quality = FF_QP2LAMBDA * 1;
-
-    stream->pts.den = 25;
-    stream->pts.num = 90000;
-
-    stream->codec->max_qdiff = 3;
-
-//    stream->codec->flags |= CODEC_FLAG_PASS2;
 
     /* create a new stream */
     SDL_ffmpegStream *str = (SDL_ffmpegStream*)malloc( sizeof(SDL_ffmpegStream) );
@@ -1213,13 +1241,10 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 
         if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
             fprintf( stderr, "could not set encoding parameters\n" );
-//            return 0;
         }
 
-        /* if av_write_header returns 0, we should also write a trailer */
-        file->writeTrailer |= !av_write_header( file->_ffmpeg );
-
-        dump_format( file->_ffmpeg, 0, "VIDEO", 1 );
+        /* try to write a header */
+        av_write_header( file->_ffmpeg );
     }
 
     return str;
@@ -1240,14 +1265,14 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
         return 0;
     }
 
-    stream->codec->codec_id = CODEC_ID_MP2;
+    stream->codec->codec_id = file->_ffmpeg->oformat->audio_codec;
     stream->codec->codec_type = CODEC_TYPE_AUDIO;
     stream->codec->bit_rate = 192000;
     stream->codec->sample_rate = 48000;
     stream->codec->channels = 2;
 
-    stream->codec->time_base.num = 1;
-    stream->codec->time_base.den = 41;
+//    stream->codec->time_base.num = 1;
+//    stream->codec->time_base.den = 41;
 
     // find the audio encoder
     AVCodec *audioCodec = avcodec_find_encoder( stream->codec->codec_id );
@@ -1260,6 +1285,12 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
     if(avcodec_open( stream->codec, audioCodec ) < 0) {
         fprintf( stderr, "could not open audio codec\n" );
         return 0;
+    }
+
+    /* some formats want stream headers to be separate */
+    if( file->_ffmpeg->oformat->flags & AVFMT_GLOBALHEADER ) {
+
+        stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
     }
 
 
@@ -1320,10 +1351,8 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
             return 0;
         }
 
-        /* if av_write_header returns 0, we should also write a trailer */
-        file->writeTrailer |= !av_write_header( file->_ffmpeg );
-
-        dump_format( file->_ffmpeg, 0, "AUDIO", 1 );
+        /* try to write a header */
+        av_write_header( file->_ffmpeg );
     }
 
     return str;
@@ -1831,6 +1860,98 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
     }
 
     SDL_UnlockYUVOverlay( YUY2 );
+}
+
+void convertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V, const uint32_t *RGBApacked, int w ) {
+
+//    Y  =      (0.257 * R) + (0.504 * G) + (0.098 * B) + 16
+//    Cr = V =  (0.439 * R) - (0.368 * G) - (0.071 * B) + 128
+//    Cb = U = -(0.148 * R) - (0.291 * G) + (0.439 * B) + 128
+
+    /* devide width by 2 */
+    w >>= 1;
+
+    while( w-- ) {
+
+        *Y = (0.257 * ((*RGBApacked>>16)&0xFF)) + (0.504 * ((*RGBApacked>>8)&0xFF)) + (0.098 * (*RGBApacked&0xFF)) + 16;
+        Y++;
+        RGBApacked++;
+
+        *U = -(0.148 * ((*RGBApacked>>16)&0xFF)) - (0.291 * ((*RGBApacked>>8)&0xFF)) + (0.439 * (*RGBApacked&0xFF)) + 128;
+        U++;
+
+        *V = (0.439 * ((*RGBApacked>>16)&0xFF)) - (0.368 * ((*RGBApacked>>8)&0xFF)) - (0.071 * (0.439 * (*RGBApacked&0xFF))) + 128;
+        V++;
+
+        *Y = (0.257 * ((*RGBApacked>>16)&0xFF)) + (0.504 * ((*RGBApacked>>8)&0xFF)) + (0.098 * (*RGBApacked&0xFF)) + 16;
+        Y++;
+        RGBApacked++;
+    }
+}
+
+void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced ) {
+
+    int y;
+
+    uint8_t   *Y = YUV420P->data[0],
+              *U = YUV420P->data[1],
+              *V = YUV420P->data[2];
+
+    const uint32_t *RGBApacked = RGBA->pixels;
+
+    if( interlaced ) {
+
+        /* handle 4 lines per loop */
+        for(y=0; y<(RGBA->h>>2); y++){
+
+            /* line 0 */
+            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            RGBApacked += RGBA->w;
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+
+            /* line 1 */
+            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            RGBApacked += RGBA->w;
+            Y += YUV420P->linesize[0];
+            U -= YUV420P->linesize[1];
+            V -= YUV420P->linesize[2];
+
+            /* line 2 */
+            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            RGBApacked += RGBA->w;
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+
+            /* line 3 */
+            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            RGBApacked += RGBA->w;
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+        }
+
+    } else {
+
+        /* handle 2 lines per loop */
+        for(y=0; y<(RGBA->h>>1); y++){
+
+            /* line 0 */
+            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            RGBApacked += RGBA->w;
+            Y += YUV420P->linesize[0];
+            U += YUV420P->linesize[1];
+            V += YUV420P->linesize[2];
+
+            /* line 1 */
+            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            RGBApacked += RGBA->w;
+            Y += YUV420P->linesize[0];
+        }
+
+    }
 }
 
 /**
