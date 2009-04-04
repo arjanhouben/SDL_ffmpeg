@@ -358,17 +358,24 @@ SDL_ffmpegFile* SDL_ffmpegCreate(const char* filename) {
         SDL_ffmpegFree( file );
         return 0;
     }
-
-    AVFormatParameters ap;
-    memset( &ap, 0, sizeof(ap) );
-    if( av_set_parameters( file->_ffmpeg, &ap ) < 0 ) {
-        fprintf( stderr, "coult not set encoding parameters\n" );
-        SDL_ffmpegFree( file );
-        return 0;
-    }
-
-    /* if av_write_header returns 0, we should also write a trailer */
-    file->writeTrailer = !av_write_header( file->_ffmpeg );
+//
+//    SDL_ffmpegAddAudioStream(file);
+//    SDL_ffmpegAddVideoStream(file);
+//    SDL_ffmpegSelectAudioStream(file,0);
+//    SDL_ffmpegSelectVideoStream(file,0);
+//
+////    AVFormatParameters ap;
+////    memset( &ap, 0, sizeof(ap) );
+//    if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
+//        fprintf( stderr, "coult not set encoding parameters\n" );
+//        SDL_ffmpegFree( file );
+//        return 0;
+//    }
+//
+//    dump_format( file->_ffmpeg, 0, filename, 1);
+//
+//    /* if av_write_header returns 0, we should also write a trailer */
+//    file->writeTrailer = !av_write_header( file->_ffmpeg );
 
     file->type = SDL_ffmpegOutputStream;
 
@@ -662,8 +669,6 @@ int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID) {
             file->videoStream = 0;
         }
     }
-
-    printf("videoStream: %X\n", file->videoStream);
 
     return 0;
 }
@@ -1166,9 +1171,9 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
         picture_buf = (uint8_t*)av_malloc( size + FF_INPUT_BUFFER_PADDING_SIZE );
         avpicture_fill( (AVPicture*)str->encodeFrame, picture_buf, stream->codec->pix_fmt, stream->codec->width, stream->codec->height );
 
-        str->encodeBufferSize = stream->codec->width * stream->codec->height * 4;
+        str->encodeBufferSize = stream->codec->width * stream->codec->height * 4 + FF_INPUT_BUFFER_PADDING_SIZE;
 
-        str->encodeBuffer = (uint8_t*)av_malloc( str->encodeBufferSize + FF_INPUT_BUFFER_PADDING_SIZE );
+        str->encodeBuffer = (uint8_t*)av_malloc( str->encodeBufferSize );
 
         file->videoStreams++;
 
@@ -1179,6 +1184,86 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
         }
 
         *s = str;
+
+    if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
+        fprintf( stderr, "could not set encoding parameters\n" );
+        return 0;
+    }
+
+    dump_format( file->_ffmpeg, 0, "aap", 1 );
+
+    /* if av_write_header returns 0, we should also write a trailer */
+    file->writeTrailer = !av_write_header( file->_ffmpeg );
+    }
+
+    return str;
+}
+
+
+/** \brief  This is used to add a video stream to file
+
+\param      file SDL_ffmpegFile to which the stream will be added
+\returns    The stream which was added, or NULL if no stream could be added.
+*/
+SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
+
+    // add an audio stream
+    AVStream *stream = av_new_stream( file->_ffmpeg, 1 );
+    if( !stream ) {
+        fprintf( stderr, "could not alloc stream\n");
+        return 0;
+    }
+
+    stream->codec->codec_id = CODEC_ID_MP2;
+    stream->codec->codec_type = CODEC_TYPE_AUDIO;
+    stream->codec->bit_rate = 192000;
+    stream->codec->sample_rate = 48000;
+    stream->codec->channels = 2;
+
+    stream->codec->time_base.num = 1;
+    stream->codec->time_base.den = 41;
+
+    // find the audio encoder
+    AVCodec *audioCodec = avcodec_find_encoder( stream->codec->codec_id );
+    if(!audioCodec) {
+        fprintf( stderr, "audio codec not found\n" );
+        return 0;
+    }
+
+    // open the codec
+    if(avcodec_open(stream->codec, audioCodec) < 0) {
+        fprintf( stderr, "could not open audio codec\n" );
+        return 0;
+    }
+
+
+    /* create a new stream */
+    SDL_ffmpegStream *str = (SDL_ffmpegStream*)malloc( sizeof(SDL_ffmpegStream) );
+
+    if( str ) {
+
+        str->_ffmpeg = stream;
+
+        /* we set our stream to zero */
+        memset( str, 0, sizeof(SDL_ffmpegStream) );
+
+        /* find correct place to save the stream */
+        SDL_ffmpegStream **s = &file->vs;
+        while( *s ) {
+            *s = (*s)->next;
+        }
+
+        *s = str;
+
+    if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
+        fprintf( stderr, "could not set encoding parameters\n" );
+        return 0;
+    }
+
+    dump_format( file->_ffmpeg, 0, "aap", 1 );
+
+    /* if av_write_header returns 0, we should also write a trailer */
+    file->writeTrailer = !av_write_header( file->_ffmpeg );
     }
 
     return str;

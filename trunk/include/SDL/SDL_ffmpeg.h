@@ -188,6 +188,8 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
 
 SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename);
 
+SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file );
+
 SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file );
 
 int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
