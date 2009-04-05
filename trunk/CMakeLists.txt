@@ -4,9 +4,7 @@ project ( SDL_FFMPEG )
 
 #set( CMAKE_C_FLAGS "-O2" )
 #set( CMAKE_C_FLAGS "-ggdb" )
-#set( CMAKE_DEBUG_POSTFIX "d" )
-
-set( CMAKE_BUILD_TYPE "Debug" )
+set( CMAKE_DEBUG_POSTFIX "d" )
 
 add_subdirectory( lib )
 

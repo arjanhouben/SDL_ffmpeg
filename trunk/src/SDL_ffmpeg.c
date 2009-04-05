@@ -408,9 +408,9 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
         // set the correct duration of this packet
         pkt.duration = AV_TIME_BASE / file->videoStream->_ffmpeg->time_base.den;
 
-        // if needed info is available, write pts for this packet
-        if( file->videoStream->_ffmpeg->codec->coded_frame && file->videoStream->_ffmpeg->codec->coded_frame->pts != AV_NOPTS_VALUE ) {
-            pkt.pts = av_rescale_q( file->videoStream->_ffmpeg->codec->coded_frame->pts, file->videoStream->_ffmpeg->codec->time_base, file->videoStream->_ffmpeg->codec->time_base );
+        /* if needed info is available, write pts for this packet */
+        if (file->videoStream->_ffmpeg->codec->coded_frame->pts != AV_NOPTS_VALUE) {
+            pkt.pts= av_rescale_q( file->videoStream->_ffmpeg->codec->coded_frame->pts, file->videoStream->_ffmpeg->codec->time_base, file->videoStream->_ffmpeg->time_base );
         }
 
         av_write_frame( file->_ffmpeg, &pkt );
@@ -453,8 +453,8 @@ int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
     pkt.data = (uint8_t*)file->audioStream->sampleBuffer;
 
     /* if needed info is available, write pts for this packet */
-    if( file->audioStream->_ffmpeg->codec->coded_frame && file->audioStream->_ffmpeg->codec->coded_frame->pts != AV_NOPTS_VALUE ) {
-        pkt.pts = av_rescale_q( file->audioStream->_ffmpeg->codec->coded_frame->pts, file->audioStream->_ffmpeg->codec->time_base, file->audioStream->_ffmpeg->time_base );
+    if (file->audioStream->_ffmpeg->codec->coded_frame->pts != AV_NOPTS_VALUE) {
+        pkt.pts= av_rescale_q( file->audioStream->_ffmpeg->codec->coded_frame->pts, file->audioStream->_ffmpeg->codec->time_base, file->audioStream->_ffmpeg->time_base );
     }
 
     /* write packet to stream */

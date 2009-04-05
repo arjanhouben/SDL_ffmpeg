@@ -27,54 +27,48 @@
 
 SDL_ffmpegFile *audioFile[10];
 
+SDL_ffmpegAudioFrame *audioFrame[10];
+
+int playing[10];
+
+inline int16_t clamp( int a, int b ) {
+    int c = a + b;
+    if( c > 0x7FFF ) return 0x7FFF;
+    if( c < -0x7FFF ) return -0x7FFF;
+    return c;
+}
+
 void audioCallback(void *udata, Uint8 *stream, int len) {
 
-    Uint8 *output;
-    int bytesUsed, i, f, length;
-
-    SDL_ffmpegAudioFrame *frame;
+    int i, f;
 
     /* zero output data */
     memset(stream, 0, len);
 
     for(f=0; audioFile[f]; f++) {
 
-        length = len;
+        if( playing[f] ) {
 
-        output = stream;
+            if( !audioFrame[f] ) audioFrame[f] = SDL_ffmpegCreateAudioFrame( audioFile[f], len );
 
-        while(length > 0) {
+            audioFrame[f]->size = 0;
 
             /* try to get a new frame */
-            frame = SDL_ffmpegGetAudioFrame( audioFile[f] );
+            SDL_ffmpegGetAudioFrame( audioFile[f], audioFrame[f] );
 
             /* we could not receive a new frame, break from loop */
-            if(!frame) break;
-
-            if(frame->size <= length) {
-                /* this frame is smaller or equal to the amount of data needed. */
-                bytesUsed = frame->size;
-            } else {
-                /* this frame has more data than needed */
-                bytesUsed = length;
-            }
+            if( !audioFrame[f] ) continue;
 
             /* add audio data to output */
-            for(i=0; i<bytesUsed/2; i++) {
-                ((int16_t*)output)[i] += ((int16_t*)frame->buffer)[i];
+            int16_t *dest = (int16_t*)stream;
+            int16_t *src = (int16_t*)audioFrame[f]->buffer;
+
+            i = len / 2;
+            while( i-- ) {
+                *dest = clamp( *dest, *src );
+                dest++;
+                src++;
             }
-
-            /* adjust the needed lengt accordingly */
-            length -= bytesUsed;
-
-            /* adjust output offset */
-            output += bytesUsed;
-
-            /* adjust size of frame to prevent reusing the same data */
-            frame->size -= bytesUsed;
-
-            /* adjust buffer of frame for the same reason */
-            frame->buffer += bytesUsed;
         }
     }
 
@@ -103,6 +97,8 @@ int main(int argc, char** argv) {
 
     /* reset audiofile pointers */
     memset(audioFile, 0, sizeof(SDL_ffmpegFile*)*10);
+    memset(audioFrame, 0, sizeof(SDL_ffmpegAudioFrame*)*10);
+    memset(playing, 0, sizeof(int)*10);
 
     f = 0;
     for(i=1; i<argc && i<10; i++) {
@@ -158,14 +154,14 @@ int main(int argc, char** argv) {
                 /* check al files, and play if needed */
                 for(i=0; audioFile[i]; i++) {
                     if( event.key.keysym.sym == SDLK_1+i ) {
-                        SDL_ffmpegPlay( audioFile[i], -1 );
+                        playing[i] = 1;
                     }
                 }
             } else if( event.type == SDL_KEYUP ) {
                 /* check al files, and play if needed */
                 for(i=0; audioFile[i]; i++) {
                     if( event.key.keysym.sym == SDLK_1+i ) {
-                        SDL_ffmpegPlay( audioFile[i], 0 );
+                        playing[i] = 0;
                         SDL_ffmpegSeek( audioFile[i], 0 );
                     }
                 }
@@ -177,6 +173,9 @@ int main(int argc, char** argv) {
     }
 
     freeAndClose:
+
+    /* stop audio callback */
+    SDL_PauseAudio(1);
 
     /* after all is said and done, we should call this */
     for(i=0; audioFile[i]; i++) SDL_ffmpegFree( audioFile[i] );

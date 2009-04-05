@@ -1,20 +1,20 @@
-set( EXAMPLE_SRC ${SDL_FFMPEG_SOURCE_DIR}/src/example.c )
-
-set( RECORD_SRC ${SDL_FFMPEG_SOURCE_DIR}/src/record.c )
-
 if( APPLE )
 
-	set( EXAMPLE_SRC ${EXAMPLE_SRC}
-					 ${SDL_FFMPEG_SOURCE_DIR}/include/SDL/SDLMain.m )
-
-	set( RECORD_SRC ${RECORD_SRC}
-					 ${SDL_FFMPEG_SOURCE_DIR}/include/SDL/SDLMain.m )
+	set( EXTRA_SRC	${SDL_FFMPEG_SOURCE_DIR}/include/SDL/SDLMain.m )
 					
 endif( APPLE )
 
-add_executable(	example ${EXAMPLE_SRC} )
+add_executable(	example ${SDL_FFMPEG_SOURCE_DIR}/src/example.c
+						${EXTRA_SRC} )
 
-add_executable(	record ${RECORD_SRC} )
+add_executable(	record	${SDL_FFMPEG_SOURCE_DIR}/src/record.c
+						${EXTRA_SRC} )
+
+add_executable(	multichannel	${SDL_FFMPEG_SOURCE_DIR}/src/multichannel.c
+								${EXTRA_SRC} )
+
+add_executable(	audioplayer	${SDL_FFMPEG_SOURCE_DIR}/src/audioplayer.c
+							${EXTRA_SRC} )
 
 find_package( SDL )
 
@@ -25,6 +25,14 @@ target_link_libraries(	example
 						${SDL_LIBRARY} )
 
 target_link_libraries(	record
+						SDL_ffmpeg
+						${SDL_LIBRARY} )
+
+target_link_libraries(	multichannel
+						SDL_ffmpeg
+						${SDL_LIBRARY} )
+
+target_link_libraries(	audioplayer
 						SDL_ffmpeg
 						${SDL_LIBRARY} )
 

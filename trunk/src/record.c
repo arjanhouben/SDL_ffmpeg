@@ -68,24 +68,26 @@ int main(int argc, char** argv) {
             if( SDL_ffmpegValidVideo(file) && ( !SDL_ffmpegValidAudio(file) ||
                                                 SDL_ffmpegAudioDuration(file) > SDL_ffmpegVideoDuration(file) ) ) {
 
-    if( videoFrame ) {
-        int *c = videoFrame->surface->pixels;
-        for(y=0; y<videoFrame->surface->h; y++) {
-            for(x=0; x<videoFrame->surface->w; x++) {
-                if( (int)(percentage*videoFrame->surface->w) == x ) {
-                    *c = 0xFFFFFFFF;
-                } else {
-                    *c = 0xFF000000;
+                /* draw moving line */
+                if( videoFrame ) {
+                    int *c = videoFrame->surface->pixels;
+                    for(y=0; y<videoFrame->surface->h; y++) {
+                        for(x=0; x<videoFrame->surface->w; x++) {
+                            if( (int)(percentage*videoFrame->surface->w) == x ) {
+                                *c = 0xFFFFFFFF;
+                            } else {
+                                *c = 0xFF000000;
+                            }
+                            c++;
+                        }
+                    }
                 }
-                c++;
-            }
-        }
-    }
 
                 SDL_ffmpegAddVideoFrame( file, videoFrame );
 
             } else {
 
+                /* generate tone */
                 int16_t *s = (int16_t*)audioFrame->buffer;
                 int i;
                 for(i=0; i<audioFrame->capacity/4; i++) {

@@ -42,7 +42,6 @@ void audioCallback( void *udata, Uint8 *stream, int len ) {
         /* copy received data to output */
         memcpy( stream, frame->buffer, frame->size );
 
-if( frame->pts < sync ) exit(2);
         /* store time, so we sync the video frames to this time */
         sync = frame->pts;
 
@@ -182,6 +181,8 @@ int main(int argc, char** argv) {
                 SDL_ffmpegGetVideoFrame( file, frame );
 
             } else if( !useAudio || frame->pts <= sync ) {
+
+                printf("sync %lli vs %lli\n", sync,frame->pts);
 
                 /* frame ready and in sync, or no audio present */
 
