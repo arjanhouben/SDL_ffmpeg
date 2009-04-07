@@ -25,24 +25,45 @@
 
 #include <string.h>
 
-SDL_ffmpegAudioFrame *frame = 0;
+#define BUF_SIZE 10
+
+/* prepare to buffer 10 frames */
+SDL_ffmpegAudioFrame *frame[BUF_SIZE];
+
+/* use a mutex to prevent errors due to multithreading */
+SDL_mutex *mutex = 0;
+
+/* use this value to check if we reached the end of our file */
+int done = 0;
 
 void audioCallback(void *udata, Uint8 *stream, int len) {
 
-    /* unpack our void pointer  */
-    SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
+    /* lock mutex, so frame[0] will not be changed from another thread */
+    SDL_LockMutex( mutex );
 
-    /* if no frame was created, do so now */
-    if( !frame ) frame = SDL_ffmpegCreateAudioFrame( file, len );
+    if( frame[0]->size == len ) {
 
-    /* retreive data from file */
-    SDL_ffmpegGetAudioFrame( file, frame );
+        /* copy the data to the output */
+        memcpy( stream, frame[0]->buffer, frame[0]->size );
 
-    /* copy the data to the output */
-    memcpy( stream, frame->buffer, frame->size );
+        /* mark data as used */
+        frame[0]->size = 0;
 
-    /* mark data as used */
-    frame->size = 0;
+        /* move frames in buffer */
+        SDL_ffmpegAudioFrame *f = frame[0];
+        for(int i=1; i<BUF_SIZE; i++) frame[i-1] = frame[i];
+        frame[BUF_SIZE-1] = f;
+
+        if( frame[0]->last ) done = 1;
+
+    } else {
+
+        /* no data available, just set output to zero */
+        memset( stream, 0, len );
+    }
+
+    /* were done with frame[0], release lock */
+    SDL_UnlockMutex( mutex );
 
     return;
 }
@@ -52,7 +73,7 @@ int main(int argc, char** argv) {
     SDL_ffmpegFile      *audioFile;
     SDL_ffmpegStream    *str;
     SDL_AudioSpec       specs;
-    int                 done;
+    int                 i, bytes;
 
     /* check if we got an argument */
     if(argc < 2) {
@@ -86,9 +107,22 @@ int main(int argc, char** argv) {
         goto freeAndClose;
     }
 
-    /* we start our decode thread, this always tries to buffer in some frames */
-    /* so we can enjoy smooth playback */
-    SDL_ffmpegStartDecoding(audioFile);
+    /* calculate the amount of bytes required for every callback */
+    bytes = specs.samples * specs.channels * 2;
+
+    /* create audio frames to store data received from SDL_ffmpegGetAudioFrame */
+    for(i=0; i<BUF_SIZE; i++) {
+        frame[i] = SDL_ffmpegCreateAudioFrame( audioFile, bytes );
+        if( !frame[i] ) {
+            printf("couldn't prepare frame buffer\n");
+            return -1;
+        }
+        /* fill the frames */
+        SDL_ffmpegGetAudioFrame( audioFile, frame[i] );
+    }
+
+    /* initialize mutex */
+    mutex = SDL_CreateMutex();
 
     /* we unpause the audio so our audiobuffer gets read */
     SDL_PauseAudio(0);
@@ -106,17 +140,37 @@ int main(int argc, char** argv) {
             }
         }
 
+        /* lock mutex before working on buffer */
+        SDL_LockMutex( mutex );
+
+        /* check for empty places in buffer */
+        for(i=0; i<BUF_SIZE; i++) {
+
+            /* if an empty space is found, fill it again */
+            if( !frame[i]->size ) {
+                SDL_ffmpegGetAudioFrame( audioFile, frame[i] );
+            }
+        }
+
+        /* done with buffer, release lock */
+        SDL_UnlockMutex( mutex );
+
         /* we wish not to kill our poor cpu, so we give it some timeoff */
         SDL_Delay(5);
     }
 
     freeAndClose:
 
-    /* cleanup our frame */
-    SDL_ffmpegFreeFrame( frame );
+    /* cleanup our buffer */
+    for(i=0; i<BUF_SIZE; i++) {
+        SDL_ffmpegFreeFrame( frame[i] );
+    }
 
     /* when we are done with the file, we free it */
     SDL_ffmpegFree( audioFile );
+
+    /* cleanup mutex */
+    SDL_DestroyMutex( mutex );
 
     /* the SDL_Quit function offcourse... */
     SDL_Quit();

@@ -72,14 +72,12 @@ int main(int argc, char** argv) {
                 if( videoFrame ) {
                     int *c = videoFrame->surface->pixels;
                     for(y=0; y<videoFrame->surface->h; y++) {
-                        for(x=0; x<videoFrame->surface->w; x++) {
-                            if( (int)(percentage*videoFrame->surface->w) == x ) {
-                                *c = 0xFFFFFFFF;
-                            } else {
-                                *c = 0xFF000000;
-                            }
-                            c++;
-                        }
+                        /* set scanline to black */
+                        memset( c, 0, videoFrame->surface->pitch );
+                        /* draw the pixel which matches the percentage white */
+                        c[ (int)(percentage*videoFrame->surface->w) ] = 0xFFFFFFFF;
+                        /* increase pointer to next line */
+                        c += videoFrame->surface->w;
                     }
                 }
 

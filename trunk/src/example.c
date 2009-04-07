@@ -28,31 +28,33 @@
 /* simple way of syncing, just for example purposes */
 int64_t sync = 0;
 
+SDL_ffmpegAudioFrame *audioFrame = 0;
+
 void audioCallback( void *udata, Uint8 *stream, int len ) {
 
     /* unpack our void pointer */
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
 
     /* create an audio frame to store data received from SDL_ffmpegGetAudioFrame */
-    SDL_ffmpegAudioFrame *frame = SDL_ffmpegCreateAudioFrame( file, len );
+    if( !audioFrame ) audioFrame = SDL_ffmpegCreateAudioFrame( file, len );
 
     /* try to get a new frame */
-    if( SDL_ffmpegGetAudioFrame( file, frame ) ) {
+    if( SDL_ffmpegGetAudioFrame( file, audioFrame ) ) {
 
         /* copy received data to output */
-        memcpy( stream, frame->buffer, frame->size );
+        memcpy( stream, audioFrame->buffer, audioFrame->size );
+
+        /* mark data as used */
+        audioFrame->size = 0;
 
         /* store time, so we sync the video frames to this time */
-        sync = frame->pts;
+        sync = audioFrame->pts;
 
     } else {
 
         /* could not get frame, just set output to zero */
         memset( stream, 0, len );
     }
-
-    /* clean up frame */
-    SDL_ffmpegFreeFrame( frame );
 
     return;
 }
@@ -65,7 +67,7 @@ int main(int argc, char** argv) {
 	SDL_ffmpegVideoFrame    *frame = 0;
 	SDL_AudioSpec           specs;
     int                     w, h, done, mouseState = 0,
-                            x, y, useAudio = 0;
+                            x, y;
 	int64_t                 time;
 
     /* check if we got an argument */
@@ -92,7 +94,7 @@ int main(int argc, char** argv) {
     SDL_ffmpegSelectVideoStream( file, 0 );
 
     /* if no audio can be selected, audio will not be used in this example */
-    useAudio = !SDL_ffmpegSelectAudioStream( file, 0 );
+    SDL_ffmpegSelectAudioStream( file, 0 );
 
     /* get the audiospec which fits the selected audiostream, if no audiostream
        is selected, default values are used (2 channel, 48Khz) */
@@ -124,18 +126,14 @@ int main(int argc, char** argv) {
     rect.h = h;
 
     /* Open the Audio device */
-    if( useAudio && SDL_OpenAudio( &specs, 0 ) < 0 ) {
+    if( SDL_ffmpegValidAudio(file) && SDL_OpenAudio( &specs, 0 ) < 0 ) {
         fprintf( stderr, "Couldn't open audio: %s\n", SDL_GetError() );
         SDL_Quit();
         return -1;
     }
 
-    /* we start our decode thread, this always tries to buffer in some frames
-       so we can enjoy smooth playback */
-    SDL_ffmpegStartDecoding( file );
-
     /* we unpause the audio so our audiobuffer gets read */
-    if( useAudio ) SDL_PauseAudio( 0 );
+    if( SDL_ffmpegValidAudio(file) ) SDL_PauseAudio( 0 );
 
     done = 0;
 
@@ -180,9 +178,15 @@ int main(int argc, char** argv) {
                 /* not ready, try to get a new frame */
                 SDL_ffmpegGetVideoFrame( file, frame );
 
-            } else if( !useAudio || frame->pts <= sync ) {
+            } else if( !SDL_ffmpegValidAudio(file) || frame->pts <= sync ) {
 
-                printf("sync %lli vs %lli\n", sync,frame->pts);
+                /* print moving line to stdout */
+                static char c[81];
+                memset( c, ' ', 80 );
+                c[80] = 0;
+                c[ (sync * 80 / SDL_ffmpegDuration(file))%80 ] = '|';
+                printf("%s\r", c);
+                fflush(stdout);
 
                 /* frame ready and in sync, or no audio present */
 
@@ -206,11 +210,14 @@ int main(int argc, char** argv) {
         }
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay( 1 );
+        SDL_Delay( 5 );
     }
 
     /* stop audio callback */
-    if( useAudio ) SDL_PauseAudio( 1 );
+    if( SDL_ffmpegValidAudio(file) ) SDL_PauseAudio( 1 );
+
+    /* clean up frame */
+    SDL_ffmpegFreeFrame( audioFrame );
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree( file );

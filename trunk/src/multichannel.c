@@ -31,7 +31,7 @@ SDL_ffmpegAudioFrame *audioFrame[10];
 
 int playing[10];
 
-inline int16_t clamp( int a, int b ) {
+int16_t clamp( int a, int b ) {
     int c = a + b;
     if( c > 0x7FFF ) return 0x7FFF;
     if( c < -0x7FFF ) return -0x7FFF;
@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
 
         /* we start our decode thread, this always tries to buffer in some frames */
         /* so we can enjoy smooth playback */
-        SDL_ffmpegStartDecoding( audioFile[f] );
+//        SDL_ffmpegStartDecoding( audioFile[f] );
 
         f++;
     }

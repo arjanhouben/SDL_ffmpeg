@@ -16,6 +16,9 @@ add_executable(	multichannel	${SDL_FFMPEG_SOURCE_DIR}/src/multichannel.c
 add_executable(	audioplayer	${SDL_FFMPEG_SOURCE_DIR}/src/audioplayer.c
 							${EXTRA_SRC} )
 
+add_executable(	extractaudio	${SDL_FFMPEG_SOURCE_DIR}/src/extractaudio.c
+								${EXTRA_SRC} )
+
 find_package( SDL )
 
 include_directories( ${SDL_INCLUDE_DIR} )
@@ -33,6 +36,10 @@ target_link_libraries(	multichannel
 						${SDL_LIBRARY} )
 
 target_link_libraries(	audioplayer
+						SDL_ffmpeg
+						${SDL_LIBRARY} )
+
+target_link_libraries(	extractaudio
 						SDL_ffmpeg
 						${SDL_LIBRARY} )
 

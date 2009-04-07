@@ -54,8 +54,6 @@ typedef struct SDL_ffmpegAudioFrame {
     uint32_t size;
     /** Size of the complete audio frame. */
     uint32_t capacity;
-    /** Pointer to next SDL_ffmpegAudioFrame */
-	struct SDL_ffmpegAudioFrame *next;
 	/** Value indicating wheter or not this is the last frame before EOF */
 	int last;
 } SDL_ffmpegAudioFrame;
@@ -71,8 +69,6 @@ typedef struct SDL_ffmpegVideoFrame {
     SDL_Overlay *overlay;
     /** Value indicating if this frame holds data, or that it can be overwritten. */
     int ready;
-    /** Pointer to next SDL_ffmpegVideoFrame */
-	struct SDL_ffmpegVideoFrame *next;
 	/** Value indicating wheter or not this is the last frame before EOF */
 	int last;
 } SDL_ffmpegVideoFrame;
@@ -81,7 +77,7 @@ typedef struct SDL_ffmpegVideoFrame {
 typedef struct SDL_ffmpegStream {
 
     /** Value indicating when the file has reached EOF */
-    int endReached;
+//    int endReached;
 
     /** Pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
@@ -105,7 +101,7 @@ typedef struct SDL_ffmpegStream {
     /** timestamp which fits the data in samplebuffer */
     int64_t sampleBufferTime;
 
-    /** buffer */
+    /** packet buffer */
     SDL_ffmpegPacket *buffer;
     /** mutex for multi threaded acces to buffer */
     SDL_mutex *mutex;
@@ -152,19 +148,19 @@ typedef struct SDL_ffmpegFile {
                         minimalTimestamp;
 
     /** Value to shut down decode thread when needed */
-    int                 threadActive,
+//    int                 threadActive,
     /** Amount of bytes to be preloaded to guarantee smooth playback */
-                        preloadSize;
+//                        preloadSize;
 
     /** Keeps track of the decode thread so it can be closed when needed */
-    SDL_Thread          *threadID;
+//    SDL_Thread          *threadID;
 
 } SDL_ffmpegFile;
 
 
-int SDL_ffmpegStartDecoding(SDL_ffmpegFile* file);
+//int SDL_ffmpegStartDecoding(SDL_ffmpegFile* file);
 
-int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file);
+//int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file);
 
 int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 

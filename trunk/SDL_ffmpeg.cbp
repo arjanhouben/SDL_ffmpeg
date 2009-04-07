@@ -130,6 +130,40 @@
             <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
          </MakeCommands>
       </Target>
+      <Target title="extractaudio">
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/bin/extractaudio" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/bin" />
+         <Option object_output="./" />
+         <Option type="1" />
+         <Option compiler="gcc" />
+         <Compiler>
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
+         </Compiler>
+         <MakeCommands>
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; extractaudio" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+         </MakeCommands>
+      </Target>
+      <Target title="extractaudio/fast">
+         <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/bin/extractaudio" prefix_auto="0" extension_auto="0" />
+         <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/bin" />
+         <Option object_output="./" />
+         <Option type="1" />
+         <Option compiler="gcc" />
+         <Compiler>
+            <Add directory="/Library/Frameworks/SDL.framework/Headers" />
+            <Add directory="/Users/arjan/C/SDL_ffmpeg/trunk/include" />
+         </Compiler>
+         <MakeCommands>
+            <Build command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; extractaudio/fast" />
+            <CompileFile command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; &quot;$file&quot;" />
+            <Clean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+            <DistClean command="/opt/local/bin/gmake -f &quot;/Users/arjan/C/SDL_ffmpeg/trunk/bin/Makefile&quot; clean" />
+         </MakeCommands>
+      </Target>
       <Target title="multichannel">
          <Option output="/Users/arjan/C/SDL_ffmpeg/trunk/bin/multichannel" prefix_auto="0" extension_auto="0" />
          <Option working_dir="/Users/arjan/C/SDL_ffmpeg/trunk/bin" />
@@ -206,6 +240,8 @@
       <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/src/audioplayer.c">
       </Unit>
       <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/src/example.c">
+      </Unit>
+      <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/src/extractaudio.c">
       </Unit>
       <Unit filename="/Users/arjan/C/SDL_ffmpeg/trunk/src/multichannel.c">
       </Unit>
