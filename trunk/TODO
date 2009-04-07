@@ -1,0 +1,2 @@
+add mutex for audio/video stream switch
+fix seek and bad i-frame behaviour
