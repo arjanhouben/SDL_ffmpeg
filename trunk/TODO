@@ -1,2 +1,3 @@
-add mutex for audio/video stream switch
-fix seek and bad i-frame behaviour
+implement free call for all datatypes
+make sure everything is cleaned as it should be
+implement some form of codec options
