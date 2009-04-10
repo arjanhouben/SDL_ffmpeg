@@ -76,9 +76,6 @@ typedef struct SDL_ffmpegVideoFrame {
 /** This is the basic stream for SDL_ffmpeg */
 typedef struct SDL_ffmpegStream {
 
-    /** Value indicating when the file has reached EOF */
-//    int endReached;
-
     /** Pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
     /** Intermediate frame which will be used when decoding */
@@ -109,8 +106,7 @@ typedef struct SDL_ffmpegStream {
     /** Id of the stream */
     int id;
     /** This holds the lastTimeStamp calculated, usefull when frames don't provide
-        a usefull dts/pts
-    */
+        a usefull dts/pts, also used for determining at what point we are in the file */
     int64_t lastTimeStamp;
 
     /** pointer to the next stream, or NULL if current stream is the last one */
@@ -132,6 +128,9 @@ typedef struct SDL_ffmpegFile {
     /** Audio streams */
                         *as;
 
+    /** stream mutex */
+    SDL_mutex           *streamMutex;
+
     /** Amount of video streams in file */
     int                 videoStreams,
     /** Amount of audio streams in file */
@@ -142,25 +141,10 @@ typedef struct SDL_ffmpegFile {
     /** Pointer to active audioStream, NULL if no audio stream is active */
                         *audioStream;
 
-    /** Holds the position to which a seek will be performed */
-    int64_t             seekPosition,
     /** Holds the lowest timestamp which will be decoded */
-                        minimalTimestamp;
-
-    /** Value to shut down decode thread when needed */
-//    int                 threadActive,
-    /** Amount of bytes to be preloaded to guarantee smooth playback */
-//                        preloadSize;
-
-    /** Keeps track of the decode thread so it can be closed when needed */
-//    SDL_Thread          *threadID;
+    int64_t             minimalTimestamp;
 
 } SDL_ffmpegFile;
-
-
-//int SDL_ffmpegStartDecoding(SDL_ffmpegFile* file);
-
-//int SDL_ffmpegStopDecoding(SDL_ffmpegFile* file);
 
 int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
