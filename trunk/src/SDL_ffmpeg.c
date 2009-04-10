@@ -595,6 +595,30 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
         }
     }
 
+    /* pack retreived, but was not used, push it back in the buffer */
+    if( pack ) {
+
+        /* take current buffer as next pointer */
+        pack->next = file->videoStream->buffer;
+
+        /* store pack as current buffer */
+        file->videoStream->buffer = pack;
+
+    } else if( !frame->ready && frame->last ) {
+
+        SDL_ffmpegPacket *pack = (SDL_ffmpegPacket*)malloc( sizeof(SDL_ffmpegPacket) );
+        memset( pack, 0, sizeof(SDL_ffmpegPacket) );
+        pack->data = (AVPacket*)av_malloc( sizeof(AVPacket) );
+        av_init_packet( pack->data );
+        memset( pack->data, 0, sizeof( AVPacket ) );
+        pack->data->stream_index = file->videoStream->id;
+
+        decodeVideoFrame( file, pack, frame );
+
+        av_free_packet( pack->data );
+        free( pack );
+    }
+
     SDL_UnlockMutex( file->videoStream->mutex );
 
     return frame->ready;
@@ -612,19 +636,13 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
 */
 SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioID) {
 
-    int i;
-    SDL_ffmpegStream *s;
-
     /* check if we have any audiostreams */
     if( !file || !file->audioStreams ) return 0;
 
-    /* check if the requested id is possible */
-    if( audioID >= file->audioStreams ) return 0;
-
-    s = file->as;
+    SDL_ffmpegStream *s = file->as;
 
     /* return audiostream linked to audioID */
-    for(i=0; i<audioID && s; i++) s = s->next;
+    for(int i=0; i<audioID && s; i++) s = s->next;
 
     return s;
 }

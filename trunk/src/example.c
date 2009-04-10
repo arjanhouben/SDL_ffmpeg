@@ -180,14 +180,6 @@ int main(int argc, char** argv) {
 
             } else if( !SDL_ffmpegValidAudio(file) || frame->pts <= sync ) {
 
-                /* print moving line to stdout */
-                static char c[81];
-                memset( c, ' ', 80 );
-                c[80] = 0;
-                c[ (sync * 80 / SDL_ffmpegDuration(file))%80 ] = '|';
-                printf("%s\r", c);
-                fflush(stdout);
-
                 /* frame ready and in sync, or no audio present */
 
                 if( frame->overlay ) {
