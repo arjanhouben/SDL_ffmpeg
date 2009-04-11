@@ -48,57 +48,84 @@ int main(int argc, char** argv) {
     }
 
     SDL_ffmpegAddVideoStream( file );
-    SDL_ffmpegAddAudioStream( file );
+
+//    SDL_ffmpegAddAudioStream( file );
 
     SDL_ffmpegSelectVideoStream( file, 0 );
     SDL_ffmpegSelectAudioStream( file, 0 );
 
     SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
-    SDL_ffmpegAudioFrame *audioFrame = SDL_ffmpegCreateAudioFrame( file, 0 );
+//    SDL_ffmpegAudioFrame *audioFrame = SDL_ffmpegCreateAudioFrame( file, 0 );
 
-    if( SDL_ffmpegValidAudio(file) || SDL_ffmpegValidVideo(file) ) {
 
-        while( SDL_ffmpegDuration(file) < 5000  ) {
+    /* standard SDL initialization stuff */
+    if( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER ) < 0 ) {
+        fprintf( stderr, "problem initializing SDL: %s\n", SDL_GetError() );
+        return -1;
+    }
 
-            percentage = (float)SDL_ffmpegDuration(file) / 5000.0;
+    /* create a window */
+    SDL_Surface *screen = SDL_SetVideoMode( 720, 576, 32, SDL_DOUBLEBUF );
 
-            printf("%3.0f%%\r", percentage*100);
-            fflush(stdout);
+    /* create a block of color, so we have somehting to look at */
+    SDL_Surface *block = SDL_CreateRGBSurface( 0, 20, 20, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000 );
 
-            if( SDL_ffmpegValidVideo(file) && ( !SDL_ffmpegValidAudio(file) ||
-                                                SDL_ffmpegAudioDuration(file) > SDL_ffmpegVideoDuration(file) ) ) {
+    int         done = 0;
+    uint8_t     red = 0,
+                green = 0,
+                blue = 0;
+    SDL_Rect    r;
 
-                /* draw moving line */
-                if( videoFrame ) {
-                    int *c = videoFrame->surface->pixels;
-                    for(y=0; y<videoFrame->surface->h; y++) {
-                        /* set scanline to black */
-                        memset( c, 0, videoFrame->surface->pitch );
-                        /* draw the pixel which matches the percentage white */
-                        c[ (int)(percentage*videoFrame->surface->w) ] = 0xFFFFFFFF;
-                        /* increase pointer to next line */
-                        c += videoFrame->surface->w;
-                    }
-                }
+    while( !done ) {
 
-                SDL_ffmpegAddVideoFrame( file, videoFrame );
+        /* just some standard SDL event stuff */
+        SDL_Event event;
+        while( SDL_PollEvent( &event ) ) {
 
-            } else {
+            if( event.type == SDL_QUIT ) {
+                done = 1;
+                break;
+            }
 
-                /* generate tone */
-                int16_t *s = (int16_t*)audioFrame->buffer;
-                int i;
-                for(i=0; i<audioFrame->capacity/4; i++) {
-                    *s = sin(a) * 0x7FFF;
-                    s++;
-                    *s = *(s-1);
-                    s++;
-                    a+= 0.03;
-                }
+            /* mouse moved, store new position */
+            if( event.type == SDL_MOUSEMOTION ) {
 
-                SDL_ffmpegAddAudioFrame( file, audioFrame );
+                r.x = event.motion.x - 10;  r.y = event.motion.y - 10;
+                r.w = 20;                   r.h = 20;
             }
         }
+
+        /* fade out current screen */
+        uint8_t *p = screen->pixels;
+        for(int i=0; i<screen->h*screen->pitch; i++) {
+            if( *p ) *p--;
+        }
+
+        /* create new color */
+        int c = block->format->Amask |
+                red << block->format->Rshift |
+                green << block->format->Gshift |
+                blue << block->format->Bshift;
+
+        /* set new color */
+        SDL_FillRect( block, 0, c );
+
+        /* change color for next frame */
+        red     += 1;
+        green   += 3;
+        blue    += 7;
+
+        /* copy block to screen */
+        SDL_BlitSurface( block, 0, screen, &r );
+
+        /* copy screen to video frame */
+        SDL_BlitSurface( screen, 0, videoFrame->surface, 0 );
+
+        /* store video frame in file */
+        SDL_ffmpegAddVideoFrame( file, videoFrame );
+
+        /* flip screen, so we can see what is happening */
+        SDL_Flip( screen );
     }
 
     /* after all is said and done, we should call this */
