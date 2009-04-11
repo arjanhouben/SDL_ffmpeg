@@ -71,7 +71,7 @@ int i=0;
 
     fclose( f );
 
-    SDL_ffmpegFreeFrame( frame );
+    SDL_ffmpegFreeAudio( frame );
 
     /* when we are done with the file, we free it */
     SDL_ffmpegFree( audioFile );

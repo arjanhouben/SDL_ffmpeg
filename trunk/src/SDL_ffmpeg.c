@@ -185,9 +185,22 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file ) {
             This releases all buffers which where allocated in SDL_ffmpegCreateAudioFrame
 \param      frame SDL_ffmpegAudioFrame which needs to be deleted
 */
-void SDL_ffmpegFreeFrame(SDL_ffmpegAudioFrame* frame) {
+void SDL_ffmpegFreeAudio(SDL_ffmpegAudioFrame* frame) {
 
     av_free( frame->buffer );
+
+    free( frame );
+}
+
+
+/** \brief  Use this to free an SDL_ffmpegVideoFrame.
+
+            This releases all buffers which where allocated in SDL_ffmpegCreateVideoFrame
+\param      frame SDL_ffmpegVideoFrame which needs to be deleted
+*/
+void SDL_ffmpegFreeVideo(SDL_ffmpegVideoFrame* frame) {
+
+    /* incomplete! */
 
     free( frame );
 }

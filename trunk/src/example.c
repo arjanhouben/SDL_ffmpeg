@@ -25,50 +25,68 @@
 
 #include <string.h>
 
+/* as an example we create an audio buffer consisting of BUF_SIZE frames */
+#define BUF_SIZE 10
+
+/* pointer to file we will be opening */
+SDL_ffmpegFile *file = 0;
+
+/* create a buffer for audio frames */
+SDL_ffmpegAudioFrame *audioFrame[BUF_SIZE];
+
 /* simple way of syncing, just for example purposes */
-int64_t sync = 0;
+uint64_t sync = 0;
 
-SDL_ffmpegAudioFrame *audioFrame = 0;
+/* returns the current position the file should be at */
+uint64_t getSync() {
+    if( file ) {
+        if( SDL_ffmpegValidAudio(file) ) {
+            return sync;
+        }
+        if( SDL_ffmpegValidVideo(file) ) {
+            return SDL_GetTicks() % SDL_ffmpegDuration(file);
+        }
+    }
+    return 0;
+}
 
-void audioCallback( void *udata, Uint8 *stream, int len ) {
+/* use a mutex to prevent errors due to multithreading */
+SDL_mutex *mutex = 0;
 
-    /* unpack our void pointer */
-    SDL_ffmpegFile *file = (SDL_ffmpegFile*)udata;
+void audioCallback( void *data, Uint8 *stream, int length ) {
 
-    /* create an audio frame to store data received from SDL_ffmpegGetAudioFrame */
-    if( !audioFrame ) audioFrame = SDL_ffmpegCreateAudioFrame( file, len );
+    /* lock mutex, so audioFrame[0] will not be changed from another thread */
+    SDL_LockMutex( mutex );
 
-    /* try to get a new frame */
-    if( SDL_ffmpegGetAudioFrame( file, audioFrame ) ) {
+    if( audioFrame[0]->size == length ) {
 
-        /* copy received data to output */
-        memcpy( stream, audioFrame->buffer, audioFrame->size );
+        /* update sync */
+        sync = audioFrame[0]->pts;
+
+        /* copy the data to the output */
+        memcpy( stream, audioFrame[0]->buffer, audioFrame[0]->size );
 
         /* mark data as used */
-        audioFrame->size = 0;
+        audioFrame[0]->size = 0;
 
-        /* store time, so we sync the video frames to this time */
-        sync = audioFrame->pts;
+        /* move frames in buffer */
+        SDL_ffmpegAudioFrame *f = audioFrame[0];
+        for(int i=1; i<BUF_SIZE; i++) audioFrame[i-1] = audioFrame[i];
+        audioFrame[BUF_SIZE-1] = f;
 
     } else {
 
-        /* could not get frame, just set output to zero */
-        memset( stream, 0, len );
+        /* no data available, just set output to zero */
+        memset( stream, 0, length );
     }
+
+    /* were done with the audio frame, release lock */
+    SDL_UnlockMutex( mutex );
 
     return;
 }
 
 int main(int argc, char** argv) {
-
-    SDL_ffmpegFile          *file = 0;
-    SDL_ffmpegStream        *str = 0;
-	SDL_Surface             *screen = 0;
-	SDL_ffmpegVideoFrame    *frame = 0;
-	SDL_AudioSpec           specs;
-    int                     w, h, done, mouseState = 0,
-                            x, y;
-	int64_t                 time;
 
     /* check if we got an argument */
     if(argc < 2) {
@@ -90,6 +108,9 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    /* initialize the mutex */
+    mutex = SDL_CreateMutex();
+
     /* select the stream you want to decode (example just uses 0 as a default) */
     SDL_ffmpegSelectVideoStream( file, 0 );
 
@@ -98,14 +119,15 @@ int main(int argc, char** argv) {
 
     /* get the audiospec which fits the selected audiostream, if no audiostream
        is selected, default values are used (2 channel, 48Khz) */
-    specs = SDL_ffmpegGetAudioSpec( file, 512, audioCallback );
+    SDL_AudioSpec specs = SDL_ffmpegGetAudioSpec( file, 512, audioCallback );
 
     /* we get the size from our active video stream, if no active video stream
        exists, width and height are set to zero */
+    int w, h;
     SDL_ffmpegGetVideoSize( file, &w, &h );
 
     /* Open the Video device */
-    screen = SDL_SetVideoMode( w, h, 0, SDL_DOUBLEBUF|SDL_HWSURFACE );
+    SDL_Surface *screen = SDL_SetVideoMode( w, h, 0, SDL_DOUBLEBUF|SDL_HWSURFACE );
     if( !screen ) {
         fprintf( stderr, "Couldn't open video: %s\n", SDL_GetError() );
         SDL_Quit();
@@ -116,26 +138,48 @@ int main(int argc, char** argv) {
        If you want to receive YCbCr data, you have to define the second parameter
        with the format you would like to receive and the last parameter needs to
        be a pointer to the SDL_surface as returned by SDL_SetVideoMode */
-    frame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
+    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
 
     /* create a SDL_Rect for blitting of image data */
     SDL_Rect rect;
-    rect.x = 0;
-    rect.y = 0;
-    rect.w = w;
-    rect.h = h;
+    rect.x = 0;    rect.y = 0;
+    rect.w = w;    rect.h = h;
 
-    /* Open the Audio device */
-    if( SDL_ffmpegValidAudio(file) && SDL_OpenAudio( &specs, 0 ) < 0 ) {
-        fprintf( stderr, "Couldn't open audio: %s\n", SDL_GetError() );
-        SDL_Quit();
-        return -1;
+    /* check if a valid audio stream was selected */
+    if( SDL_ffmpegValidAudio(file) ) {
+
+        /* Open the Audio device */
+        if( SDL_OpenAudio( &specs, 0 ) < 0 ) {
+            fprintf( stderr, "Couldn't open audio: %s\n", SDL_GetError() );
+            SDL_Quit();
+            return -1;
+        }
+
+        /* calculate frame size ( 2 bytes per sample ) */
+        int frameSize = specs.channels * specs.samples * 2;
+
+        /* prepare audio buffer */
+        for(int i=0; i<BUF_SIZE; i++) {
+
+            /* create frame */
+            audioFrame[i] = SDL_ffmpegCreateAudioFrame( file, frameSize );
+
+            /* check if we got a frame */
+            if( !audioFrame[i] ) {
+                /* no frame could be created, this is fatal */
+                goto CLEANUP_DATA;
+            }
+
+            /* fill frame with data */
+            SDL_ffmpegGetAudioFrame( file, audioFrame[i] );
+        }
+
+        /* we unpause the audio so our audiobuffer gets read */
+        SDL_PauseAudio( 0 );
     }
 
-    /* we unpause the audio so our audiobuffer gets read */
-    if( SDL_ffmpegValidAudio(file) ) SDL_PauseAudio( 0 );
-
-    done = 0;
+    int done = 0,
+        mouseState = 0;
 
     while( !done ) {
 
@@ -157,47 +201,80 @@ int main(int argc, char** argv) {
                 /* parse events */
                 SDL_PumpEvents();
 
+                int x, y;
                 SDL_GetMouseState( &x, &y );
                 /* by clicking you turn on the stream, seeking to the percentage
                    in time, based on the x-position you clicked on */
-                time = (int64_t)(((double)x / (double)w) * SDL_ffmpegDuration( file ));
+                uint64_t time = (uint64_t)(((double)x / (double)w) * SDL_ffmpegDuration( file ));
+
+
+                /* lock mutex when working on data which is shared with the audiocallback */
+                SDL_LockMutex( mutex );
+
+                /* invalidate current video frame */
+                if( videoFrame ) videoFrame->ready = 0;
+
+                /* invalidate buffered audio frames */
+                if( SDL_ffmpegValidAudio(file) ) {
+                    for(int i=0; i<BUF_SIZE; i++) {
+                        audioFrame[i]->size = 0;
+                    }
+                }
 
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek( file, time );
 
-                /* invalidate current frame */
-                if( frame ) frame->ready = 0;
+                /* we release the mutex so the new data can be handled */
+                SDL_UnlockMutex( mutex );
             }
         }
 
-        if( frame ) {
+        /* check if we need to decode audio data */
+        if( SDL_ffmpegValidAudio(file) ) {
 
-            /* check if frame is ready */
-            if( !frame->ready ) {
+            /* lock mutex when working on data which is shared with the audiocallback */
+            SDL_LockMutex( mutex );
+
+            /* fill empty spaces in audio buffer */
+            for(int i=0; i<BUF_SIZE; i++) {
+                /* check if frame is empty */
+                if( !audioFrame[i]->size ) {
+                    /* fill frame with new data */
+                    SDL_ffmpegGetAudioFrame( file, audioFrame[i] );
+                }
+            }
+
+            SDL_UnlockMutex( mutex );
+        }
+
+        if( videoFrame ) {
+
+            /* check if video frame is ready */
+            if( !videoFrame->ready ) {
 
                 /* not ready, try to get a new frame */
-                SDL_ffmpegGetVideoFrame( file, frame );
+                SDL_ffmpegGetVideoFrame( file, videoFrame );
 
-            } else if( !SDL_ffmpegValidAudio(file) || frame->pts <= sync ) {
+            } else if( videoFrame->pts <= getSync() ) {
 
-                /* frame ready and in sync, or no audio present */
+                /* video frame ready and in sync */
 
-                if( frame->overlay ) {
+                if( videoFrame->overlay ) {
 
                     /* blit overlay */
-                    SDL_DisplayYUVOverlay( frame->overlay, &rect );
+                    SDL_DisplayYUVOverlay( videoFrame->overlay, &rect );
 
-                } else if( frame->surface ) {
+                } else if( videoFrame->surface ) {
 
                     /* blit RGB surface */
-                    SDL_BlitSurface( frame->surface, 0, screen, 0 );
+                    SDL_BlitSurface( videoFrame->surface, 0, screen, 0 );
 
                     /* flip screen */
                     SDL_Flip( screen );
                 }
 
-                /* frame is displayed, make sure we don't show it again */
-                frame->ready = 0;
+                /* video frame is displayed, make sure we don't show it again */
+                videoFrame->ready = 0;
             }
         }
 
@@ -205,11 +282,24 @@ int main(int argc, char** argv) {
         SDL_Delay( 5 );
     }
 
-    /* stop audio callback */
-    if( SDL_ffmpegValidAudio(file) ) SDL_PauseAudio( 1 );
+    CLEANUP_DATA:
 
-    /* clean up frame */
-    SDL_ffmpegFreeFrame( audioFrame );
+    /* cleanup audio related data */
+    if( SDL_ffmpegValidAudio(file) ) {
+
+        /* stop audio callback */
+        SDL_PauseAudio( 1 );
+
+        /* clean up frames */
+        for(int i=0; i<BUF_SIZE; i++) {
+            SDL_ffmpegFreeAudio( audioFrame[i] );
+        }
+    }
+
+    /* cleanup video data */
+    if( videoFrame ) {
+        SDL_ffmpegFreeVideo( videoFrame );
+    }
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree( file );

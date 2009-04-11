@@ -162,7 +162,9 @@ SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, co
 
 void SDL_ffmpegFree(SDL_ffmpegFile* file);
 
-void SDL_ffmpegFreeFrame(SDL_ffmpegAudioFrame* frame);
+void SDL_ffmpegFreeAudio(SDL_ffmpegAudioFrame* frame);
+
+void SDL_ffmpegFreeVideo(SDL_ffmpegVideoFrame* frame);
 
 SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
 
