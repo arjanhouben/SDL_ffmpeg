@@ -25,9 +25,12 @@
 
 #include <string.h>
 
+/* as an example we create an audio buffer consisting of BUF_SIZE frames */
+#define BUF_SIZE 10
+
 SDL_ffmpegFile *audioFile[10];
 
-SDL_ffmpegAudioFrame *audioFrame[10];
+SDL_ffmpegAudioFrame *audioFrame[10][BUF_SIZE];
 
 int playing[10];
 
@@ -45,29 +48,30 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
     /* zero output data */
     memset(stream, 0, len);
 
-    for(f=0; audioFile[f]; f++) {
+    for(f=0; f<10 && audioFile[f]; f++) {
 
         if( playing[f] ) {
 
-            if( !audioFrame[f] ) audioFrame[f] = SDL_ffmpegCreateAudioFrame( audioFile[f], len );
+            if( audioFrame[f][0]->size == len ) {
 
-            audioFrame[f]->size = 0;
+                /* add audio data to output */
+                int16_t *dest = (int16_t*)stream;
+                int16_t *src = (int16_t*)audioFrame[f][0]->buffer;
 
-            /* try to get a new frame */
-            SDL_ffmpegGetAudioFrame( audioFile[f], audioFrame[f] );
+                i = len / 2;
+                while( i-- ) {
+                    *dest = clamp( *dest, *src );
+                    dest++;
+                    src++;
+                }
 
-            /* we could not receive a new frame, break from loop */
-            if( !audioFrame[f] ) continue;
+                /* mark data as used */
+                audioFrame[f][0]->size = 0;
 
-            /* add audio data to output */
-            int16_t *dest = (int16_t*)stream;
-            int16_t *src = (int16_t*)audioFrame[f]->buffer;
-
-            i = len / 2;
-            while( i-- ) {
-                *dest = clamp( *dest, *src );
-                dest++;
-                src++;
+                /* move frames in buffer */
+                SDL_ffmpegAudioFrame *frame = audioFrame[f][0];
+                for(int i=1; i<BUF_SIZE; i++) audioFrame[f][i-1] = audioFrame[f][i];
+                audioFrame[f][BUF_SIZE-1] = frame;
             }
         }
     }
@@ -100,6 +104,8 @@ int main(int argc, char** argv) {
     memset(audioFrame, 0, sizeof(SDL_ffmpegAudioFrame*)*10);
     memset(playing, 0, sizeof(int)*10);
 
+    int getSpecs = 1;
+
     f = 0;
     for(i=1; i<argc && i<10; i++) {
 
@@ -111,29 +117,50 @@ int main(int argc, char** argv) {
             continue;
         }
 
-        printf("added \"%s\" at key %i\n", argv[i], i);
-
         /* select the stream you want to decode (example just uses 0 as a default) */
-        SDL_ffmpegSelectAudioStream( audioFile[f], 0 );
+        if( SDL_ffmpegSelectAudioStream( audioFile[f], 0 ) ) {
+            SDL_ffmpegFree( audioFile[f] );
+            printf("error opening audiostream\n");
+            continue;
+        }
 
-        /* we start our decode thread, this always tries to buffer in some frames */
-        /* so we can enjoy smooth playback */
-//        SDL_ffmpegStartDecoding( audioFile[f] );
+        if( getSpecs ) {
+            /* get the audiospec which fits the selected audiostream */
+            specs = SDL_ffmpegGetAudioSpec( audioFile[f], 512, audioCallback );
+            getSpecs = 0;
+        }
+
+        /* calculate frame size ( 2 bytes per sample ) */
+        int frameSize = specs.channels * specs.samples * 2;
+
+        /* prepare audio buffer */
+        for(int i=0; i<BUF_SIZE; i++) {
+
+            /* create frame */
+            audioFrame[f][i] = SDL_ffmpegCreateAudioFrame( audioFile[f], frameSize );
+
+            /* check if we got a frame */
+            if( !audioFrame[f][i] ) {
+                /* no frame could be created, this is fatal */
+//                goto CLEANUP_DATA;
+            }
+
+            /* fill frame with data */
+            SDL_ffmpegGetAudioFrame( audioFile[f], audioFrame[f][i] );
+        }
+
+        printf("added \"%s\" at key %i\n", argv[i], i);
 
         f++;
     }
 
     /* check if at least one file could be opened */
-    if( !audioFile[0] ) goto freeAndClose;
-
-    /* get the audiospec which fits the selected audiostream, if no audiostream */
-    /* is selected, default values are used (2 channel, 48Khz) */
-    specs = SDL_ffmpegGetAudioSpec(audioFile[0], 512, audioCallback);
+    if( !audioFile[0] ) goto CLEANUP_DATA;
 
     /* Open the Audio device */
     if( SDL_OpenAudio(&specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
-        goto freeAndClose;
+        goto CLEANUP_DATA;
     }
 
     /* we unpause the audio so our audiobuffer gets read */
@@ -168,11 +195,24 @@ int main(int argc, char** argv) {
             }
         }
 
+        for(int f=0; f<10 && audioFile[f]; f++) {
+
+            /* prepare audio buffer */
+            for(int i=0; i<BUF_SIZE; i++) {
+
+                /* check if frame is empty */
+                if( !audioFrame[f][i]->size ) {
+                    /* fill frame with data */
+                    SDL_ffmpegGetAudioFrame( audioFile[f], audioFrame[f][i] );
+                }
+            }
+        }
+
         /* we wish not to kill our poor cpu, so we give it some timeoff */
         SDL_Delay(5);
     }
 
-    freeAndClose:
+    CLEANUP_DATA:
 
     /* stop audio callback */
     SDL_PauseAudio(1);

@@ -70,11 +70,6 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
 
 int main(int argc, char** argv) {
 
-    SDL_ffmpegFile      *audioFile;
-    SDL_ffmpegStream    *str;
-    SDL_AudioSpec       specs;
-    int                 i, bytes;
-
     /* check if we got an argument */
     if(argc < 2) {
         printf("usage: \"%s\" \"filename\"\n", argv[0]);
@@ -88,30 +83,33 @@ int main(int argc, char** argv) {
     }
 
     /* open file from arg[1] */
-    audioFile = SDL_ffmpegOpen(argv[1]);
+    SDL_ffmpegFile *audioFile = SDL_ffmpegOpen(argv[1]);
     if(!audioFile) {
         printf("error opening file\n");
         return -1;
     }
 
     /* select the stream you want to decode (example just uses 0 as a default) */
-    SDL_ffmpegSelectAudioStream(audioFile, 0);
+    if( SDL_ffmpegSelectAudioStream(audioFile, 0) ) {
+        printf("could not select a valid audio stream\n");
+        goto CLEANUP_DATA;
+    }
 
-    /* get the audiospec which fits the selected audiostream, if no audiostream */
-    /* is selected, default values are used (2 channel, 48Khz) */
-    specs = SDL_ffmpegGetAudioSpec(audioFile, 512, audioCallback);
+    /* get the audiospec which fits the selected audiostream, if no audiostream
+       is selected, default values are used (2 channel, 48Khz) */
+    SDL_AudioSpec specs = SDL_ffmpegGetAudioSpec(audioFile, 512, audioCallback);
 
     /* Open the Audio device */
     if( SDL_OpenAudio(&specs, 0) < 0 ) {
         printf("Couldn't open audio: %s\n", SDL_GetError());
-        goto freeAndClose;
+        goto CLEANUP_DATA;
     }
 
     /* calculate the amount of bytes required for every callback */
-    bytes = specs.samples * specs.channels * 2;
+    int bytes = specs.samples * specs.channels * 2;
 
     /* create audio frames to store data received from SDL_ffmpegGetAudioFrame */
-    for(i=0; i<BUF_SIZE; i++) {
+    for(int i=0; i<BUF_SIZE; i++) {
         frame[i] = SDL_ffmpegCreateAudioFrame( audioFile, bytes );
         if( !frame[i] ) {
             printf("couldn't prepare frame buffer\n");
@@ -144,7 +142,7 @@ int main(int argc, char** argv) {
         SDL_LockMutex( mutex );
 
         /* check for empty places in buffer */
-        for(i=0; i<BUF_SIZE; i++) {
+        for(int i=0; i<BUF_SIZE; i++) {
 
             /* if an empty space is found, fill it again */
             if( !frame[i]->size ) {
@@ -159,10 +157,10 @@ int main(int argc, char** argv) {
         SDL_Delay(5);
     }
 
-    freeAndClose:
+    CLEANUP_DATA:
 
     /* cleanup our buffer */
-    for(i=0; i<BUF_SIZE; i++) {
+    for(int i=0; i<BUF_SIZE; i++) {
         SDL_ffmpegFreeAudio( frame[i] );
     }
 

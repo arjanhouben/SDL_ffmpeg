@@ -26,8 +26,6 @@
 
 int main(int argc, char** argv) {
 
-    SDL_ffmpegFile      *audioFile;
-
     /* check if we got an argument */
     if( argc < 2 ) {
         printf( "usage: \"%s\" \"filename\"\n", argv[0] );
@@ -35,18 +33,23 @@ int main(int argc, char** argv) {
     }
 
     /* open file from arg[1] */
-    audioFile = SDL_ffmpegOpen( argv[1] );
+    SDL_ffmpegFile *audioFile = SDL_ffmpegOpen( argv[1] );
     if( !audioFile ) {
         printf( "error opening file\n" );
         return -1;
     }
 
     /* select the stream you want to decode (example just uses 0 as a default) */
-    SDL_ffmpegSelectAudioStream( audioFile, 0 );
+    if( SDL_ffmpegSelectAudioStream( audioFile, 0 ) ) {
+        printf( "couldn't select audio stream\n" );
+        SDL_ffmpegFree( audioFile );
+        return -1;
+    }
 
     /* create an audio frame to store data received from SDL_ffmpegGetAudioFrame */
     SDL_ffmpegAudioFrame *frame = SDL_ffmpegCreateAudioFrame( audioFile, 32 );
     if( !frame ) {
+        SDL_ffmpegFree( audioFile );
         printf( "couldn't prepare frame buffer\n" );
         return -1;
     }
@@ -59,15 +62,6 @@ int main(int argc, char** argv) {
         fwrite( frame->buffer, 1, frame->size, f );
         SDL_ffmpegGetAudioFrame( audioFile, frame );
     }
-
-
-    SDL_ffmpegPacket **p = &audioFile->audioStream->buffer;
-int i=0;
-    while( *p ) {
-        p = &(*p)->next;
-        i++;
-    }
-    printf("pakcets: %i\n",i);
 
     fclose( f );
 
