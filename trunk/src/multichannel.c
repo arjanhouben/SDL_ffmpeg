@@ -179,17 +179,21 @@ int main(int argc, char** argv) {
                 break;
             } else if( event.type == SDL_KEYDOWN ) {
                 /* check al files, and play if needed */
-                for(i=0; audioFile[i]; i++) {
-                    if( event.key.keysym.sym == SDLK_1+i ) {
-                        playing[i] = 1;
+                for(int f=0; audioFile[f]; f++) {
+                    if( event.key.keysym.sym == SDLK_1+f ) {
+                        playing[f] = 1;
                     }
                 }
             } else if( event.type == SDL_KEYUP ) {
                 /* check al files, and play if needed */
-                for(i=0; audioFile[i]; i++) {
-                    if( event.key.keysym.sym == SDLK_1+i ) {
-                        playing[i] = 0;
-                        SDL_ffmpegSeek( audioFile[i], 0 );
+                for(int f=0; audioFile[f]; f++) {
+                    if( event.key.keysym.sym == SDLK_1+f ) {
+                        playing[f] = 0;
+                        /* invalidate buffer */
+                        for(int i=0; i<BUF_SIZE; i++) {
+                            audioFrame[f][i]->size = 0;
+                        }
+                        SDL_ffmpegSeek( audioFile[f], 0 );
                     }
                 }
             }
@@ -197,13 +201,16 @@ int main(int argc, char** argv) {
 
         for(int f=0; f<10 && audioFile[f]; f++) {
 
-            /* prepare audio buffer */
+            /* update audio buffer */
             for(int i=0; i<BUF_SIZE; i++) {
 
                 /* check if frame is empty */
                 if( !audioFrame[f][i]->size ) {
                     /* fill frame with data */
                     SDL_ffmpegGetAudioFrame( audioFile[f], audioFrame[f][i] );
+                    if( audioFrame[f][i]->last ) {
+                        SDL_ffmpegSeek( audioFile[f], 0 );
+                    }
                 }
             }
         }
