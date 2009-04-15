@@ -90,6 +90,30 @@ void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interl
 
 int SDL_ffmpegDecodeThread(void* data);
 
+const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD = {
+    CODEC_ID_MPEG2VIDEO,
+    720, 576,
+    1, 25,
+    6000000,
+    -1, -1,
+    CODEC_ID_MP2,
+    2, 48000,
+    192000,
+    -1, -1
+};
+
+const SDL_ffmpegCodec SDL_ffmpegCodecPALDV = {
+    CODEC_ID_DVVIDEO,
+    720, 576,
+    1, 25,
+    6553600,
+    -1, -1,
+    CODEC_ID_DVAUDIO,
+    2, 48000,
+    256000,
+    -1, -1
+};
+
 SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 
     /* create SDL_ffmpegFile pointer */
@@ -217,7 +241,6 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
 
     SDL_ffmpegFile *file;
     SDL_ffmpegStream **s;
-    size_t i,f;
     AVCodec *codec;
 
     /* register all codecs */
@@ -251,7 +274,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename) {
     }
 
     /* iterate through all the streams and store audio/video streams */
-    for(i=0; i<file->_ffmpeg->nb_streams; i++) {
+    for(int i=0; i<file->_ffmpeg->nb_streams; i++) {
 
         if( file->_ffmpeg->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO ) {
 
@@ -1201,57 +1224,12 @@ int SDL_ffmpegValidVideo(SDL_ffmpegFile* file) {
 }
 
 
-/** \brief  This is used to check the amount of data which is preloaded.
-
-\param      file SDL_ffmpegFile from which the information is required
-\returns    the amount of bytes preloaded by file
-*/
-int SDL_ffmpegPreloaded(SDL_ffmpegFile *file) {
-
-    int size = 0;
-
-    if( file->audioStream ) {
-
-        SDL_LockMutex( file->audioStream->mutex );
-
-        SDL_ffmpegPacket *pack = file->audioStream->buffer;
-
-        while( pack ) {
-
-            size += pack->data->size;
-
-            pack = pack->next;
-        }
-
-        SDL_UnlockMutex( file->audioStream->mutex );
-    }
-
-    if( file->videoStream ) {
-
-        SDL_LockMutex( file->videoStream->mutex );
-
-        SDL_ffmpegPacket *pack = file->videoStream->buffer;
-
-        while( pack ) {
-
-            size += pack->data->size;
-
-            pack = pack->next;
-        }
-
-        SDL_UnlockMutex( file->videoStream->mutex );
-    }
-
-    return size;
-}
-
-
 /** \brief  This is used to add a video stream to file
 
 \param      file SDL_ffmpegFile to which the stream will be added
 \returns    The stream which was added, or NULL if no stream could be added.
 */
-SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
+SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec codec ) {
 
     /* add a video stream */
     AVStream *stream = av_new_stream( file->_ffmpeg, 0 );
@@ -1264,19 +1242,21 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 
     avcodec_get_context_defaults2( stream->codec, CODEC_TYPE_VIDEO );
 
-    stream->codec->codec_id = file->_ffmpeg->oformat->video_codec;
+    stream->codec->codec_id = codec.videoCodecID;
+            /*file->_ffmpeg->oformat->video_codec;*/
 
     stream->codec->codec_type = CODEC_TYPE_VIDEO;
 
-    stream->codec->bit_rate = 1500000;
+    stream->codec->bit_rate = codec.videoBitrate;
+            /*1500000;*/
 
     /* resolution must be a multiple of two */
-    stream->codec->width = 720;
-    stream->codec->height = 576;
+    stream->codec->width = codec.width;
+    stream->codec->height = codec.height;
 
     /* set time_base */
-    stream->codec->time_base.num = 1;
-    stream->codec->time_base.den = 25;
+    stream->codec->time_base.num = codec.framerateNum;
+    stream->codec->time_base.den = codec.framerateDen;
 
     /* emit one intra frame every twelve frames at most */
     stream->codec->gop_size = 12;
@@ -1335,9 +1315,8 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 
         str->mutex = SDL_CreateMutex();
 
-        str->decodeFrame = avcodec_alloc_frame();
-
         str->encodeFrame = avcodec_alloc_frame();
+
         uint8_t *picture_buf;
         int size = avpicture_get_size( stream->codec->pix_fmt, stream->codec->width, stream->codec->height );
         picture_buf = (uint8_t*)av_malloc( size + FF_INPUT_BUFFER_PADDING_SIZE );
@@ -1374,7 +1353,7 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file ) {
 \param      file SDL_ffmpegFile to which the stream will be added
 \returns    The stream which was added, or NULL if no stream could be added.
 */
-SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
+SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCodec codec ) {
 
     // add an audio stream
     AVStream *stream = av_new_stream( file->_ffmpeg, 1 );
@@ -1383,11 +1362,12 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file ) {
         return 0;
     }
 
-    stream->codec->codec_id = file->_ffmpeg->oformat->audio_codec;
+    stream->codec->codec_id = codec.audioCodecID;
+            /*file->_ffmpeg->oformat->audio_codec;*/
     stream->codec->codec_type = CODEC_TYPE_AUDIO;
-    stream->codec->bit_rate = 192000;
-    stream->codec->sample_rate = 48000;
-    stream->codec->channels = 2;
+    stream->codec->bit_rate = codec.audioBitrate;
+    stream->codec->sample_rate = codec.sampleRate;
+    stream->codec->channels = codec.channels;
 
 //    stream->codec->time_base.num = 1;
 //    stream->codec->time_base.den = 41;
@@ -1484,7 +1464,6 @@ int getPacket( SDL_ffmpegFile *file ) {
 
     AVPacket *pack;
     int decode;
-    SDL_ffmpegPacket *temp;
 
     /* create a packet for our data */
     pack = av_malloc( sizeof(AVPacket) );
@@ -1799,7 +1778,7 @@ int decodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame
     return frame->ready;
 }
 
-int clamp0_255(int x) {
+inline int clamp0_255(int x) {
 	x &= (~x) >> 31;
 	x -= 255;
 	x &= x >> 31;
@@ -1822,10 +1801,10 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
 		if( interlaced ) {
             /* y & 3 means y % 3, but this should be faster */
 			/* on scanline 2 and 3 we need to look at different lines */
-			if( y & 3 == 1 ) {
+            if( (y & 3) == 1 ) {
 				U += YUV420P->linesize[1];
 				V += YUV420P->linesize[2];
-			} else if( y & 3 == 2 ) {
+            } else if( (y & 3) == 2 ) {
 				U -= YUV420P->linesize[1];
 				V -= YUV420P->linesize[2];
 			}
@@ -1870,8 +1849,6 @@ void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uin
 
 void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced ) {
 
-    int y;
-
     const uint8_t   *Y = YUV420P->data[0],
                     *U = YUV420P->data[1],
                     *V = YUV420P->data[2];
@@ -1883,7 +1860,7 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
     if( interlaced ) {
 
         /* handle 4 lines per loop */
-        for(y=0; y<(YUY2->h>>2); y++){
+        for(int y=0; y<(YUY2->h>>2); y++){
 
             /* line 0 */
             convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
@@ -1917,7 +1894,7 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
     } else {
 
         /* handle 2 lines per loop */
-        for(y=0; y<(YUY2->h>>1); y++){
+        for(int y=0; y<(YUY2->h>>1); y++){
 
             /* line 0 */
             convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );

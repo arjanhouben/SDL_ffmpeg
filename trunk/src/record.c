@@ -28,10 +28,6 @@
 int main(int argc, char** argv) {
 
     SDL_ffmpegFile  *file = 0;
-    int             x, y;
-    float           xf, yf,
-                    a = 0.0,
-                    percentage;
 
     /* check if we got an argument */
     if(argc < 2) {
@@ -47,15 +43,15 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    SDL_ffmpegAddVideoStream( file );
+    SDL_ffmpegAddVideoStream( file, SDL_ffmpegCodecPALDV );
 
-//    SDL_ffmpegAddAudioStream( file );
+    SDL_ffmpegAddAudioStream( file, SDL_ffmpegCodecPALDV );
 
     SDL_ffmpegSelectVideoStream( file, 0 );
     SDL_ffmpegSelectAudioStream( file, 0 );
 
     SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
-//    SDL_ffmpegAudioFrame *audioFrame = SDL_ffmpegCreateAudioFrame( file, 0 );
+    SDL_ffmpegAudioFrame *audioFrame = SDL_ffmpegCreateAudioFrame( file, 0 );
 
 
     /* standard SDL initialization stuff */
@@ -96,9 +92,16 @@ int main(int argc, char** argv) {
         }
 
         /* fade out current screen */
-        uint8_t *p = screen->pixels;
-        for(int i=0; i<screen->h*screen->pitch; i++) {
-            if( *p ) *p--;
+        uint8_t *src = screen->pixels;
+        for(int i=0; i<screen->h*screen->w; i++) {
+            if( *src ) (*src)--;
+            src++;
+            if( *src ) (*src)--;
+            src++;
+            if( *src ) (*src)--;
+            src++;
+            *src = 0xFF;
+            src++;
         }
 
         /* create new color */
@@ -119,13 +122,17 @@ int main(int argc, char** argv) {
         SDL_BlitSurface( block, 0, screen, &r );
 
         /* copy screen to video frame */
-        SDL_BlitSurface( screen, 0, videoFrame->surface, 0 );
+        memcpy( videoFrame->surface->pixels, screen->pixels, screen->h*screen->pitch );
 
         /* store video frame in file */
         SDL_ffmpegAddVideoFrame( file, videoFrame );
 
         /* flip screen, so we can see what is happening */
         SDL_Flip( screen );
+
+        int64_t delay = SDL_ffmpegVideoDuration(file) - SDL_GetTicks();
+        if( delay > 0 ) SDL_Delay( delay );
+        printf("delay: %lli\n", delay);
     }
 
     /* after all is said and done, we should call this */

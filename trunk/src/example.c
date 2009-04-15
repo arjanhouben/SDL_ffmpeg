@@ -138,7 +138,8 @@ int main(int argc, char** argv) {
        If you want to receive YCbCr data, you have to define the second parameter
        with the format you would like to receive and the last parameter needs to
        be a pointer to the SDL_surface as returned by SDL_SetVideoMode */
-    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
+//    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
+    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
 
     /* create a SDL_Rect for blitting of image data */
     SDL_Rect rect;
@@ -179,7 +180,8 @@ int main(int argc, char** argv) {
     }
 
     int done = 0,
-        mouseState = 0;
+        mouseState = 0,
+        time = SDL_GetTicks();
 
     while( !done ) {
 
@@ -278,8 +280,11 @@ int main(int argc, char** argv) {
             }
         }
 
-        /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay( 5 );
+        if( SDL_GetTicks() - time < 5 ) {
+            /* we wish not to kill our poor cpu, so we give it some timeoff */
+            SDL_Delay( 5 );
+        }
+        time = SDL_GetTicks();
     }
 
     CLEANUP_DATA:

@@ -43,12 +43,10 @@ int16_t clamp( int a, int b ) {
 
 void audioCallback(void *udata, Uint8 *stream, int len) {
 
-    int i, f;
-
     /* zero output data */
     memset(stream, 0, len);
 
-    for(f=0; f<10 && audioFile[f]; f++) {
+    for(int f=0; f<10 && audioFile[f]; f++) {
 
         if( playing[f] ) {
 
@@ -58,7 +56,7 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
                 int16_t *dest = (int16_t*)stream;
                 int16_t *src = (int16_t*)audioFrame[f][0]->buffer;
 
-                i = len / 2;
+                int i = len / 2;
                 while( i-- ) {
                     *dest = clamp( *dest, *src );
                     dest++;

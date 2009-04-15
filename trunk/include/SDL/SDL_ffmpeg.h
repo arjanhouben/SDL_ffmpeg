@@ -38,6 +38,41 @@ enum SDL_ffmpegStreamType {
 
 typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
+/** Struct to hold codec values */
+typedef struct SDL_ffmpegCodec {
+    /** video codec ID */
+    int32_t videoCodecID;
+    /** width of the output stream */
+    int32_t width;
+    /** height of the output stream */
+    int32_t height;
+    /** numinator part of the framerate */
+    int32_t framerateNum;
+    /** denominator part of the framerate */
+    int32_t framerateDen;
+    /** bitrate of video stream in bytes */
+    int32_t videoBitrate;
+    /** when variable bitrate is desired, this holds the minimal video bitrate */
+    int32_t videoMinRate;
+    /** when variable bitrate is desired, this holds the maximal video bitrate */
+    int32_t videoMaxRate;
+    /** audio codec ID */
+    int32_t audioCodecID;
+    /** number of audio channels in stream */
+    int32_t channels;
+    /** audio samplerate of output stream */
+    int32_t sampleRate;
+    /** bitrate of audio stream in bytes */
+    int32_t audioBitrate;
+    /** when variable bitrate is desired, this holds the minimal audio bitrate */
+    int32_t audioMinRate;
+    /** when variable bitrate is desired, this holds the maximal audio bitrate */
+    int32_t audiooMaxRate;
+} SDL_ffmpegCodec;
+
+const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD;
+const SDL_ffmpegCodec SDL_ffmpegCodecPALDV;
+
 /** Struct to hold packet buffers */
 typedef struct SDL_ffmpegPacket {
     struct AVPacket *data;
@@ -170,11 +205,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
 
 SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename);
 
-SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file );
-
 int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
-
-SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file );
 
 int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
@@ -202,7 +233,9 @@ int SDL_ffmpegValidAudio(SDL_ffmpegFile *file);
 
 int SDL_ffmpegValidVideo(SDL_ffmpegFile *file);
 
-int SDL_ffmpegPreloaded(SDL_ffmpegFile *file);
+SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
+
+SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
 
 /** \cond */
 int SDL_ffmpegFlush(SDL_ffmpegFile *file);
