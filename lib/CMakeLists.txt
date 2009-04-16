@@ -5,12 +5,18 @@ find_package( SDL )
 include_directories(	${SDL_INCLUDE_DIR}
 						${SDL_FFMPEG_SOURCE_DIR}/include )
 
-find_package( ZLIB )
+if( APPLE OR LINUX )
+
+	find_package( ZLIB )
+	set( EXTRA_LIBRARIES	${EXTRA_LIBRARIES}
+							${ZLIB_LIBRARY} )
+							
+endif( APPLE OR LINUX )
 
 set( SDL_FFMPEG_LIBRARIES	avformat
 							avcodec
 							avutil
-							${ZLIB_LIBRARY}
+							${EXTRA_LIBRARIES}
 							${SDL_LIBRARY} )
 
 if( APPLE )
