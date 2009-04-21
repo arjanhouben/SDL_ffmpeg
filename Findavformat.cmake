@@ -21,7 +21,7 @@ find_path( AVFORMAT_INCLUDE_DIR avformat.h
   /opt/include
 )
 
-message( "AVFORMAT_INCLUDE_DIR is ${AVFORMAT_INCLUDE_DIR}" )
+#message( "AVFORMAT_INCLUDE_DIR is ${AVFORMAT_INCLUDE_DIR}" )
 
 find_library( AVFORMAT_LIBRARY
   NAMES avformat
@@ -36,8 +36,8 @@ find_library( AVFORMAT_LIBRARY
   /opt
 )
 
-message( "AVFORMAT_LIBRARY is ${AVFORMAT_LIBRARY}" )
+#message( "AVFORMAT_LIBRARY is ${AVFORMAT_LIBRARY}" )
 
 set( AVFORMAT_FOUND "YES" )
 
-message( "AVFORMAT_LIBRARY is ${AVFORMAT_LIBRARY}" )
+#message( "AVFORMAT_LIBRARY is ${AVFORMAT_LIBRARY}" )
