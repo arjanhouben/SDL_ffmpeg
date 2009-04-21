@@ -9,7 +9,7 @@ set( AVUTIL_FOUND "NO" )
 
 find_path( AVUTIL_INCLUDE_DIR avutil.h
   HINTS
-  PATH_SUFFIXES include
+  PATH_SUFFIXES include libavutil
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks

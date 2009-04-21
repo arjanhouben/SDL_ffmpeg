@@ -20,8 +20,8 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "SDL/SDL.h"
-#include "SDL/SDL_ffmpeg.h"
+#include "SDL.h"
+#include "SDL_ffmpeg.h"
 
 #include <math.h>
 
@@ -43,15 +43,14 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    SDL_ffmpegAddVideoStream( file, SDL_ffmpegCodecPALDV );
-
-    SDL_ffmpegAddAudioStream( file, SDL_ffmpegCodecPALDV );
+    SDL_ffmpegAddVideoStream( file, SDL_ffmpegCodecAUTO );
+//    SDL_ffmpegAddAudioStream( file, SDL_ffmpegCodecAUTO );
 
     SDL_ffmpegSelectVideoStream( file, 0 );
-    SDL_ffmpegSelectAudioStream( file, 0 );
+//    SDL_ffmpegSelectAudioStream( file, 0 );
 
     SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
-    SDL_ffmpegAudioFrame *audioFrame = SDL_ffmpegCreateAudioFrame( file, 0 );
+//    SDL_ffmpegAudioFrame *audioFrame = SDL_ffmpegCreateAudioFrame( file, 0 );
 
 
     /* standard SDL initialization stuff */
@@ -132,7 +131,6 @@ int main(int argc, char** argv) {
 
         int64_t delay = SDL_ffmpegVideoDuration(file) - SDL_GetTicks();
         if( delay > 0 ) SDL_Delay( delay );
-        printf("delay: %lli\n", delay);
     }
 
     /* after all is said and done, we should call this */

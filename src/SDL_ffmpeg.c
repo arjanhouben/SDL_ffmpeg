@@ -33,12 +33,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <SDL/SDL.h>
-#include <SDL/SDL_thread.h>
+#include <SDL.h>
+#include <SDL_thread.h>
 
 #include "libavformat/avformat.h"
 
-#include "SDL/SDL_ffmpeg.h"
+#include "SDL_ffmpeg.h"
 
 /**
 \cond
@@ -89,6 +89,18 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
 void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced );
 
 int SDL_ffmpegDecodeThread(void* data);
+
+const SDL_ffmpegCodec SDL_ffmpegCodecAUTO = {
+    -1,
+    720, 576,
+    1, 25,
+    6000000,
+    -1, -1,
+    -1,
+    2, 48000,
+    192000,
+    -1, -1
+};
 
 const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD = {
     CODEC_ID_MPEG2VIDEO,
@@ -1242,8 +1254,11 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
 
     avcodec_get_context_defaults2( stream->codec, CODEC_TYPE_VIDEO );
 
-    stream->codec->codec_id = codec.videoCodecID;
-            /*file->_ffmpeg->oformat->video_codec;*/
+    if( codec.videoCodecID < 0 ) {
+        stream->codec->codec_id = file->_ffmpeg->oformat->video_codec;
+    } else {
+        stream->codec->codec_id = codec.videoCodecID;
+    }
 
     stream->codec->codec_type = CODEC_TYPE_VIDEO;
 
@@ -1362,15 +1377,16 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
         return 0;
     }
 
-    stream->codec->codec_id = codec.audioCodecID;
-            /*file->_ffmpeg->oformat->audio_codec;*/
+    if( codec.audioCodecID < 0 ) {
+        stream->codec->codec_id = file->_ffmpeg->oformat->audio_codec;
+    } else {
+        stream->codec->codec_id = codec.audioCodecID;
+    }
+
     stream->codec->codec_type = CODEC_TYPE_AUDIO;
     stream->codec->bit_rate = codec.audioBitrate;
     stream->codec->sample_rate = codec.sampleRate;
     stream->codec->channels = codec.channels;
-
-//    stream->codec->time_base.num = 1;
-//    stream->codec->time_base.den = 41;
 
     // find the audio encoder
     AVCodec *audioCodec = avcodec_find_encoder( stream->codec->codec_id );
@@ -1462,17 +1478,14 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
 
 int getPacket( SDL_ffmpegFile *file ) {
 
-    AVPacket *pack;
-    int decode;
-
     /* create a packet for our data */
-    pack = av_malloc( sizeof(AVPacket) );
+    AVPacket *pack = av_malloc( sizeof(AVPacket) );
 
     /* initialize packet */
     av_init_packet( pack );
 
     /* read a packet from the file */
-    decode = av_read_frame( file->_ffmpeg, pack );
+    int decode = av_read_frame( file->_ffmpeg, pack );
 
     /* if we did not get a packet, we probably reached the end of the file */
     if( decode < 0 ) {
@@ -1577,14 +1590,9 @@ SDL_ffmpegPacket* getVideoPacket( SDL_ffmpegFile *file ) {
 
 int decodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame *frame ) {
 
-    uint8_t *data;
-    int size,
-        len,
-        audioSize;
-
-    data = pack->data;
-    size = pack->size;
-    audioSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof( int16_t );
+    uint8_t *data = pack->data;
+    int size = pack->size;
+    int audioSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof( int16_t );
 
     /* check if there is still data in the buffer */
     if( file->audioStream->sampleBufferSize ) {
@@ -1643,7 +1651,7 @@ int decodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame
     while( size > 0 ) {
 
 		/* Decode the packet */
-		len = avcodec_decode_audio2( file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, data, size );
+        int len = avcodec_decode_audio2( file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, data, size );
 
 		/* if an error occured, we skip the frame */
 		if( len <= 0 || !audioSize ) {

@@ -9,7 +9,7 @@ set( AVCODEC_FOUND "NO" )
 
 find_path( AVCODEC_INCLUDE_DIR avcodec.h
   HINTS
-  PATH_SUFFIXES include
+  PATH_SUFFIXES include libavcodec
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks

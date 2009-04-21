@@ -1,9 +1,17 @@
 add_library( 	SDL_ffmpeg
+				SHARED
 				${SDL_FFMPEG_SOURCE_DIR}/src/SDL_ffmpeg.c )
 
 find_package( SDL )
+find_package( avformat )
+find_package( avcodec )
+find_package( avutil )
+
 include_directories(	${SDL_INCLUDE_DIR}
-						${SDL_FFMPEG_SOURCE_DIR}/include )
+						${AVFORMAT_INCLUDE_DIR}
+						${AVCODEC_INCLUDE_DIR}
+						${AVUTIL_INCLUDE_DIR}
+						${SDL_FFMPEG_SOURCE_DIR}/include/SDL )
 
 if( APPLE OR LINUX )
 
@@ -13,9 +21,9 @@ if( APPLE OR LINUX )
 							
 endif( APPLE OR LINUX )
 
-set( SDL_FFMPEG_LIBRARIES	avformat
-							avcodec
-							avutil
+set( SDL_FFMPEG_LIBRARIES	${AVFORMAT_LIBRARY}
+							${AVCODEC_LIBRARY}
+							${AVUTIL_LIBRARY}
 							${EXTRA_LIBRARIES}
 							${SDL_LIBRARY} )
 

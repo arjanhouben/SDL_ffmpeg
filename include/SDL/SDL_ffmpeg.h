@@ -23,8 +23,8 @@
 #ifndef SDL_FFMPEG_INCLUDED
 #define SDL_FFMPEG_INCLUDED
 
-#include "SDL/SDL_thread.h"
-#include "SDL/SDL.h"
+#include "SDL_thread.h"
+#include "SDL.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -72,6 +72,7 @@ typedef struct SDL_ffmpegCodec {
 
 const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD;
 const SDL_ffmpegCodec SDL_ffmpegCodecPALDV;
+const SDL_ffmpegCodec SDL_ffmpegCodecAUTO;
 
 /** Struct to hold packet buffers */
 typedef struct SDL_ffmpegPacket {

@@ -20,7 +20,7 @@
 *                                                                              *
 *******************************************************************************/
 
-#include "SDL/SDL_ffmpeg.h"
+#include "SDL_ffmpeg.h"
 
 #include <string.h>
 

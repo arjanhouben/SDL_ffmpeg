@@ -9,7 +9,7 @@ set( AVFORMAT_FOUND "NO" )
 
 find_path( AVFORMAT_INCLUDE_DIR avformat.h
   HINTS
-  PATH_SUFFIXES include
+  PATH_SUFFIXES include libavformat
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks

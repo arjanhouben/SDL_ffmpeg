@@ -21,7 +21,8 @@ add_executable(	extractaudio	${SDL_FFMPEG_SOURCE_DIR}/src/extractaudio.c
 
 find_package( SDL )
 
-include_directories( ${SDL_INCLUDE_DIR} )
+include_directories( ${SDL_INCLUDE_DIR}
+					 ${SDL_FFMPEG_SOURCE_DIR}/include/SDL )
 
 target_link_libraries(	example
 						SDL_ffmpeg
