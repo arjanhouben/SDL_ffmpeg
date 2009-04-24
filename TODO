@@ -1,3 +1,4 @@
 make sure everything is cleaned as it should be
 add error reporting system
 update comments
+make sure non active streams are unselected

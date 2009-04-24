@@ -297,13 +297,13 @@ int main(int argc, char** argv) {
 
         /* clean up frames */
         for(int i=0; i<BUF_SIZE; i++) {
-            SDL_ffmpegFreeAudio( audioFrame[i] );
+            SDL_ffmpegFreeAudioFrame( audioFrame[i] );
         }
     }
 
     /* cleanup video data */
     if( videoFrame ) {
-        SDL_ffmpegFreeVideo( videoFrame );
+        SDL_ffmpegFreeVideoFrame( videoFrame );
     }
 
     /* after all is said and done, we should call this */

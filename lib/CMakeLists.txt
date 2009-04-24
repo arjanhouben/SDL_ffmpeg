@@ -1,5 +1,4 @@
 add_library( 	SDL_ffmpeg
-				SHARED
 				${SDL_FFMPEG_SOURCE_DIR}/src/SDL_ffmpeg.c )
 
 find_package( SDL )
@@ -34,7 +33,8 @@ if( APPLE )
 
 endif( APPLE )
 
-target_link_libraries(	SDL_ffmpeg ${SDL_FFMPEG_LIBRARIES} )
+target_link_libraries(	SDL_ffmpeg
+						${SDL_FFMPEG_LIBRARIES} )
 
 include_directories( ${LIBSDL_FFMPEG_SOURCE_DIR}/include )
 

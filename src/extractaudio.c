@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
 
     fclose( f );
 
-    SDL_ffmpegFreeAudio( frame );
+    SDL_ffmpegFreeAudioFrame( frame );
 
     /* when we are done with the file, we free it */
     SDL_ffmpegFree( audioFile );

@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
 
     /* cleanup our buffer */
     for(int i=0; i<BUF_SIZE; i++) {
-        SDL_ffmpegFreeAudio( frame[i] );
+        SDL_ffmpegFreeAudioFrame( frame[i] );
     }
 
     /* when we are done with the file, we free it */

@@ -182,64 +182,86 @@ typedef struct SDL_ffmpegFile {
 
 } SDL_ffmpegFile;
 
-int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
+/* error handling */
+int SDL_ffmpegError();
 
-SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioID);
+const char* SDL_ffmpegGetLastError();
 
-int SDL_ffmpegSelectAudioStream(SDL_ffmpegFile* file, int audioID);
+const char** SDL_ffmpegGetLastErrors( int *count );
 
-SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t audioID);
+/* SDL_ffmpegFile create / destroy */
+SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename );
 
-int SDL_ffmpegSelectVideoStream(SDL_ffmpegFile* file, int videoID);
+SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename );
 
-SDL_ffmpegFile* SDL_ffmpegCreateFile();
+void SDL_ffmpegFree( SDL_ffmpegFile* file );
 
+/* general */
+int SDL_ffmpegSeek( SDL_ffmpegFile* file, uint64_t timestamp );
+
+int SDL_ffmpegSeekRelative( SDL_ffmpegFile* file, int64_t timestamp );
+
+uint64_t SDL_ffmpegDuration( SDL_ffmpegFile *file );
+
+int64_t SDL_ffmpegGetPosition( SDL_ffmpegFile *file );
+
+
+/* video stream */
+SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
+
+SDL_ffmpegStream* SDL_ffmpegGetVideoStream( SDL_ffmpegFile *file, uint32_t audioID );
+
+int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID);
+
+/* video frame */
 SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen );
-
-void SDL_ffmpegFree(SDL_ffmpegFile* file);
-
-void SDL_ffmpegFreeAudio(SDL_ffmpegAudioFrame* frame);
-
-void SDL_ffmpegFreeVideo(SDL_ffmpegVideoFrame* frame);
-
-SDL_ffmpegFile* SDL_ffmpegOpen(const char* filename);
-
-SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename);
-
-int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
 
 int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
-int SDL_ffmpegSeek(SDL_ffmpegFile* file, uint64_t timestamp);
+int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
-int SDL_ffmpegSeekRelative(SDL_ffmpegFile* file, int64_t timestamp);
+void SDL_ffmpegFreeVideoFrame( SDL_ffmpegVideoFrame* frame );
 
-SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t bytes );
+/* video specs */
+int SDL_ffmpegGetVideoSize( SDL_ffmpegFile *file, int *w, int *h);
 
-int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
-
-int64_t SDL_ffmpegGetPosition(SDL_ffmpegFile *file);
-
-SDL_AudioSpec SDL_ffmpegGetAudioSpec(SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
-
-int SDL_ffmpegGetVideoSize(SDL_ffmpegFile *file, int *w, int *h);
-
-uint64_t SDL_ffmpegDuration(SDL_ffmpegFile *file);
-
-uint64_t SDL_ffmpegAudioDuration( SDL_ffmpegFile *file );
+/* general video */
+int SDL_ffmpegValidVideo( SDL_ffmpegFile *file );
 
 uint64_t SDL_ffmpegVideoDuration( SDL_ffmpegFile *file );
 
-int SDL_ffmpegValidAudio(SDL_ffmpegFile *file);
 
-int SDL_ffmpegValidVideo(SDL_ffmpegFile *file);
-
+/* audio stream */
 SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
 
-SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
+SDL_ffmpegStream* SDL_ffmpegGetAudioStream( SDL_ffmpegFile *file, uint32_t audioID);
+
+int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID);
+
+/* audio frame */
+SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t bytes );
+
+int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
+
+int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
+
+void SDL_ffmpegFreeAudioFrame( SDL_ffmpegAudioFrame* frame );
+
+/* audio specs */
+SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
+
+/* general audio */
+int SDL_ffmpegValidAudio( SDL_ffmpegFile *file );
+
+uint64_t SDL_ffmpegAudioDuration( SDL_ffmpegFile *file );
 
 /** \cond */
-int SDL_ffmpegFlush(SDL_ffmpegFile *file);
+
+/* these functions are not public */
+SDL_ffmpegFile* SDL_ffmpegCreateFile();
+
+int SDL_ffmpegFlush( SDL_ffmpegFile *file );
+
 /** \endcond */
 
 #ifdef __cplusplus
