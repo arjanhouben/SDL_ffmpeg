@@ -70,26 +70,37 @@ void initializeLookupTables() {
     }
 }
 
-int FFMPEG_init_was_called = 0;
-char *SDL_ffmpegErrorStrings[50];
+/* error handling */
+#define SDL_ffmpegErrorStringCount 50
 
-int getPacket( SDL_ffmpegFile* );
+int SDL_ffmpegInitWasCalled = 0;
 
-SDL_ffmpegPacket* getAudioPacket( SDL_ffmpegFile* );
+char *SDL_ffmpegErrors[ SDL_ffmpegErrorStringCount ];
 
-SDL_ffmpegPacket* getVideoPacket( SDL_ffmpegFile* );
+uint32_t SDL_ffmpegErrorIndex = 0;
 
-int decodeAudioFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegAudioFrame* );
+int32_t SDL_ffmpegErrorFreeIndex = -1;
 
-int decodeVideoFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegVideoFrame* );
+void SDL_ffmpegAddError( const char *error );
 
-void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced );
+/* packet handling */
+int SDL_ffmpegGetPacket( SDL_ffmpegFile* );
 
-void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced );
+SDL_ffmpegPacket* SDL_ffmpegGetAudioPacket( SDL_ffmpegFile* );
 
-void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced );
+SDL_ffmpegPacket* SDL_ffmpegGetVideoPacket( SDL_ffmpegFile* );
 
-int SDL_ffmpegDecodeThread(void* data);
+/* frame handling */
+int SDL_ffmpegDecodeAudioFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegAudioFrame* );
+
+int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegVideoFrame* );
+
+/* convert functions */
+void SDL_ffmpegConvertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced );
+
+void SDL_ffmpegConvertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced );
+
+void SDL_ffmpegConvertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced );
 
 const SDL_ffmpegCodec SDL_ffmpegCodecAUTO = {
     -1,
@@ -143,6 +154,28 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 /**
 \endcond
 */
+
+
+/** \brief  Initializes the SDL_ffmpeg library
+
+            This is done automatically when using SDL_ffmpegOpen or
+            SDL_ffmpegCreateFile. This means that it is usualy unnescecairy
+            to explicitly call this function
+*/
+void SDL_ffmpegInit() {
+
+    /* register all codecs */
+    if( !SDL_ffmpegInitWasCalled ) {
+
+        SDL_ffmpegInitWasCalled = 1;
+
+        avcodec_register_all();
+        av_register_all();
+        initializeLookupTables();
+
+        memset( SDL_ffmpegErrors, 0, sizeof( SDL_ffmpegErrors ) );
+    }
+}
 
 /** \brief  Use this to free an SDL_ffmpegFile.
 
@@ -253,15 +286,7 @@ void SDL_ffmpegFreeVideoFrame( SDL_ffmpegVideoFrame* frame ) {
 */
 SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
-    /* register all codecs */
-    if( !FFMPEG_init_was_called ) {
-
-        FFMPEG_init_was_called = 1;
-
-        avcodec_register_all();
-        av_register_all();
-        initializeLookupTables();
-    }
+    SDL_ffmpegInit();
 
     /* open new ffmpegFile */
     SDL_ffmpegFile *file = SDL_ffmpegCreateFile();
@@ -279,7 +304,9 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
     /* retrieve format information */
     if(av_find_stream_info( file->_ffmpeg) < 0) {
-        fprintf(stderr, "could not retrieve file info for \"%s\"\n", filename );
+        char c[512];
+        snprintf( c, 512, "could not retrieve file info for \"%s\"", filename );
+        SDL_ffmpegAddError( c );
         free( file );
         return 0;
     }
@@ -308,10 +335,10 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
                 if(!codec) {
                     free(stream);
-                    fprintf(stderr, "could not find codec\n");
+                    SDL_ffmpegAddError( "could not find video codec\n");
                 } else if(avcodec_open( file->_ffmpeg->streams[i]->codec, codec) < 0) {
                     free(stream);
-                    fprintf(stderr, "could not open decoder\n");
+                    SDL_ffmpegAddError( "could not open video codec\n");
                 } else {
 
                     stream->mutex = SDL_CreateMutex();
@@ -348,10 +375,10 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
                 if(!codec) {
                     free( stream );
-                    fprintf(stderr, "could not find codec\n");
+                    SDL_ffmpegAddError( "could not find audio codec\n");
                 } else if(avcodec_open( file->_ffmpeg->streams[i]->codec, codec) < 0) {
                     free( stream );
-                    fprintf(stderr, "could not open decoder\n");
+                    SDL_ffmpegAddError( "could not open audio codec\n");
                 } else {
 
                     stream->mutex = SDL_CreateMutex();
@@ -387,14 +414,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 */
 SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename ) {
 
-    /* register all codecs */
-    if(!FFMPEG_init_was_called) {
-        FFMPEG_init_was_called = 1;
-
-        avcodec_register_all();
-        av_register_all();
-        initializeLookupTables();
-    }
+    SDL_ffmpegInit();
 
     SDL_ffmpegFile *file = SDL_ffmpegCreateFile();
 
@@ -416,7 +436,9 @@ SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename ) {
 
     /* open the output file, if needed */
     if( url_fopen( &file->_ffmpeg->pb, filename, URL_WRONLY ) < 0 ) {
-        fprintf( stderr, "could not open '%s'\n", filename );
+        char c[512];
+        snprintf( c, 512, "could not open \"%s\"", filename );
+        SDL_ffmpegAddError( c );
         SDL_ffmpegFree( file );
         return 0;
     }
@@ -444,7 +466,7 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
         return -1;
     }
 
-    convertRGBAtoYUV420P( frame->surface, file->videoStream->encodeFrame, 0 );
+    SDL_ffmpegConvertRGBAtoYUV420P( frame->surface, file->videoStream->encodeFrame, 0 );
 
     /* PAL = upper field first
     file->videoStream->encodeFrame->top_field_first = 1;
@@ -645,31 +667,31 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
     frame->last = 0;
 
     /* get new packet */
-    SDL_ffmpegPacket *pack = getVideoPacket( file );
+    SDL_ffmpegPacket *pack = SDL_ffmpegGetVideoPacket( file );
 
     while( !pack && !frame->last ) {
 
-        pack = getVideoPacket( file );
+        pack = SDL_ffmpegGetVideoPacket( file );
 
-        frame->last = getPacket( file );
+        frame->last = SDL_ffmpegGetPacket( file );
     }
 
     while( pack && !frame->ready ) {
 
         /* when a frame is received, frame->ready will be set */
-        decodeVideoFrame( file, pack->data, frame );
+        SDL_ffmpegDecodeVideoFrame( file, pack->data, frame );
 
         /* destroy used packet */
         av_free_packet( pack->data );
         free( pack );
 
-        pack = getVideoPacket( file );
+        pack = SDL_ffmpegGetVideoPacket( file );
 
         while( !pack && !frame->last ) {
 
-            pack = getVideoPacket( file );
+            pack = SDL_ffmpegGetVideoPacket( file );
 
-            frame->last = getPacket( file );
+            frame->last = SDL_ffmpegGetPacket( file );
         }
     }
 
@@ -685,7 +707,7 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
     } else if( !frame->ready && frame->last ) {
 
         /* check if there is still a frame in the buffer */
-        decodeVideoFrame( file, 0, frame );
+        SDL_ffmpegDecodeVideoFrame( file, 0, frame );
     }
 
     SDL_UnlockMutex( file->videoStream->mutex );
@@ -830,7 +852,11 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
         /* check if pixel format is supported */
         if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P/* &&
             file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUVJ420P*/ ) {
-            printf( "unsupported pixel format [%i]\n", file->videoStream->_ffmpeg->codec->pix_fmt );
+
+            char c[512];
+            snprintf( c, 512, "unsupported pixel format [%i]", file->videoStream->_ffmpeg->codec->pix_fmt );
+            SDL_ffmpegAddError( c );
+
             file->videoStream = 0;
         }
     }
@@ -982,18 +1008,18 @@ int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
     frame->size = 0;
 
     /* get new packet */
-    SDL_ffmpegPacket *pack = getAudioPacket( file );
+    SDL_ffmpegPacket *pack = SDL_ffmpegGetAudioPacket( file );
 
     while( !pack && !frame->last ) {
 
-        pack = getAudioPacket( file );
+        pack = SDL_ffmpegGetAudioPacket( file );
 
-        frame->last = getPacket( file );
+        frame->last = SDL_ffmpegGetPacket( file );
     }
 
-    /* decodeAudioFrame will return true if data from pack was used
+    /* SDL_ffmpegDecodeAudioFrame will return true if data from pack was used
        frame will be updated with the new data */
-    while( pack && decodeAudioFrame( file, pack->data, frame ) ) {
+    while( pack && SDL_ffmpegDecodeAudioFrame( file, pack->data, frame ) ) {
 
         /* destroy used packet */
         av_free_packet( pack->data );
@@ -1004,13 +1030,13 @@ int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
         if( frame->size < frame->capacity ) {
 
             /* try to get a new packet */
-            pack = getAudioPacket( file );
+            pack = SDL_ffmpegGetAudioPacket( file );
 
             while( !pack && !frame->last ) {
 
-                pack = getAudioPacket( file );
+                pack = SDL_ffmpegGetAudioPacket( file );
 
-                frame->last = getPacket( file );
+                frame->last = SDL_ffmpegGetPacket( file );
             }
         }
     }
@@ -1276,7 +1302,7 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     /* add a video stream */
     AVStream *stream = av_new_stream( file->_ffmpeg, 0 );
     if( !stream ) {
-        fprintf( stderr, "could not alloc stream\n" );
+        SDL_ffmpegAddError( "could not allocate video stream" );
         return 0;
     }
 
@@ -1331,13 +1357,13 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     /* find the video encoder */
     AVCodec *videoCodec = avcodec_find_encoder( stream->codec->codec_id );
     if( !videoCodec ) {
-        fprintf( stderr, "video codec not found\n" );
+        SDL_ffmpegAddError( "video codec not found" );
         return 0;
     }
 
     /* open the codec */
     if( avcodec_open( stream->codec, videoCodec ) < 0 ) {
-        fprintf( stderr, "could not open video codec\n" );
+        SDL_ffmpegAddError( "could not open video codec" );
         return 0;
     }
 
@@ -1378,7 +1404,7 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
         *s = str;
 
         if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
-            fprintf( stderr, "could not set encoding parameters\n" );
+            SDL_ffmpegAddError( "could not set encoding parameters" );
         }
 
         /* try to write a header */
@@ -1399,7 +1425,7 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     // add an audio stream
     AVStream *stream = av_new_stream( file->_ffmpeg, 1 );
     if( !stream ) {
-        fprintf( stderr, "could not alloc stream\n");
+        SDL_ffmpegAddError( "could not allocate audio stream" );
         return 0;
     }
 
@@ -1417,13 +1443,13 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     // find the audio encoder
     AVCodec *audioCodec = avcodec_find_encoder( stream->codec->codec_id );
     if(!audioCodec) {
-        fprintf( stderr, "audio codec not found\n" );
+        SDL_ffmpegAddError( "audio codec not found" );
         return 0;
     }
 
     // open the codec
     if(avcodec_open( stream->codec, audioCodec ) < 0) {
-        fprintf( stderr, "could not open audio codec\n" );
+        SDL_ffmpegAddError( "could not open audio codec" );
         return 0;
     }
 
@@ -1487,7 +1513,7 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
         *s = str;
 
         if( av_set_parameters( file->_ffmpeg, 0 ) < 0 ) {
-            fprintf( stderr, "could not set encoding parameters\n" );
+            SDL_ffmpegAddError( "could not set encoding parameters" );
             return 0;
         }
 
@@ -1503,7 +1529,12 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
 
 \returns    non-zero when an error occured
 */
-int SDL_ffmpegError();
+int SDL_ffmpegError() {
+
+    SDL_ffmpegInit();
+
+    return ( SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] != 0 );
+}
 
 
 /** \brief  Use this function to get the last error string
@@ -1512,28 +1543,64 @@ int SDL_ffmpegError();
 */
 const char* SDL_ffmpegGetLastError() {
 
-    return 0;
+    SDL_ffmpegInit();
+
+    /* free last error */
+    if( SDL_ffmpegErrorFreeIndex >= 0 ) {
+
+        free( SDL_ffmpegErrors[ SDL_ffmpegErrorFreeIndex ] );
+
+        SDL_ffmpegErrors[ SDL_ffmpegErrorFreeIndex ] = 0;
+
+        SDL_ffmpegErrorFreeIndex++;
+
+        if( SDL_ffmpegErrorFreeIndex >= SDL_ffmpegErrorStringCount ) SDL_ffmpegErrorFreeIndex = 0;
+
+    } else {
+
+        SDL_ffmpegErrorFreeIndex = 0;
+    }
+
+    return SDL_ffmpegErrors[ SDL_ffmpegErrorFreeIndex ];
 }
 
+/** \brief  Convenience function to print all errors
 
-/** \brief  Use this function to get the last count error strings
+            if stream is NULL, standard error is used
 
-            If more than 50 errors have occured, old errors will be overwritten
-
-  \param    count needs to be user allocated and will be set to the amount
-            of error strings which will be returned
-\returns    When no error was found, NULL is returned
+\param      stream file pointer to which the errors will be written
 */
-const char** SDL_ffmpegGetLastErrors( int *count ) {
+void SDL_ffmpegPrintErrors( FILE *stream ) {
 
-    return 0;
+    if( !stream ) stream = stderr;
+
+    while( SDL_ffmpegError() ) {
+
+        fprintf( stream, "%s\n", SDL_ffmpegGetLastError() );
+    }
 }
 
 /**
 \cond
 */
 
-int getPacket( SDL_ffmpegFile *file ) {
+void SDL_ffmpegAddError( const char *error ) {
+
+    SDL_ffmpegInit();
+
+    SDL_ffmpegErrorIndex++;
+
+    /* wrap error string around if needed */
+    if( SDL_ffmpegErrorIndex >= SDL_ffmpegErrorStringCount ) SDL_ffmpegErrorIndex = 0;
+
+    /* if previous errors were not cleaned, do so now */
+    if( SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] ) free( SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] );
+
+    /* write new error */
+    SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] = strdup( error );
+}
+
+int SDL_ffmpegGetPacket( SDL_ffmpegFile *file ) {
 
     /* entering this function, streamMutex should have been locked */
 
@@ -1607,7 +1674,7 @@ int getPacket( SDL_ffmpegFile *file ) {
     return 0;
 }
 
-SDL_ffmpegPacket* getAudioPacket( SDL_ffmpegFile *file ) {
+SDL_ffmpegPacket* SDL_ffmpegGetAudioPacket( SDL_ffmpegFile *file ) {
 
     if( !file->audioStream ) return 0;
 
@@ -1627,7 +1694,7 @@ SDL_ffmpegPacket* getAudioPacket( SDL_ffmpegFile *file ) {
     return pack;
 }
 
-SDL_ffmpegPacket* getVideoPacket( SDL_ffmpegFile *file ) {
+SDL_ffmpegPacket* SDL_ffmpegGetVideoPacket( SDL_ffmpegFile *file ) {
 
     if( !file->videoStream ) return 0;
 
@@ -1647,7 +1714,7 @@ SDL_ffmpegPacket* getVideoPacket( SDL_ffmpegFile *file ) {
     return pack;
 }
 
-int decodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame *frame ) {
+int SDL_ffmpegDecodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame *frame ) {
 
     uint8_t *data = pack->data;
     int size = pack->size;
@@ -1714,7 +1781,7 @@ int decodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame
 
 		/* if an error occured, we skip the frame */
 		if( len <= 0 || !audioSize ) {
-            printf("error!\n");
+            SDL_ffmpegAddError( "error decoding audio frame" );
             break;
         }
 
@@ -1778,7 +1845,7 @@ int decodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpegAudioFrame
     return 1;
 }
 
-int decodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *frame ) {
+int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame *frame ) {
 
     int got_frame = 0;
 
@@ -1826,13 +1893,13 @@ int decodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpegVideoFrame
         /* convert YUV 420 to YUYV 422 data */
         if( frame->overlay && frame->overlay->format == SDL_YUY2_OVERLAY ) {
 
-            convertYUV420PtoYUY2( file->videoStream->decodeFrame, frame->overlay, file->videoStream->decodeFrame->interlaced_frame );
+            SDL_ffmpegConvertYUV420PtoYUY2( file->videoStream->decodeFrame, frame->overlay, file->videoStream->decodeFrame->interlaced_frame );
         }
 
         /* convert YUV to RGB data */
         if( frame->surface ) {
 
-			convertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->surface, file->videoStream->decodeFrame->interlaced_frame );
+            SDL_ffmpegConvertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->surface, file->videoStream->decodeFrame->interlaced_frame );
         }
 
 		/* we write the lastTimestamp we got */
@@ -1852,7 +1919,7 @@ inline int clamp0_255(int x) {
 	return x + 255;
 }
 
-void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced ) {
+void SDL_ffmpegConvertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced ) {
 
     uint8_t *Y, *U, *V;
 	uint32_t *RGBA = OUTPUT->pixels;
@@ -1898,7 +1965,7 @@ void convertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced
     }
 }
 
-void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint32_t *YUVpacked, int w ) {
+void SDL_ffmpegConvertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint32_t *YUVpacked, int w ) {
 
     /* devide width by 2 */
     w >>= 1;
@@ -1914,7 +1981,7 @@ void convertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uin
     }
 }
 
-void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced ) {
+void SDL_ffmpegConvertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced ) {
 
     const uint8_t   *Y = YUV420P->data[0],
                     *U = YUV420P->data[1],
@@ -1930,28 +1997,28 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
         for(int y=0; y<(YUY2->h>>2); y++){
 
             /* line 0 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 1 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U -= YUV420P->linesize[1];
             V -= YUV420P->linesize[2];
 
             /* line 2 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 3 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
@@ -1964,14 +2031,14 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
         for(int y=0; y<(YUY2->h>>1); y++){
 
             /* line 0 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 1 */
-            convertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
+            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
             YUVpacked += YUY2->pitches[0];
             Y += YUV420P->linesize[0];
         }
@@ -1981,7 +2048,7 @@ void convertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced )
     SDL_UnlockYUVOverlay( YUY2 );
 }
 
-void convertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V, const uint32_t *RGBApacked, int w ) {
+void SDL_ffmpegConvertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V, const uint32_t *RGBApacked, int w ) {
 
 //    Y  =      (0.257 * R) + (0.504 * G) + (0.098 * B) + 16
 //    Cr = V =  (0.439 * R) - (0.368 * G) - (0.071 * B) + 128
@@ -2008,7 +2075,7 @@ void convertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V, const uin
     }
 }
 
-void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced ) {
+void SDL_ffmpegConvertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced ) {
 
     int y;
 
@@ -2024,28 +2091,28 @@ void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interl
         for(y=0; y<(RGBA->h>>2); y++){
 
             /* line 0 */
-            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
             RGBApacked += RGBA->w;
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 1 */
-            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
             RGBApacked += RGBA->w;
             Y += YUV420P->linesize[0];
             U -= YUV420P->linesize[1];
             V -= YUV420P->linesize[2];
 
             /* line 2 */
-            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
             RGBApacked += RGBA->w;
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 3 */
-            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
             RGBApacked += RGBA->w;
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
@@ -2058,14 +2125,14 @@ void convertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interl
         for(y=0; y<(RGBA->h>>1); y++){
 
             /* line 0 */
-            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
             RGBApacked += RGBA->w;
             Y += YUV420P->linesize[0];
             U += YUV420P->linesize[1];
             V += YUV420P->linesize[2];
 
             /* line 1 */
-            convertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
+            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
             RGBApacked += RGBA->w;
             Y += YUV420P->linesize[0];
         }

@@ -309,6 +309,8 @@ int main(int argc, char** argv) {
     /* after all is said and done, we should call this */
     SDL_ffmpegFree( file );
 
+    SDL_ffmpegPrintErrors( stderr );
+
     /* the SDL_Quit function offcourse... */
     SDL_Quit();
 

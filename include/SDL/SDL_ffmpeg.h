@@ -187,7 +187,7 @@ int SDL_ffmpegError();
 
 const char* SDL_ffmpegGetLastError();
 
-const char** SDL_ffmpegGetLastErrors( int *count );
+void SDL_ffmpegPrintErrors( FILE *stream );
 
 /* SDL_ffmpegFile create / destroy */
 SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename );
