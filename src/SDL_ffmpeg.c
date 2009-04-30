@@ -793,7 +793,7 @@ int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID ) {
     SDL_ffmpegStream *stream = file->as;
 
     /* discard by default */
-    for(int i=0; i<file->audioStreams; i++) {
+    while( stream && stream->_ffmpeg ) {
         stream->_ffmpeg->discard = AVDISCARD_ALL;
         stream = stream->next;
     }
@@ -876,7 +876,7 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
     SDL_ffmpegStream *stream = file->vs;
 
     /* discard by default */
-    for(int i=0; i<file->videoStreams; i++) {
+    while( stream && stream->_ffmpeg ) {
         stream->_ffmpeg->discard = AVDISCARD_ALL;
         stream = stream->next;
     }
