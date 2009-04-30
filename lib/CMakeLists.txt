@@ -1,5 +1,18 @@
+if( NOT APPLE )
+
+	set( LIBTYPE "SHARED" )
+
+endif( NOT APPLE )
+
 add_library( 	SDL_ffmpeg
+				${LIBTYPE}
 				${SDL_FFMPEG_SOURCE_DIR}/src/SDL_ffmpeg.c )
+
+if( WIN32 )
+
+	set_target_properties( SDL_ffmpeg PROPERTIES PREFIX "" )
+
+endif( WIN32 )
 
 find_package( SDL )
 find_package( avformat )
