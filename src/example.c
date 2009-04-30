@@ -35,7 +35,8 @@ SDL_ffmpegFile *file = 0;
 SDL_ffmpegAudioFrame *audioFrame[BUF_SIZE];
 
 /* simple way of syncing, just for example purposes */
-uint64_t sync = 0;
+uint64_t sync = 0,
+         offset = 0;
 
 /* returns the current position the file should be at */
 uint64_t getSync() {
@@ -44,7 +45,7 @@ uint64_t getSync() {
             return sync;
         }
         if( SDL_ffmpegValidVideo(file) ) {
-            return SDL_GetTicks() % SDL_ffmpegDuration(file);
+            return ( SDL_GetTicks() % SDL_ffmpegDuration(file) ) + offset;
         }
     }
     return 0;
@@ -224,6 +225,9 @@ int main(int argc, char** argv) {
 
                 /* we seek to time (milliseconds) */
                 SDL_ffmpegSeek( file, time );
+
+                /* store new offset */
+                offset = time - (getSync() - offset);
 
                 /* we release the mutex so the new data can be handled */
                 SDL_UnlockMutex( mutex );
