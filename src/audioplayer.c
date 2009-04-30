@@ -85,13 +85,13 @@ int main(int argc, char** argv) {
     /* open file from arg[1] */
     SDL_ffmpegFile *audioFile = SDL_ffmpegOpen(argv[1]);
     if(!audioFile) {
-        printf("error opening file\n");
+        SDL_ffmpegPrintErrors( stderr );
         return -1;
     }
 
     /* select the stream you want to decode (example just uses 0 as a default) */
     if( SDL_ffmpegSelectAudioStream(audioFile, 0) ) {
-        printf("could not select a valid audio stream\n");
+        SDL_ffmpegPrintErrors( stderr );
         goto CLEANUP_DATA;
     }
 

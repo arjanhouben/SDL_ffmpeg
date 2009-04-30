@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
     /* open file from arg[1] */
     file = SDL_ffmpegOpen( argv[1] );
     if( !file ) {
-        fprintf( stderr, "error opening file\n" );
+        SDL_ffmpegPrintErrors( stderr );
         SDL_Quit();
         return -1;
     }
@@ -138,8 +138,7 @@ int main(int argc, char** argv) {
        If you want to receive YCbCr data, you have to define the second parameter
        with the format you would like to receive and the last parameter needs to
        be a pointer to the SDL_surface as returned by SDL_SetVideoMode */
-//    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
-    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
+    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
 
     /* create a SDL_Rect for blitting of image data */
     SDL_Rect rect;
@@ -309,6 +308,7 @@ int main(int argc, char** argv) {
     /* after all is said and done, we should call this */
     SDL_ffmpegFree( file );
 
+    /* print any errors which may have been encountered during this program */
     SDL_ffmpegPrintErrors( stderr );
 
     /* the SDL_Quit function offcourse... */

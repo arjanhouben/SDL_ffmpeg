@@ -70,16 +70,19 @@ void initializeLookupTables() {
     }
 }
 
+uint32_t SDL_ffmpegInitWasCalled = 0;
+
 /* error handling */
-#define SDL_ffmpegErrorStringCount 50
+typedef struct SDL_ffmpegErrorMessage {
+    char *message;
+    struct SDL_ffmpegErrorMessage *next;
+} SDL_ffmpegErrorMessage;
 
-int SDL_ffmpegInitWasCalled = 0;
+struct SDL_ffmpegErrorMessage *SDL_ffmpegErrorBegin;
 
-char *SDL_ffmpegErrors[ SDL_ffmpegErrorStringCount ];
+uint32_t SDL_ffmpegDeleteErrorString = 0;
 
-uint32_t SDL_ffmpegErrorIndex = 0;
-
-int32_t SDL_ffmpegErrorFreeIndex = -1;
+uint32_t SDL_ffmpegErrorCount = 0;
 
 void SDL_ffmpegAddError( const char *error );
 
@@ -142,13 +145,26 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 
     /* create SDL_ffmpegFile pointer */
     SDL_ffmpegFile *file = (SDL_ffmpegFile*)malloc( sizeof(SDL_ffmpegFile ) );
-    if(!file ) return 0;
+    if(!file ) {
+
+        SDL_ffmpegAddError( "could not allocate SDL_ffmpegFile" );
+        return 0;
+    }
 
     memset( file, 0, sizeof(SDL_ffmpegFile ) );
 
     file->streamMutex = SDL_CreateMutex();
 
     return file;
+}
+
+void SDL_ffmpegLogCallback( void* avcl, int level, const char *fmt, va_list vl ) {
+
+    static char buf[ 512 ];
+
+    snprintf( buf, 512, fmt, vl );
+
+    SDL_ffmpegAddError( buf );
 }
 
 /**
@@ -167,13 +183,13 @@ void SDL_ffmpegInit() {
     /* register all codecs */
     if( !SDL_ffmpegInitWasCalled ) {
 
+        av_log_set_callback( SDL_ffmpegLogCallback );
+
         SDL_ffmpegInitWasCalled = 1;
 
         avcodec_register_all();
         av_register_all();
         initializeLookupTables();
-
-        memset( SDL_ffmpegErrors, 0, sizeof( SDL_ffmpegErrors ) );
     }
 }
 
@@ -297,7 +313,9 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
     /* open the file */
     if( av_open_input_file( (AVFormatContext**)(&file->_ffmpeg), filename, 0, 0, 0) != 0 ) {
-        fprintf(stderr, "could not open \"%s\"\n", filename );
+        char c[512];
+        snprintf( c, 512, "could not open \"%s\"", filename );
+        SDL_ffmpegAddError( c );
         free( file );
         return 0;
     }
@@ -335,10 +353,10 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
                 if(!codec) {
                     free(stream);
-                    SDL_ffmpegAddError( "could not find video codec\n");
+                    SDL_ffmpegAddError( "could not find video codec");
                 } else if(avcodec_open( file->_ffmpeg->streams[i]->codec, codec) < 0) {
                     free(stream);
-                    SDL_ffmpegAddError( "could not open video codec\n");
+                    SDL_ffmpegAddError( "could not open video codec");
                 } else {
 
                     stream->mutex = SDL_CreateMutex();
@@ -375,10 +393,10 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
                 if(!codec) {
                     free( stream );
-                    SDL_ffmpegAddError( "could not find audio codec\n");
+                    SDL_ffmpegAddError( "could not find audio codec");
                 } else if(avcodec_open( file->_ffmpeg->streams[i]->codec, codec) < 0) {
                     free( stream );
-                    SDL_ffmpegAddError( "could not open audio codec\n");
+                    SDL_ffmpegAddError( "could not open audio codec");
                 } else {
 
                     stream->mutex = SDL_CreateMutex();
@@ -760,6 +778,8 @@ int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID ) {
     /* check if we have any audiostreams and if the requested ID is available */
     if( !file->audioStreams || audioID >= file->audioStreams ) {
         SDL_UnlockMutex( file->streamMutex );
+
+        SDL_ffmpegAddError( "requested audio stream ID is not available in file" );
         return -1;
     }
 
@@ -825,14 +845,12 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
     SDL_LockMutex( file->streamMutex );
 
     /* check if we have any videostreams */
-    if( !file->videoStreams ) {
-        SDL_UnlockMutex( file->streamMutex );
-        return -1;
-    }
-
-    /* check if the requested id is possible */
     if( videoID >= file->videoStreams ) {
+
         SDL_UnlockMutex( file->streamMutex );
+
+        SDL_ffmpegAddError( "requested video stream ID is not available in file" );
+
         return -1;
     }
 
@@ -847,11 +865,10 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
         file->videoStream = file->vs;
 
         /* keep searching for correct videostream */
-        for(int i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
+        for(uint32_t i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
 
         /* check if pixel format is supported */
-        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P/* &&
-            file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUVJ420P*/ ) {
+        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P ) {
 
             char c[512];
             snprintf( c, 512, "unsupported pixel format [%i]", file->videoStream->_ffmpeg->codec->pix_fmt );
@@ -875,7 +892,14 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
 */
 int SDL_ffmpegSeek( SDL_ffmpegFile* file, uint64_t timestamp ) {
 
-    if( !file || SDL_ffmpegDuration( file ) < timestamp ) return -1;
+    if( !file ) return -1;
+
+    if( SDL_ffmpegDuration( file ) < timestamp ) {
+
+        SDL_ffmpegAddError( "can not seek past end of file" );
+
+        return -1;
+    }
 
     /* convert milliseconds to AV_TIME_BASE units */
     uint64_t seekPos = timestamp * (AV_TIME_BASE / 1000);
@@ -997,6 +1021,8 @@ int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
 
     if( !file->audioStream ) {
         SDL_UnlockMutex( file->streamMutex );
+
+        SDL_ffmpegAddError( "no valid audio stream selected" );
         return 0;
     }
 
@@ -1124,6 +1150,10 @@ SDL_AudioSpec SDL_ffmpegGetAudioSpec (SDL_ffmpegFile *file, int samples, SDL_ffm
         spec.callback = callback;
         spec.freq = file->audioStream->_ffmpeg->codec->sample_rate;
         spec.channels = file->audioStream->_ffmpeg->codec->channels;
+
+    } else {
+
+        SDL_ffmpegAddError( "no valid audio stream selected" );
     }
 
     SDL_UnlockMutex( file->streamMutex );
@@ -1187,6 +1217,10 @@ uint64_t SDL_ffmpegAudioDuration(SDL_ffmpegFile *file ) {
 
             duration = file->audioStream->frameCount * file->audioStream->encodeAudioInputSize / ( file->audioStream->_ffmpeg->codec->sample_rate / 1000 );
         }
+
+    } else {
+
+        SDL_ffmpegAddError( "no valid audio stream selected" );
     }
 
     SDL_UnlockMutex( file->streamMutex );
@@ -1220,6 +1254,10 @@ uint64_t SDL_ffmpegVideoDuration( SDL_ffmpegFile *file ) {
 
             duration = av_rescale( 1000 * file->videoStream->frameCount, file->videoStream->_ffmpeg->codec->time_base.num, file->videoStream->_ffmpeg->codec->time_base.den );
         }
+
+    } else {
+
+        SDL_ffmpegAddError( "no valid video stream selected" );
     }
 
     SDL_UnlockMutex( file->streamMutex );
@@ -1257,6 +1295,10 @@ int SDL_ffmpegGetVideoSize( SDL_ffmpegFile *file, int *w, int *h ) {
         SDL_UnlockMutex( file->streamMutex );
 
         return 0;
+
+    } else {
+
+        SDL_ffmpegAddError( "no valid video stream selected" );
     }
 
     *w = 0;
@@ -1319,7 +1361,6 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     stream->codec->codec_type = CODEC_TYPE_VIDEO;
 
     stream->codec->bit_rate = codec.videoBitrate;
-            /*1500000;*/
 
     /* resolution must be a multiple of two */
     stream->codec->width = codec.width;
@@ -1531,9 +1572,7 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
 */
 int SDL_ffmpegError() {
 
-    SDL_ffmpegInit();
-
-    return ( SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] != 0 );
+    return SDL_ffmpegErrorCount;
 }
 
 
@@ -1543,26 +1582,30 @@ int SDL_ffmpegError() {
 */
 const char* SDL_ffmpegGetLastError() {
 
-    SDL_ffmpegInit();
+    if( !SDL_ffmpegErrorCount ) return 0;
 
-    /* free last error */
-    if( SDL_ffmpegErrorFreeIndex >= 0 ) {
+    SDL_ffmpegErrorCount--;
 
-        free( SDL_ffmpegErrors[ SDL_ffmpegErrorFreeIndex ] );
+    SDL_ffmpegErrorMessage *message = SDL_ffmpegErrorBegin->next;
 
-        SDL_ffmpegErrors[ SDL_ffmpegErrorFreeIndex ] = 0;
+    if( SDL_ffmpegDeleteErrorString ) {
 
-        SDL_ffmpegErrorFreeIndex++;
+        free( SDL_ffmpegErrorBegin->message );
 
-        if( SDL_ffmpegErrorFreeIndex >= SDL_ffmpegErrorStringCount ) SDL_ffmpegErrorFreeIndex = 0;
+        free( SDL_ffmpegErrorBegin );
+
+        SDL_ffmpegErrorBegin = message;
 
     } else {
 
-        SDL_ffmpegErrorFreeIndex = 0;
+        SDL_ffmpegDeleteErrorString = 1;
     }
 
-    return SDL_ffmpegErrors[ SDL_ffmpegErrorFreeIndex ];
+    if( SDL_ffmpegErrorBegin ) return SDL_ffmpegErrorBegin->message;
+
+    return 0;
 }
+
 
 /** \brief  Convenience function to print all errors
 
@@ -1576,7 +1619,35 @@ void SDL_ffmpegPrintErrors( FILE *stream ) {
 
     while( SDL_ffmpegError() ) {
 
-        fprintf( stream, "%s\n", SDL_ffmpegGetLastError() );
+        const char* string = SDL_ffmpegGetLastError();
+
+        fprintf( stream, "%s", string );
+
+        if( string[ strlen(string) - 1 ] != '\n' ) {
+            fprintf( stream, "\n" );
+        }
+    }
+}
+
+
+/** \brief  Use this function to clear all standing errors
+
+*/
+void SDL_ffmpegFlushErrors() {
+
+    if( !SDL_ffmpegErrorCount ) return;
+
+    while( SDL_ffmpegErrorBegin ) {
+
+        SDL_ffmpegErrorMessage *m = SDL_ffmpegErrorBegin;
+
+        SDL_ffmpegErrorBegin = m->next;
+
+        /* clear contents of message */
+        free( m->message );
+
+        /* clear message */
+        free( m );
     }
 }
 
@@ -1586,18 +1657,30 @@ void SDL_ffmpegPrintErrors( FILE *stream ) {
 
 void SDL_ffmpegAddError( const char *error ) {
 
-    SDL_ffmpegInit();
+    if( !error ) return;
 
-    SDL_ffmpegErrorIndex++;
+    if( !SDL_ffmpegErrorBegin ) {
 
-    /* wrap error string around if needed */
-    if( SDL_ffmpegErrorIndex >= SDL_ffmpegErrorStringCount ) SDL_ffmpegErrorIndex = 0;
+        SDL_ffmpegErrorBegin = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 
-    /* if previous errors were not cleaned, do so now */
-    if( SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] ) free( SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] );
+        SDL_ffmpegErrorBegin->message = strdup( error );
 
-    /* write new error */
-    SDL_ffmpegErrors[ SDL_ffmpegErrorIndex ] = strdup( error );
+        SDL_ffmpegErrorBegin->next = 0;
+
+    } else {
+
+        SDL_ffmpegErrorMessage *message = SDL_ffmpegErrorBegin;
+
+        while( message->next ) message = message->next;
+
+        message->next = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
+
+        message->next->message = strdup( error );
+
+        message->next->next = 0;
+    }
+
+    SDL_ffmpegErrorCount++;
 }
 
 int SDL_ffmpegGetPacket( SDL_ffmpegFile *file ) {
@@ -1777,7 +1860,7 @@ int SDL_ffmpegDecodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpeg
     while( size > 0 ) {
 
 		/* Decode the packet */
-        int len = avcodec_decode_audio2( file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, data, size );
+        int len = avcodec_decode_audio3( file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, pack );
 
 		/* if an error occured, we skip the frame */
 		if( len <= 0 || !audioSize ) {
@@ -1872,12 +1955,16 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
         }
 
         /* Decode the packet */
-        avcodec_decode_video( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack->data, pack->size );
+        avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack );
 
     } else {
 
+        AVPacket temp;
+        memset( &temp, 0, sizeof( AVPacket ) );
+        av_init_packet( &temp );
+
         /* check if there is still a frame left in the buffer */
-        avcodec_decode_video( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, 0, 0 );
+        avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, &temp );
     }
 
     /* if we did not get a frame or we need to hurry, we return */

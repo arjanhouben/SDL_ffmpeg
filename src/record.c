@@ -43,15 +43,16 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    /* add a video stream to the output */
     SDL_ffmpegAddVideoStream( file, SDL_ffmpegCodecAUTO );
-//    SDL_ffmpegAddAudioStream( file, SDL_ffmpegCodecAUTO );
 
+    /* select videostream we just created */
     SDL_ffmpegSelectVideoStream( file, 0 );
-//    SDL_ffmpegSelectAudioStream( file, 0 );
 
+    /* create a video frame which we will use to pass information to the output
+       stream. In the future, YUV overlays will be supported, currently only
+       RGBA is supported when encoding */
     SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
-//    SDL_ffmpegAudioFrame *audioFrame = SDL_ffmpegCreateAudioFrame( file, 0 );
-
 
     /* standard SDL initialization stuff */
     if( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER ) < 0 ) {

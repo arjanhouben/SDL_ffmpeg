@@ -168,7 +168,7 @@ typedef struct SDL_ffmpegFile {
     SDL_mutex           *streamMutex;
 
     /** Amount of video streams in file */
-    int                 videoStreams,
+    uint32_t            videoStreams,
     /** Amount of audio streams in file */
                         audioStreams;
 
@@ -188,6 +188,8 @@ int SDL_ffmpegError();
 const char* SDL_ffmpegGetLastError();
 
 void SDL_ffmpegPrintErrors( FILE *stream );
+
+void SDL_ffmpegFlushErrors();
 
 /* SDL_ffmpegFile create / destroy */
 SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename );
