@@ -15,6 +15,12 @@ if( WIN32 )
 	set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBUILD_DLL" )
 
 endif( WIN32 )
+	
+if( MINGW )
+
+	set( CMAKE_SHARED_LINKER_FLAGS "-Wl,--output-def,SDL_ffmpeg.def" )
+
+endif( MINGW )
 
 find_package( SDL )
 find_package( avformat )
