@@ -335,6 +335,9 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
     /* iterate through all the streams and store audio/video streams */
     for(int i=0; i<file->_ffmpeg->nb_streams; i++) {
 
+        /* disable all streams by default */
+        file->_ffmpeg->streams[i]->discard = AVDISCARD_ALL;
+
         if( file->_ffmpeg->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO ) {
 
             /* if this is a packet of the correct type we create a new stream */
@@ -786,6 +789,15 @@ int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID ) {
         return -1;
     }
 
+    /* set all audio streams to discard */
+    SDL_ffmpegStream *stream = file->as;
+
+    /* discard by default */
+    for(int i=0; i<file->audioStreams; i++) {
+        stream->_ffmpeg->discard = AVDISCARD_ALL;
+        stream = stream->next;
+    }
+
     if( audioID < 0 ) {
 
         /* reset audiostream */
@@ -797,6 +809,9 @@ int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID ) {
         file->audioStream = file->as;
 
         for(int i=0; i<audioID && file->audioStream; i++) file->audioStream = file->audioStream->next;
+
+        /* active stream need not be discarded */
+        file->audioStream->_ffmpeg->discard = AVDISCARD_NONE;
     }
 
     SDL_UnlockMutex( file->streamMutex );
@@ -857,6 +872,15 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
         return -1;
     }
 
+    /* set all video streams to discard */
+    SDL_ffmpegStream *stream = file->vs;
+
+    /* discard by default */
+    for(int i=0; i<file->videoStreams; i++) {
+        stream->_ffmpeg->discard = AVDISCARD_ALL;
+        stream = stream->next;
+    }
+
     if( videoID < 0 ) {
 
         /* reset videostream */
@@ -878,6 +902,11 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
             SDL_ffmpegAddError( c );
 
             file->videoStream = 0;
+
+        } else {
+
+            /* active stream need not be discarded */
+            file->videoStream->_ffmpeg->discard = AVDISCARD_NONE;
         }
     }
 
