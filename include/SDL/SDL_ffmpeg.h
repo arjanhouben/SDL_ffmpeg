@@ -7,7 +7,7 @@
 *                                                                              *
 *   SDL_ffmpeg is free software: you can redistribute it and/or modify         *
 *   it under the terms of the GNU Lesser General Public License as published   *
-*	by the Free Software Foundation, either version 3 of the License, or any   *
+*   by the Free Software Foundation, either version 3 of the License, or any   *
 *   later version.                                                             *
 *                                                                              *
 *   This program is distributed in the hope that it will be useful,            *
@@ -70,8 +70,13 @@ typedef struct SDL_ffmpegCodec {
     int32_t audiooMaxRate;
 } SDL_ffmpegCodec;
 
+/** predefined codec for PAL DVD */
 const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD;
+
+/** predefined codec for DV */
 const SDL_ffmpegCodec SDL_ffmpegCodecPALDV;
+
+/** predefined codec based on extension of output file */
 const SDL_ffmpegCodec SDL_ffmpegCodecAUTO;
 
 /** Struct to hold packet buffers */
