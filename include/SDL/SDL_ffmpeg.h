@@ -30,6 +30,16 @@
 extern "C" {
 #endif
 
+#ifdef WIN32
+    #ifdef BUILD_DLL
+        #define EXPORT __declspec(dllexport)
+    #else
+        #define EXPORT __declspec(dllimport)
+    #endif
+#else
+    #define EXPORT
+#endif
+
 enum SDL_ffmpegStreamType {
     SDL_ffmpegUninitialized = 0,
     SDL_ffmpegOutputStream,
@@ -71,13 +81,13 @@ typedef struct SDL_ffmpegCodec {
 } SDL_ffmpegCodec;
 
 /** predefined codec for PAL DVD */
-const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD;
+EXPORT extern const SDL_ffmpegCodec SDL_ffmpegCodecPALDVD;
 
 /** predefined codec for DV */
-const SDL_ffmpegCodec SDL_ffmpegCodecPALDV;
+EXPORT extern const SDL_ffmpegCodec SDL_ffmpegCodecPALDV;
 
 /** predefined codec based on extension of output file */
-const SDL_ffmpegCodec SDL_ffmpegCodecAUTO;
+EXPORT extern const SDL_ffmpegCodec SDL_ffmpegCodecAUTO;
 
 /** Struct to hold packet buffers */
 typedef struct SDL_ffmpegPacket {
@@ -188,86 +198,86 @@ typedef struct SDL_ffmpegFile {
 } SDL_ffmpegFile;
 
 /* error handling */
-int SDL_ffmpegError();
+EXPORT int SDL_ffmpegError();
 
-const char* SDL_ffmpegGetLastError();
+EXPORT const char* SDL_ffmpegGetLastError();
 
-void SDL_ffmpegPrintErrors( FILE *stream );
+EXPORT void SDL_ffmpegPrintErrors( FILE *stream );
 
-void SDL_ffmpegFlushErrors();
+EXPORT void SDL_ffmpegFlushErrors();
 
 /* SDL_ffmpegFile create / destroy */
-SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename );
+EXPORT SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename );
 
-SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename );
+EXPORT SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename );
 
-void SDL_ffmpegFree( SDL_ffmpegFile* file );
+EXPORT void SDL_ffmpegFree( SDL_ffmpegFile* file );
 
 /* general */
-int SDL_ffmpegSeek( SDL_ffmpegFile* file, uint64_t timestamp );
+EXPORT int SDL_ffmpegSeek( SDL_ffmpegFile* file, uint64_t timestamp );
 
-int SDL_ffmpegSeekRelative( SDL_ffmpegFile* file, int64_t timestamp );
+EXPORT int SDL_ffmpegSeekRelative( SDL_ffmpegFile* file, int64_t timestamp );
 
-uint64_t SDL_ffmpegDuration( SDL_ffmpegFile *file );
+EXPORT uint64_t SDL_ffmpegDuration( SDL_ffmpegFile *file );
 
-int64_t SDL_ffmpegGetPosition( SDL_ffmpegFile *file );
+EXPORT int64_t SDL_ffmpegGetPosition( SDL_ffmpegFile *file );
 
 
 /* video stream */
-SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
+EXPORT SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
 
-SDL_ffmpegStream* SDL_ffmpegGetVideoStream( SDL_ffmpegFile *file, uint32_t audioID );
+EXPORT SDL_ffmpegStream* SDL_ffmpegGetVideoStream( SDL_ffmpegFile *file, uint32_t audioID );
 
-int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID);
+EXPORT int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID);
 
 /* video frame */
-SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen );
+EXPORT SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen );
 
-int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
+EXPORT int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
-int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
+EXPORT int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 
-void SDL_ffmpegFreeVideoFrame( SDL_ffmpegVideoFrame* frame );
+EXPORT void SDL_ffmpegFreeVideoFrame( SDL_ffmpegVideoFrame* frame );
 
 /* video specs */
-int SDL_ffmpegGetVideoSize( SDL_ffmpegFile *file, int *w, int *h);
+EXPORT int SDL_ffmpegGetVideoSize( SDL_ffmpegFile *file, int *w, int *h);
 
 /* general video */
-int SDL_ffmpegValidVideo( SDL_ffmpegFile *file );
+EXPORT int SDL_ffmpegValidVideo( SDL_ffmpegFile *file );
 
-uint64_t SDL_ffmpegVideoDuration( SDL_ffmpegFile *file );
+EXPORT uint64_t SDL_ffmpegVideoDuration( SDL_ffmpegFile *file );
 
 
 /* audio stream */
-SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
+EXPORT SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
 
-SDL_ffmpegStream* SDL_ffmpegGetAudioStream( SDL_ffmpegFile *file, uint32_t audioID);
+EXPORT SDL_ffmpegStream* SDL_ffmpegGetAudioStream( SDL_ffmpegFile *file, uint32_t audioID);
 
-int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID);
+EXPORT int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID);
 
 /* audio frame */
-SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t bytes );
+EXPORT SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t bytes );
 
-int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
+EXPORT int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
 
-int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
+EXPORT int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame );
 
-void SDL_ffmpegFreeAudioFrame( SDL_ffmpegAudioFrame* frame );
+EXPORT void SDL_ffmpegFreeAudioFrame( SDL_ffmpegAudioFrame* frame );
 
 /* audio specs */
-SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
+EXPORT SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
 
 /* general audio */
-int SDL_ffmpegValidAudio( SDL_ffmpegFile *file );
+EXPORT int SDL_ffmpegValidAudio( SDL_ffmpegFile *file );
 
-uint64_t SDL_ffmpegAudioDuration( SDL_ffmpegFile *file );
+EXPORT uint64_t SDL_ffmpegAudioDuration( SDL_ffmpegFile *file );
 
 /** \cond */
 
 /* these functions are not public */
-SDL_ffmpegFile* SDL_ffmpegCreateFile();
+EXPORT SDL_ffmpegFile* SDL_ffmpegCreateFile();
 
-int SDL_ffmpegFlush( SDL_ffmpegFile *file );
+EXPORT int SDL_ffmpegFlush( SDL_ffmpegFile *file );
 
 /** \endcond */
 

@@ -12,6 +12,8 @@ if( WIN32 )
 
 	set_target_properties( SDL_ffmpeg PROPERTIES PREFIX "" )
 
+	set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBUILD_DLL" )
+
 endif( WIN32 )
 
 find_package( SDL )

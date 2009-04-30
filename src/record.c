@@ -53,6 +53,10 @@ int main(int argc, char** argv) {
        stream. In the future, YUV overlays will be supported, currently only
        RGBA is supported when encoding */
     SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
+    if( !videoFrame ) {
+        SDL_ffmpegPrintErrors( stderr );
+        return -1;
+    }
 
     /* standard SDL initialization stuff */
     if( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER ) < 0 ) {
@@ -61,7 +65,7 @@ int main(int argc, char** argv) {
     }
 
     /* create a window */
-    SDL_Surface *screen = SDL_SetVideoMode( 720, 576, 32, SDL_DOUBLEBUF );
+    SDL_Surface *screen = SDL_SetVideoMode( videoFrame->surface->w, videoFrame->surface->h, 32, SDL_DOUBLEBUF );
 
     /* create a block of color, so we have somehting to look at */
     SDL_Surface *block = SDL_CreateRGBSurface( 0, 20, 20, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000 );
@@ -133,7 +137,7 @@ int main(int argc, char** argv) {
         int64_t delay = SDL_ffmpegVideoDuration(file) - SDL_GetTicks();
         if( delay > 0 ) SDL_Delay( delay );
     }
-    
+
     /* free video frame */
     SDL_ffmpegFreeVideoFrame( videoFrame );
 

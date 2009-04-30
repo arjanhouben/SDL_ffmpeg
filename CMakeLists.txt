@@ -2,7 +2,13 @@ cmake_minimum_required( VERSION 2.6 )
 
 project ( SDL_FFMPEG )
 
-set( CMAKE_C_FLAGS "-Wall -ansi -D_ISOC99_SOURCE -std=c99 -O2" )
+set( CMAKE_C_FLAGS "-Wall -ansi -std=c99 -O2 -D_ISOC99_SOURCE" )
+
+if( WIN32 )
+
+	set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32" )
+
+endif( WIN32 )
 
 set( CMAKE_DEBUG_POSTFIX "d" )
 
