@@ -222,8 +222,15 @@ int main(int argc, char** argv) {
     /* stop audio callback */
     SDL_PauseAudio(1);
 
-    /* after all is said and done, we should call this */
-    for(i=0; audioFile[i]; i++) SDL_ffmpegFree( audioFile[i] );
+    /* free all frames / files */
+    for(int f=0; audioFile[f]; f++) {
+    
+        for(int i=0; i<BUF_SIZE; i++) {
+			SDL_ffmpegFreeAudioFrame( audioFrame[f][i] );
+		}
+    	
+    	SDL_ffmpegFree( audioFile[f] );
+	}
 
     /* print any errors which may have been encountered during this program */
     SDL_ffmpegPrintErrors( stderr );

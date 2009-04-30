@@ -133,6 +133,9 @@ int main(int argc, char** argv) {
         int64_t delay = SDL_ffmpegVideoDuration(file) - SDL_GetTicks();
         if( delay > 0 ) SDL_Delay( delay );
     }
+    
+    /* free video frame */
+    SDL_ffmpegFreeVideoFrame( videoFrame );
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree( file );

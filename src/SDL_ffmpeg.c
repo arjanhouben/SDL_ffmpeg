@@ -1730,6 +1730,8 @@ int SDL_ffmpegGetPacket( SDL_ffmpegFile *file ) {
 
     /* if we did not get a packet, we probably reached the end of the file */
     if( decode < 0 ) {
+    
+    	av_free( pack );
 
         /* signal EOF */
         return 1;
