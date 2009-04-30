@@ -70,6 +70,9 @@ int main(int argc, char** argv) {
     /* when we are done with the file, we free it */
     SDL_ffmpegFree( audioFile );
 
+    /* print any errors which may have been encountered during this program */
+    SDL_ffmpegPrintErrors( stderr );
+
     /* the SDL_Quit function offcourse... */
     SDL_Quit();
 

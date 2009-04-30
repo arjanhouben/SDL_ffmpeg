@@ -170,6 +170,9 @@ int main(int argc, char** argv) {
     /* cleanup mutex */
     SDL_DestroyMutex( mutex );
 
+    /* print any errors which may have been encountered during this program */
+    SDL_ffmpegPrintErrors( stderr );
+
     /* the SDL_Quit function offcourse... */
     SDL_Quit();
 

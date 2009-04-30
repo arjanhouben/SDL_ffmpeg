@@ -137,6 +137,9 @@ int main(int argc, char** argv) {
     /* after all is said and done, we should call this */
     SDL_ffmpegFree( file );
 
+    /* print any errors which may have been encountered during this program */
+    SDL_ffmpegPrintErrors( stderr );
+
     /* the SDL_Quit function offcourse... */
     SDL_Quit();
 
