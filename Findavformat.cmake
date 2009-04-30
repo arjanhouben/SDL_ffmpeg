@@ -19,6 +19,7 @@ find_path( AVFORMAT_INCLUDE_DIR avformat.h
   /opt/local/include
   /opt/csw/include 
   /opt/include
+  /mingw/include
 )
 
 #message( "AVFORMAT_INCLUDE_DIR is ${AVFORMAT_INCLUDE_DIR}" )
@@ -34,6 +35,7 @@ find_library( AVFORMAT_LIBRARY
   /opt/local
   /opt/csw
   /opt
+  /mingw
 )
 
 #message( "AVFORMAT_LIBRARY is ${AVFORMAT_LIBRARY}" )

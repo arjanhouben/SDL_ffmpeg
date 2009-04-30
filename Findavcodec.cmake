@@ -19,6 +19,7 @@ find_path( AVCODEC_INCLUDE_DIR avcodec.h
   /opt/local/include
   /opt/csw/include 
   /opt/include
+  /mingw/include
 )
 
 #message( "AVCODEC_INCLUDE_DIR is ${AVCODEC_INCLUDE_DIR}" )
@@ -34,6 +35,7 @@ find_library( AVCODEC_LIBRARY
   /opt/local
   /opt/csw
   /opt
+  /mingw
 )
 
 #message( "AVCODEC_LIBRARY is ${AVCODEC_LIBRARY}" )

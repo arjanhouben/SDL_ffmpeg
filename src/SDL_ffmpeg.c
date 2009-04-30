@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <SDL.h>
 #include <SDL_thread.h>
@@ -161,8 +162,10 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
 void SDL_ffmpegLogCallback( void* avcl, int level, const char *fmt, va_list vl ) {
 
     static char buf[ 512 ];
+    
+    int off = snprintf( buf, 512, "FFMPEG: " );
 
-    snprintf( buf, 512, fmt, vl );
+    snprintf( buf+off, 512-off, fmt, vl );
 
     SDL_ffmpegAddError( buf );
 }

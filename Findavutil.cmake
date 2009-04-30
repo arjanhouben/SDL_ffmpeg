@@ -19,6 +19,7 @@ find_path( AVUTIL_INCLUDE_DIR avutil.h
   /opt/local/include
   /opt/csw/include 
   /opt/include
+  /mingw/include
 )
 
 #message( "AVUTIL_INCLUDE_DIR is ${AVUTIL_INCLUDE_DIR}" )
@@ -34,6 +35,7 @@ find_library( AVUTIL_LIBRARY
   /opt/local
   /opt/csw
   /opt
+  /mingw
 )
 
 #message( "AVUTIL_LIBRARY is ${AVUTIL_LIBRARY}" )
