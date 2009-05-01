@@ -1,11 +1,5 @@
-if( NOT APPLE )
-
-	set( LIBTYPE "SHARED" )
-
-endif( NOT APPLE )
-
 add_library( 	SDL_ffmpeg
-				${LIBTYPE}
+				SHARED
 				${SDL_FFMPEG_SOURCE_DIR}/src/SDL_ffmpeg.c )
 
 if( WIN32 )
