@@ -7,7 +7,7 @@
 *                                                                              *
 *   SDL_ffmpeg is free software: you can redistribute it and/or modify         *
 *   it under the terms of the GNU Lesser General Public License as published   *
-*	by the Free Software Foundation, either version 3 of the License, or any   *
+*   by the Free Software Foundation, either version 3 of the License, or any   *
 *   later version.                                                             *
 *                                                                              *
 *   This program is distributed in the hope that it will be useful,            *
@@ -37,9 +37,25 @@
 #include <SDL.h>
 #include <SDL_thread.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "avformat.h"
+#ifdef __cplusplus
+}
+#endif
 
 #include "SDL_ffmpeg.h"
+
+#ifdef MSVC
+	#define snprintf( buf, count, format, ... )  _snprintf_s( buf, 512, count, format, __VA_ARGS__ )
+	#ifndef INT64_C
+		#define INT64_C(i) i
+	#endif
+	#define CODECCAST (CodecID)
+#else
+	#define CODECCAST
+#endif
 
 /**
 \cond
@@ -333,7 +349,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
     }
 
     /* iterate through all the streams and store audio/video streams */
-    for(int i=0; i<file->_ffmpeg->nb_streams; i++) {
+    for(uint32_t i=0; i<file->_ffmpeg->nb_streams; i++) {
 
         /* disable all streams by default */
         file->_ffmpeg->streams[i]->discard = AVDISCARD_ALL;
@@ -407,7 +423,7 @@ SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename ) {
 
                     stream->mutex = SDL_CreateMutex();
 
-                    stream->sampleBuffer = av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof( int16_t ) );
+                    stream->sampleBuffer = (int8_t*)av_malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE * sizeof( int16_t ) );
                     stream->sampleBufferSize = 0;
                     stream->sampleBufferOffset = 0;
                     stream->sampleBufferTime = AV_NOPTS_VALUE;
@@ -615,7 +631,7 @@ SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t
     frame->capacity = bytes;
 
     /* allocate buffer */
-    frame->buffer = av_malloc( bytes );
+    frame->buffer = (uint8_t*)av_malloc( bytes );
 
     /* initialize a non-valid timestamp */
     frame->pts = AV_NOPTS_VALUE;
@@ -647,7 +663,7 @@ SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, co
         return 0;
     }
 
-    SDL_ffmpegVideoFrame *frame = malloc( sizeof(SDL_ffmpegVideoFrame ) );
+    SDL_ffmpegVideoFrame *frame = (SDL_ffmpegVideoFrame*)malloc( sizeof(SDL_ffmpegVideoFrame ) );
     memset( frame, 0, sizeof(SDL_ffmpegVideoFrame ) );
 
     if( format == SDL_YUY2_OVERLAY && screen ) {
@@ -759,7 +775,7 @@ SDL_ffmpegStream* SDL_ffmpegGetAudioStream(SDL_ffmpegFile *file, uint32_t audioI
     SDL_ffmpegStream *s = file->as;
 
     /* return audiostream linked to audioID */
-    for(int i=0; i<audioID && s; i++) s = s->next;
+    for(uint32_t i=0; i<audioID && s; i++) s = s->next;
 
     return s;
 }
@@ -840,7 +856,7 @@ SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t videoI
     SDL_ffmpegStream *s = file->vs;
 
     /* return audiostream linked to audioID */
-    for(int i=0; i<videoID && s; i++) s = s->next;
+    for(uint32_t i=0; i<videoID && s; i++) s = s->next;
 
     return s;
 }
@@ -1387,7 +1403,7 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     if( codec.videoCodecID < 0 ) {
         stream->codec->codec_id = file->_ffmpeg->oformat->video_codec;
     } else {
-        stream->codec->codec_id = codec.videoCodecID;
+        stream->codec->codec_id = CODECCAST codec.videoCodecID;
     }
 
     stream->codec->codec_type = CODEC_TYPE_VIDEO;
@@ -1505,7 +1521,7 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     if( codec.audioCodecID < 0 ) {
         stream->codec->codec_id = file->_ffmpeg->oformat->audio_codec;
     } else {
-        stream->codec->codec_id = codec.audioCodecID;
+        stream->codec->codec_id = CODECCAST codec.audioCodecID;
     }
 
     stream->codec->codec_type = CODEC_TYPE_AUDIO;
@@ -1720,7 +1736,7 @@ int SDL_ffmpegGetPacket( SDL_ffmpegFile *file ) {
     /* entering this function, streamMutex should have been locked */
 
     /* create a packet for our data */
-    AVPacket *pack = av_malloc( sizeof(AVPacket) );
+    AVPacket *pack = (AVPacket*)av_malloc( sizeof(AVPacket) );
 
     /* initialize packet */
     av_init_packet( pack );
@@ -2043,7 +2059,7 @@ inline int clamp0_255(int x) {
 void SDL_ffmpegConvertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced ) {
 
     uint8_t *Y, *U, *V;
-	uint32_t *RGBA = OUTPUT->pixels;
+	uint32_t *RGBA = (uint32_t*)OUTPUT->pixels;
     int x, y;
 
     for(y=0; y<OUTPUT->h; y++){
@@ -2089,16 +2105,23 @@ void SDL_ffmpegConvertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int 
 void SDL_ffmpegConvertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint32_t *YUVpacked, int w ) {
 
     /* devide width by 2 */
-    w >>= 1;
+    w /= 2;
 
     while( w-- ) {
 
         /* Y0 U0 Y1 V0 */
-        *YUVpacked = (*Y) | ((*U) << 8) | ((*(++Y)) << 16) | ((*V) << 24);
-        YUVpacked++;
-        Y++;
+		*YUVpacked = (*Y) |
+					 ((*U) << 8) |
+					 ((*V) << 24);
+
+		Y++;
         U++;
         V++;
+
+        *YUVpacked |= (*Y) << 16;
+
+		YUVpacked++;
+		Y++;
     }
 }
 
@@ -2115,7 +2138,8 @@ void SDL_ffmpegConvertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int in
     if( interlaced ) {
 
         /* handle 4 lines per loop */
-        for(int y=0; y<(YUY2->h>>2); y++){
+		int y = YUY2->h / 4;
+        while( y-- ) {
 
             /* line 0 */
             SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
@@ -2149,7 +2173,8 @@ void SDL_ffmpegConvertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int in
     } else {
 
         /* handle 2 lines per loop */
-        for(int y=0; y<(YUY2->h>>1); y++){
+		int y = YUY2->h / 2;
+        while( y-- ) {
 
             /* line 0 */
             SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
@@ -2204,7 +2229,7 @@ void SDL_ffmpegConvertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, 
               *U = YUV420P->data[1],
               *V = YUV420P->data[2];
 
-    const uint32_t *RGBApacked = RGBA->pixels;
+    const uint32_t *RGBApacked = (const uint32_t*)RGBA->pixels;
 
     if( interlaced ) {
 
