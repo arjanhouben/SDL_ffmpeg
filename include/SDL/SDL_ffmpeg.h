@@ -266,7 +266,7 @@ EXPORT int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *
 EXPORT void SDL_ffmpegFreeAudioFrame( SDL_ffmpegAudioFrame* frame );
 
 /* audio specs */
-EXPORT SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, uint16_t samples, SDL_ffmpegCallback callback );
+EXPORT SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback);
 
 /* general audio */
 EXPORT int SDL_ffmpegValidAudio( SDL_ffmpegFile *file );

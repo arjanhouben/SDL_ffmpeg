@@ -53,10 +53,8 @@ extern "C" {
 		#define INT64_C(i) i
 	#endif
 	#define CODECCAST (CodecID)
-	#define STRDUP( str ) _strdup( str )
 #else
 	#define CODECCAST
-	#define STRDUP( str ) strdup( str )
 #endif
 
 /**
@@ -177,7 +175,7 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     return file;
 }
 
-void SDL_ffmpegLogCallback( void*, int, const char *fmt, va_list vl ) {
+void SDL_ffmpegLogCallback( void* avcl, int level, const char *fmt, va_list vl ) {
 
     static char buf[ 512 ];
     
@@ -495,8 +493,9 @@ SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename ) {
 
             By adding frames to file, a video stream is build. If an audio stream
             is present, syncing of both streams needs to be done by user.
-\param      file SDL_ffmpegFile to which a frame needs to be added
-\returns    0 if frame was added, non-zero if an error occured
+\param      file SDL_ffmpegFile to which a frame needs to be added.
+\param      frame SDL_ffmpegVideoFrame which will be added to the stream.
+\returns    0 if frame was added, non-zero if an error occured.
 */
 int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame ) {
 
@@ -555,8 +554,9 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
 
             By adding frames to file, an audio stream is build. If a video stream
             is present, syncing of both streams needs to be done by user.
-\param      file SDL_ffmpegFile to which a frame needs to be added
-\returns    0 if frame was added, non-zero if an error occured
+\param      file SDL_ffmpegFile to which a frame needs to be added.
+\param      frame SDL_ffmpegAudioFrame which will be added to the stream.
+\returns    0 if frame was added, non-zero if an error occured.
 */
 int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame ) {
 
@@ -607,6 +607,9 @@ int SDL_ffmpegAddAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
             With this frame, you can receive audio data from the stream using
             SDL_ffmpegGetAudioFrame.
 \param      file SDL_ffmpegFile for which a frame needs to be created
+\param      bytes When current active audio stream is an input stream, this holds
+                  the size of the buffer which will be allocated. In case of an
+                  output stream, this value is ignored.
 \returns    Pointer to SDL_ffmpegAudioFrame, or NULL if no frame could be created
 */
 SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t bytes ) {
@@ -1060,6 +1063,7 @@ int SDL_ffmpegFlush(SDL_ffmpegFile *file ) {
             the amount of data used in bytes. This is needed so that SDL_ffmpeg can
             calculate the next frame.
 \param      file SDL_ffmpegFile from which the information is required
+\param      frame The frame to which the data will be decoded.
 \returns    Pointer to SDL_ffmpegAudioFrame, or NULL if no frame was available.
 */
 int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame ) {
@@ -1214,9 +1218,9 @@ float SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int *nominator, int *den
 \returns    SDL_AudioSpec with values set according to the selected audio stream.
             If no valid audio stream was available, all values of returned SDL_AudioSpec are set to 0
 */
-SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, uint16_t samples, SDL_ffmpegCallback callback ) {
+SDL_AudioSpec SDL_ffmpegGetAudioSpec (SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback ) {
 
-	/* create audio spec */
+    /* create audio spec */
     SDL_AudioSpec spec;
 
     memset(&spec, 0, sizeof(SDL_AudioSpec));
@@ -1235,7 +1239,7 @@ SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, uint16_t samples, SD
         spec.userdata = file;
         spec.callback = callback;
         spec.freq = file->audioStream->_ffmpeg->codec->sample_rate;
-        spec.channels = (uint8_t)file->audioStream->_ffmpeg->codec->channels;
+        spec.channels = file->audioStream->_ffmpeg->codec->channels;
 
     } else {
 
@@ -1423,6 +1427,8 @@ int SDL_ffmpegValidVideo( SDL_ffmpegFile* file ) {
 /** \brief  This is used to add a video stream to file
 
 \param      file SDL_ffmpegFile to which the stream will be added
+\param      codec SDL_ffmpegCodec describing the type encoding to be used by this
+                  stream.
 \returns    The stream which was added, or NULL if no stream could be added.
 */
 SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec codec ) {
@@ -1545,6 +1551,8 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
 /** \brief  This is used to add a video stream to file
 
 \param      file SDL_ffmpegFile to which the stream will be added
+\param      codec SDL_ffmpegCodec describing the type encoding to be used by this
+                  stream.
 \returns    The stream which was added, or NULL if no stream could be added.
 */
 SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCodec codec ) {
@@ -1749,7 +1757,7 @@ void SDL_ffmpegAddError( const char *error ) {
 
         SDL_ffmpegErrorBegin = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 
-        SDL_ffmpegErrorBegin->message = STRDUP( error );
+        SDL_ffmpegErrorBegin->message = strdup( error );
 
         SDL_ffmpegErrorBegin->next = 0;
 
@@ -1761,7 +1769,7 @@ void SDL_ffmpegAddError( const char *error ) {
 
         message->next = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 
-        message->next->message = STRDUP( error );
+        message->next->message = strdup( error );
 
         message->next->next = 0;
     }
@@ -2241,21 +2249,30 @@ void SDL_ffmpegConvertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V,
     /* devide width by 2 */
     w >>= 1;
 
+    typedef struct RGBA_t {
+        char b,
+             g,
+             r,
+             a;
+    } RGBA_t;
+
+    RGBA_t *rgba = (RGBA_t*)RGBApacked;
+
     while( w-- ) {
 
-        *Y = (uint8_t)( (0.257 * ((*RGBApacked>>16)&0xFF)) + (0.504 * ((*RGBApacked>>8)&0xFF)) + (0.098 * (*RGBApacked&0xFF)) + 16 );
+        *Y = 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16;
         Y++;
-        RGBApacked++;
+        rgba++;
 
-        *U = (uint8_t)( -(0.148 * ((*RGBApacked>>16)&0xFF)) - (0.291 * ((*RGBApacked>>8)&0xFF)) + (0.439 * (*RGBApacked&0xFF)) + 128 );
+        *U = -0.148 * rgba->r - 0.291 * rgba->g + 0.439 * rgba->b + 128;
         U++;
 
-        *V = (uint8_t)( (0.439 * ((*RGBApacked>>16)&0xFF)) - (0.368 * ((*RGBApacked>>8)&0xFF)) - (0.071 * (0.439 * (*RGBApacked&0xFF))) + 128 );
+        *V = 0.439 * rgba->r - 0.368 * rgba->g - 0.071 * 0.439 * rgba->b + 128;
         V++;
 
-        *Y = (uint8_t)( (0.257 * ((*RGBApacked>>16)&0xFF)) + (0.504 * ((*RGBApacked>>8)&0xFF)) + (0.098 * (*RGBApacked&0xFF)) + 16 );
+        *Y = 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16;
         Y++;
-        RGBApacked++;
+        rgba++;
     }
 }
 
@@ -2306,7 +2323,7 @@ void SDL_ffmpegConvertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, 
     } else {
 
         /* handle 2 lines per loop */
-        for(y=0; y<(RGBA->h>>1); y++){
+        for(y=0; y<(RGBA->h>>1); y++) {
 
             /* line 0 */
             SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
