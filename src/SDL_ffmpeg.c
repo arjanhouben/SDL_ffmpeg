@@ -1168,17 +1168,24 @@ int64_t SDL_ffmpegGetPosition( SDL_ffmpegFile *file ) {
 /** \brief  Returns the frame rate of the stream as a fraction.
 
             This retreives the frame rate of the supplied stream.
+            For example, a framerate of 25 frames per second will have a nominator
+            of 1, and a denominator of 25.
 \param      stream SDL_ffmpegStream from which the information is required.
-\param      nominator Nominator part of the fraction.
-\param      denominator Denominator part of the fraction.
+\param      nominator Nominator part of the fraction. Can be 0 if exact value of
+                      nominator is not required.
+\param      denominator Denominator part of the fraction. Can be 0 if exact value
+                        of denominator is not required.
+\returns    The result of nominator / denominator as floating point value.
 */
-void SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int64_t *nominator, int64_t *denominator ) {
+float SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int *nominator, int *denominator ) {
 
-    if( stream && stream->_ffmpeg ) {
+    if( stream && stream->_ffmpeg && stream->_ffmpeg->codec ) {
 
-        if( nominator ) nominator = stream->_ffmpeg->r_frame_rate.num;
+        if( nominator ) *nominator = stream->_ffmpeg->r_frame_rate.num;
 
-        if( denominator ) denominator = stream->_ffmpeg->r_frame_rate.den;
+        if( denominator ) *denominator = stream->_ffmpeg->r_frame_rate.den;
+
+        return (float)stream->_ffmpeg->r_frame_rate.num / stream->_ffmpeg->r_frame_rate.den;
 
     } else {
 
@@ -1186,10 +1193,12 @@ void SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int64_t *nominator, int64
         snprintf( c, sizeof( c ), "could not retreive frame rate from stream %p", stream );
         SDL_ffmpegAddError( c );
 
-        if( nominator ) nominator = 0;
+        if( nominator ) *nominator = 0;
 
-        if( denominator ) denominator = 0;
+        if( denominator ) *denominator = 0;
     }
+
+    return 0.0;
 }
 
 /** \brief  This can be used to get a SDL_AudioSpec based on values found in file

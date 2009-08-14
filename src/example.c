@@ -118,14 +118,17 @@ int main(int argc, char** argv) {
     /* print frame rate of video stream */
     SDL_ffmpegStream *stream = SDL_ffmpegGetVideoStream( file, 0 );
     if( stream ) {
-        int64_t nom = 0,
-                den = 0;
-        SDL_ffmpegGetFrameRate( stream, nom, den );
-        printf("Selected video stream 0, frame rate: %lld/%lld\n", nom, den );
+        printf("Selected video stream 0, frame rate: %.2f\n", SDL_ffmpegGetFrameRate( stream, 0, 0 ) );
     }
 
     /* if no audio can be selected, audio will not be used in this example */
     SDL_ffmpegSelectAudioStream( file, 0 );
+
+    /* print frame rate of audio stream */
+    stream = SDL_ffmpegGetAudioStream( file, 0 );
+    if( stream ) {
+        printf("Selected audio stream 0, frame rate: %.2f\n", SDL_ffmpegGetFrameRate( stream, 0, 0 ) );
+    }
 
     /* get the audiospec which fits the selected audiostream, if no audiostream
        is selected, default values are used (2 channel, 48Khz) */

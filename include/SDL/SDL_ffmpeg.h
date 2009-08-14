@@ -222,7 +222,7 @@ EXPORT uint64_t SDL_ffmpegDuration( SDL_ffmpegFile *file );
 
 EXPORT int64_t SDL_ffmpegGetPosition( SDL_ffmpegFile *file );
 
-EXPORT void SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int64_t *numerator, int64_t *denominator );
+EXPORT float SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int *numerator, int *denominator );
 
 /* video stream */
 EXPORT SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCodec );
