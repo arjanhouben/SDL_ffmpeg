@@ -2,7 +2,7 @@ cmake_minimum_required( VERSION 2.6 )
 
 project ( SDL_FFMPEG )
 
-set( PROJECT_VERSION "1.0.2" )
+set( PROJECT_VERSION "1.1.0" )
 
 set( CMAKE_C_FLAGS "-Wall -ansi -std=c99 -O2 -D_ISOC99_SOURCE" )
 
