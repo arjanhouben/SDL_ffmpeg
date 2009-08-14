@@ -22,7 +22,7 @@
 
 /**
     @mainpage
-    @version 1.0.0
+    @version 1.1.0
     @author Arjan Houben
 
     SDL_ffmpeg is designed with ease of use in mind.
