@@ -53,8 +53,10 @@ extern "C" {
 		#define INT64_C(i) i
 	#endif
 	#define CODECCAST (CodecID)
+	#define STRDUP( str ) _strdup( str )
 #else
 	#define CODECCAST
+	#define STRDUP( str ) strdup( str )
 #endif
 
 /**
@@ -1218,9 +1220,9 @@ float SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int *nominator, int *den
 \returns    SDL_AudioSpec with values set according to the selected audio stream.
             If no valid audio stream was available, all values of returned SDL_AudioSpec are set to 0
 */
-SDL_AudioSpec SDL_ffmpegGetAudioSpec (SDL_ffmpegFile *file, int samples, SDL_ffmpegCallback callback ) {
+SDL_AudioSpec SDL_ffmpegGetAudioSpec( SDL_ffmpegFile *file, uint16_t samples, SDL_ffmpegCallback callback ) {
 
-    /* create audio spec */
+	/* create audio spec */
     SDL_AudioSpec spec;
 
     memset(&spec, 0, sizeof(SDL_AudioSpec));
@@ -1239,7 +1241,7 @@ SDL_AudioSpec SDL_ffmpegGetAudioSpec (SDL_ffmpegFile *file, int samples, SDL_ffm
         spec.userdata = file;
         spec.callback = callback;
         spec.freq = file->audioStream->_ffmpeg->codec->sample_rate;
-        spec.channels = file->audioStream->_ffmpeg->codec->channels;
+        spec.channels = (uint8_t)file->audioStream->_ffmpeg->codec->channels;
 
     } else {
 
@@ -1757,7 +1759,7 @@ void SDL_ffmpegAddError( const char *error ) {
 
         SDL_ffmpegErrorBegin = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 
-        SDL_ffmpegErrorBegin->message = strdup( error );
+        SDL_ffmpegErrorBegin->message = STRDUP( error );
 
         SDL_ffmpegErrorBegin->next = 0;
 
@@ -1769,7 +1771,7 @@ void SDL_ffmpegAddError( const char *error ) {
 
         message->next = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 
-        message->next->message = strdup( error );
+        message->next->message = STRDUP( error );
 
         message->next->next = 0;
     }
