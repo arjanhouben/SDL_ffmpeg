@@ -177,7 +177,7 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     return file;
 }
 
-void SDL_ffmpegLogCallback( void* avcl, int level, const char *fmt, va_list vl ) {
+void SDL_ffmpegLogCallback( void*, int, const char *fmt, va_list vl ) {
 
     static char buf[ 512 ];
     
@@ -805,7 +805,7 @@ int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID ) {
     SDL_LockMutex( file->streamMutex );
 
     /* check if we have any audiostreams and if the requested ID is available */
-    if( !file->audioStreams || audioID >= file->audioStreams ) {
+    if( !file->audioStreams || audioID >= (int)file->audioStreams ) {
         SDL_UnlockMutex( file->streamMutex );
 
         SDL_ffmpegAddError( "requested audio stream ID is not available in file" );
@@ -886,7 +886,7 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
     SDL_LockMutex( file->streamMutex );
 
     /* check if we have any videostreams */
-    if( videoID >= file->videoStreams ) {
+    if( videoID >= (int)file->videoStreams ) {
 
         SDL_UnlockMutex( file->streamMutex );
 
@@ -915,7 +915,7 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
         file->videoStream = file->vs;
 
         /* keep searching for correct videostream */
-        for(uint32_t i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
+        for(int i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
 
         /* check if pixel format is supported */
         if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P ) {
@@ -2262,17 +2262,17 @@ void SDL_ffmpegConvertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V,
 
     while( w-- ) {
 
-        *Y = 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16;
+		*Y = (uint8_t)( 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16 );
         Y++;
         rgba++;
 
-        *U = -0.148 * rgba->r - 0.291 * rgba->g + 0.439 * rgba->b + 128;
+        *U = (uint8_t)( -0.148 * rgba->r - 0.291 * rgba->g + 0.439 * rgba->b + 128 );
         U++;
 
-        *V = 0.439 * rgba->r - 0.368 * rgba->g - 0.071 * 0.439 * rgba->b + 128;
+        *V = (uint8_t)( 0.439 * rgba->r - 0.368 * rgba->g - 0.071 * 0.439 * rgba->b + 128 );
         V++;
 
-        *Y = 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16;
+        *Y = (uint8_t)( 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16 );
         Y++;
         rgba++;
     }
