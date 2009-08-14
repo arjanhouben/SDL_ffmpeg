@@ -845,7 +845,7 @@ int SDL_ffmpegSelectAudioStream( SDL_ffmpegFile* file, int audioID ) {
 \param      videoID is the stream you whish to select.
 \returns    Pointer to SDL_ffmpegStream, or NULL if selected stream could not be found
 */
-SDL_ffmpegStream* SDL_ffmpegGetVideoStream(SDL_ffmpegFile *file, uint32_t videoID) {
+SDL_ffmpegStream* SDL_ffmpegGetVideoStream( SDL_ffmpegFile *file, uint32_t videoID ) {
 
     /* check if we have any audiostreams */
     if( !file || !file->videoStreams ) return 0;
@@ -1164,6 +1164,33 @@ int64_t SDL_ffmpegGetPosition( SDL_ffmpegFile *file ) {
     return pos;
 }
 
+
+/** \brief  Returns the frame rate of the stream as a fraction.
+
+            This retreives the frame rate of the supplied stream.
+\param      stream SDL_ffmpegStream from which the information is required.
+\param      nominator Nominator part of the fraction.
+\param      denominator Denominator part of the fraction.
+*/
+void SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int64_t *nominator, int64_t *denominator ) {
+
+    if( stream && stream->_ffmpeg ) {
+
+        if( nominator ) nominator = stream->_ffmpeg->r_frame_rate.num;
+
+        if( denominator ) denominator = stream->_ffmpeg->r_frame_rate.den;
+
+    } else {
+
+        char c[128];
+        snprintf( c, sizeof( c ), "could not retreive frame rate from stream %p", stream );
+        SDL_ffmpegAddError( c );
+
+        if( nominator ) nominator = 0;
+
+        if( denominator ) denominator = 0;
+    }
+}
 
 /** \brief  This can be used to get a SDL_AudioSpec based on values found in file
 

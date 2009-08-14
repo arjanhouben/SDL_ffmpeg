@@ -115,6 +115,15 @@ int main(int argc, char** argv) {
     /* select the stream you want to decode (example just uses 0 as a default) */
     SDL_ffmpegSelectVideoStream( file, 0 );
 
+    /* print frame rate of video stream */
+    SDL_ffmpegStream *stream = SDL_ffmpegGetVideoStream( file, 0 );
+    if( stream ) {
+        int64_t nom = 0,
+                den = 0;
+        SDL_ffmpegGetFrameRate( stream, nom, den );
+        printf("Selected video stream 0, frame rate: %lld/%lld\n", nom, den );
+    }
+
     /* if no audio can be selected, audio will not be used in this example */
     SDL_ffmpegSelectAudioStream( file, 0 );
 
