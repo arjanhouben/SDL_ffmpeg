@@ -2249,21 +2249,30 @@ void SDL_ffmpegConvertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V,
     /* devide width by 2 */
     w >>= 1;
 
+    typedef struct RGBA_t {
+        char b,
+             g,
+             r,
+             a;
+    } RGBA_t;
+
+    RGBA_t *rgba = (RGBA_t*)RGBApacked;
+
     while( w-- ) {
 
-        *Y = (0.257 * ((*RGBApacked>>16)&0xFF)) + (0.504 * ((*RGBApacked>>8)&0xFF)) + (0.098 * (*RGBApacked&0xFF)) + 16;
+        *Y = 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16;
         Y++;
-        RGBApacked++;
+        rgba++;
 
-        *U = -(0.148 * ((*RGBApacked>>16)&0xFF)) - (0.291 * ((*RGBApacked>>8)&0xFF)) + (0.439 * (*RGBApacked&0xFF)) + 128;
+        *U = -0.148 * rgba->r - 0.291 * rgba->g + 0.439 * rgba->b + 128;
         U++;
 
-        *V = (0.439 * ((*RGBApacked>>16)&0xFF)) - (0.368 * ((*RGBApacked>>8)&0xFF)) - (0.071 * (0.439 * (*RGBApacked&0xFF))) + 128;
+        *V = 0.439 * rgba->r - 0.368 * rgba->g - 0.071 * 0.439 * rgba->b + 128;
         V++;
 
-        *Y = (0.257 * ((*RGBApacked>>16)&0xFF)) + (0.504 * ((*RGBApacked>>8)&0xFF)) + (0.098 * (*RGBApacked&0xFF)) + 16;
+        *Y = 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16;
         Y++;
-        RGBApacked++;
+        rgba++;
     }
 }
 
@@ -2314,7 +2323,7 @@ void SDL_ffmpegConvertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, 
     } else {
 
         /* handle 2 lines per loop */
-        for(y=0; y<(RGBA->h>>1); y++){
+        for(y=0; y<(RGBA->h>>1); y++) {
 
             /* line 0 */
             SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
