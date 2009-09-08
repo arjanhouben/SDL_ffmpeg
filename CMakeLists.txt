@@ -4,13 +4,24 @@ project ( SDL_FFMPEG )
 
 set( PROJECT_VERSION "1.1.0" )
 
-set( CMAKE_C_FLAGS "-Wall -ansi -std=c99 -O2 -D_ISOC99_SOURCE" )
+
+if( CMAKE_GENERATOR MATCHES "Visual .*" )
+
+    add_definitions( "/TP -DMSVC" )
+
+else()
+
+    add_definitions( "-Wall -ansi -std=c99 -O2 -D_ISOC99_SOURCE" )
+
+endif()
+
 
 if( WIN32 )
 
-	set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWIN32" )
+	add_definitions( "-DWIN32" )
 
 endif( WIN32 )
+
 
 set( CMAKE_DEBUG_POSTFIX "d" )
 

@@ -40,7 +40,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "avformat.h"
+#include "libavformat/avformat.h"
 #ifdef __cplusplus
 }
 #endif
@@ -177,7 +177,7 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile() {
     return file;
 }
 
-void SDL_ffmpegLogCallback( void*, int, const char *fmt, va_list vl ) {
+void SDL_ffmpegLogCallback( void *unused_1, int unused_2, const char *fmt, va_list vl ) {
 
     static char buf[ 512 ];
     

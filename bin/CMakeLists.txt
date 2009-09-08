@@ -1,8 +1,19 @@
+set( SDLLIB ${SDL_LIBRARY} )
+
 if( APPLE )
 
 	set( EXTRA_SRC	${SDL_FFMPEG_SOURCE_DIR}/include/SDL/SDLMain.m )
 					
 endif( APPLE )
+
+
+if( WIN32 )
+
+    set( SDLLIB ${SDLLIB}
+                ${SDLMAIN_LIBRARY}  )
+
+endif( WIN32 )
+
 
 add_executable(	example ${SDL_FFMPEG_SOURCE_DIR}/src/example.c
 						${EXTRA_SRC} )
@@ -26,22 +37,22 @@ include_directories( ${SDL_INCLUDE_DIR}
 
 target_link_libraries(	example
 						SDL_ffmpeg
-						${SDL_LIBRARY} )
+						${SDLLIB} )
 
 target_link_libraries(	record
 						SDL_ffmpeg
-						${SDL_LIBRARY} )
+						${SDLLIB} )
 
 target_link_libraries(	multichannel
 						SDL_ffmpeg
-						${SDL_LIBRARY} )
+						${SDLLIB} )
 
 target_link_libraries(	audioplayer
 						SDL_ffmpeg
-						${SDL_LIBRARY} )
+						${SDLLIB} )
 
 target_link_libraries(	extractaudio
 						SDL_ffmpeg
-						${SDL_LIBRARY} )
+						${SDLLIB} )
 
 include_directories( ${SDL_FFMPEG_SOURCE_DIR}/include )
