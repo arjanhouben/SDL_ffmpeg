@@ -46,7 +46,8 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
     /* zero output data */
     memset(stream, 0, len);
 
-    for(int f=0; f<10 && audioFile[f]; f++) {
+    int f;
+    for( f=0; f<10 && audioFile[f]; f++) {
 
         if( playing[f] ) {
 
@@ -68,7 +69,7 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
 
                 /* move frames in buffer */
                 SDL_ffmpegAudioFrame *frame = audioFrame[f][0];
-                for(int i=1; i<BUF_SIZE; i++) audioFrame[f][i-1] = audioFrame[f][i];
+                for( i=1; i<BUF_SIZE; i++) audioFrame[f][i-1] = audioFrame[f][i];
                 audioFrame[f][BUF_SIZE-1] = frame;
             }
         }
@@ -132,7 +133,8 @@ int main(int argc, char** argv) {
         int frameSize = specs.channels * specs.samples * 2;
 
         /* prepare audio buffer */
-        for(int i=0; i<BUF_SIZE; i++) {
+        int i;
+        for( i=0; i<BUF_SIZE; i++) {
 
             /* create frame */
             audioFrame[f][i] = SDL_ffmpegCreateAudioFrame( audioFile[f], frameSize );
@@ -177,18 +179,21 @@ int main(int argc, char** argv) {
                 break;
             } else if( event.type == SDL_KEYDOWN ) {
                 /* check al files, and play if needed */
-                for(int f=0; audioFile[f]; f++) {
+                int f;
+                for( f=0; audioFile[f]; f++) {
                     if( event.key.keysym.sym == SDLK_1+f ) {
                         playing[f] = 1;
                     }
                 }
             } else if( event.type == SDL_KEYUP ) {
                 /* check al files, and play if needed */
-                for(int f=0; audioFile[f]; f++) {
+                int f;
+                for( f=0; audioFile[f]; f++) {
                     if( event.key.keysym.sym == SDLK_1+f ) {
                         playing[f] = 0;
                         /* invalidate buffer */
-                        for(int i=0; i<BUF_SIZE; i++) {
+                        int i;
+                        for( i=0; i<BUF_SIZE; i++) {
                             audioFrame[f][i]->size = 0;
                         }
                         SDL_ffmpegSeek( audioFile[f], 0 );
@@ -197,10 +202,12 @@ int main(int argc, char** argv) {
             }
         }
 
-        for(int f=0; f<10 && audioFile[f]; f++) {
+        int f;
+        for( f=0; f<10 && audioFile[f]; f++) {
 
             /* update audio buffer */
-            for(int i=0; i<BUF_SIZE; i++) {
+            int i;
+            for( i=0; i<BUF_SIZE; i++) {
 
                 /* check if frame is empty */
                 if( !audioFrame[f][i]->size ) {
@@ -223,9 +230,10 @@ int main(int argc, char** argv) {
     SDL_PauseAudio(1);
 
     /* free all frames / files */
-    for(int f=0; audioFile[f]; f++) {
+    for( f=0; audioFile[f]; f++) {
     
-        for(int i=0; i<BUF_SIZE; i++) {
+        int i;
+        for( i=0; i<BUF_SIZE; i++) {
 			SDL_ffmpegFreeAudioFrame( audioFrame[f][i] );
 		}
     	

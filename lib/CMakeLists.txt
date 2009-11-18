@@ -1,6 +1,8 @@
-add_library( 	SDL_ffmpeg
-				SHARED
-				${SDL_FFMPEG_SOURCE_DIR}/src/SDL_ffmpeg.c )
+add_library( 	
+	SDL_ffmpeg
+	SHARED
+	${SDL_FFMPEG_SOURCE_DIR}/src/SDL_ffmpeg.c
+)
 
 if( WIN32 )
 
@@ -21,36 +23,78 @@ find_package( avformat )
 find_package( avcodec )
 find_package( avutil )
 
-include_directories(	${SDL_INCLUDE_DIR}
-						${AVFORMAT_INCLUDE_DIR}
-						${AVCODEC_INCLUDE_DIR}
-						${AVUTIL_INCLUDE_DIR}
-						${SDL_FFMPEG_SOURCE_DIR}/include/SDL )
+include_directories(	
+	${SDL_INCLUDE_DIR}
+	${AVFORMAT_INCLUDE_DIR}
+	${AVCODEC_INCLUDE_DIR}
+	${AVUTIL_INCLUDE_DIR}
+	${SDL_FFMPEG_SOURCE_DIR}/include/SDL
+)
 
 if( UNIX )
 
 	find_package( ZLIB )
-	set( EXTRA_LIBRARIES	${EXTRA_LIBRARIES} )
-	set( EXTRA_LIBRARIES	${EXTRA_LIBRARIES} ${ZLIB_LIBRARY} )
+	
+	set(
+		EXTRA_LIBRARIES
+		${EXTRA_LIBRARIES}
+	)
+	
+	set( 
+		EXTRA_LIBRARIES
+		${EXTRA_LIBRARIES}
+		${ZLIB_LIBRARY}
+	)
 
 endif( UNIX )
 
-set( SDL_FFMPEG_LIBRARIES	${AVFORMAT_LIBRARY}
-							${AVCODEC_LIBRARY}
-							${AVUTIL_LIBRARY}
-							${EXTRA_LIBRARIES}
-							${SDL_LIBRARY} )
+set( 
+	SDL_FFMPEG_LIBRARIES	
+	${AVFORMAT_LIBRARY}
+	${AVCODEC_LIBRARY}
+	${AVUTIL_LIBRARY}
+	${EXTRA_LIBRARIES}
+	${SDL_LIBRARY}
+)
 
 if( APPLE )
 
-	set( SDL_FFMPEG_LIBRARIES	${SDL_FFMPEG_LIBRARIES}
-								bz2 )
+	set(
+		SDL_FFMPEG_LIBRARIES
+		${SDL_FFMPEG_LIBRARIES}
+		bz2
+	)
 
 endif( APPLE )
 
-target_link_libraries(	SDL_ffmpeg
-						${SDL_FFMPEG_LIBRARIES} )
+target_link_libraries(
+	SDL_ffmpeg
+	${SDL_FFMPEG_LIBRARIES}
+)
 
-include_directories( ${LIBSDL_FFMPEG_SOURCE_DIR}/include )
+include_directories(
+	${SDL_FFMPEG_SOURCE_DIR}/include
+)
 
-link_directories( ${LIBSDL_FFMPEG_SOURCE_DIR}/lib )
+link_directories(
+	${SDL_FFMPEG_SOURCE_DIR}/lib
+)
+
+install(
+	FILES
+    	${SDL_FFMPEG_SOURCE_DIR}/include/SDL/SDL_ffmpeg.h
+	DESTINATION
+	include/SDL/
+)
+
+install(
+	TARGETS SDL_ffmpeg
+	LIBRARY DESTINATION lib/
+)
+
+install(
+    FILES
+    ${SDL_FFMPEG_SOURCE_DIR}/FindSDL_ffmpeg.cmake
+    DESTINATION
+    ${CMAKE_ROOT}/Modules/
+)

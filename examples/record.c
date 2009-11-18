@@ -97,7 +97,8 @@ int main(int argc, char** argv) {
 
         /* fade out current screen */
         uint8_t *src = (uint8_t*)screen->pixels;
-        for(int i=0; i<screen->h*screen->w; i++) {
+        int i;
+        for( i=0; i<screen->h*screen->w; i++) {
             if( *src ) (*src)--;
             src++;
             if( *src ) (*src)--;

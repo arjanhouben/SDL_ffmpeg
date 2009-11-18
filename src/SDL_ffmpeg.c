@@ -41,6 +41,7 @@
 extern "C" {
 #endif
 #include "libavformat/avformat.h"
+#include "libswscale/swscale.h"
 #ifdef __cplusplus
 }
 #endif
@@ -509,7 +510,28 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
         return -1;
     }
 
-    SDL_ffmpegConvertRGBAtoYUV420P( frame->surface, file->videoStream->encodeFrame, 0 );
+    sws_freeContext( file->videoStream->_conversion );
+
+    /* create conversion context for current stream */
+    file->videoStream->_conversion = sws_getContext( frame->surface->w,
+                                                     frame->surface->h,
+                                                     PIX_FMT_RGB32,
+                                                     file->videoStream->_ffmpeg->codec->width,
+                                                     file->videoStream->_ffmpeg->codec->height,
+                                                     file->videoStream->_ffmpeg->codec->pix_fmt,
+                                                     SWS_BILINEAR,
+                                                     0,
+                                                     0,
+                                                     0 );
+
+    int pitch = frame->surface->pitch;
+    sws_scale( file->videoStream->_conversion,
+               (uint8_t**)&frame->surface->pixels,
+               &pitch,
+               0,
+               0,
+               file->videoStream->encodeFrame->data,
+               file->videoStream->encodeFrame->linesize );
 
     /* PAL = upper field first
     file->videoStream->encodeFrame->top_field_first = 1;
@@ -680,7 +702,7 @@ SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, co
 
     if( !format ) {
 
-        frame->surface = SDL_CreateRGBSurface( 0, file->videoStream->_ffmpeg->codec->width, file->videoStream->_ffmpeg->codec->height, 32, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000 );
+        frame->surface = SDL_CreateRGBSurface( 0, file->videoStream->_ffmpeg->codec->width, file->videoStream->_ffmpeg->codec->height, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000 );
     }
 
     SDL_UnlockMutex( file->streamMutex );
@@ -1958,7 +1980,12 @@ int SDL_ffmpegDecodeAudioFrame( SDL_ffmpegFile *file, AVPacket *pack, SDL_ffmpeg
     while( size > 0 ) {
 
 		/* Decode the packet */
+
+#if ( LIBAVCODEC_VERSION_MAJOR <= 52 && LIBAVCODEC_VERSION_MINOR <= 20 )
+        int len = avcodec_decode_audio2( file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, pack->data, pack->size );
+#else
         int len = avcodec_decode_audio3( file->audioStream->_ffmpeg->codec, (int16_t*)file->audioStream->sampleBuffer, &audioSize, pack );
+#endif
 
 		/* if an error occured, we skip the frame */
 		if( len <= 0 || !audioSize ) {
@@ -2053,20 +2080,30 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
         }
 
         /* Decode the packet */
+#if ( LIBAVCODEC_VERSION_MAJOR <= 52 && LIBAVCODEC_VERSION_MINOR <= 20 )
+        avcodec_decode_video( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack->data, pack->size );
+#else
         avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack );
+#endif
 
     } else {
 
+        /* check if there is still a frame left in the buffer */
+
+#if ( LIBAVCODEC_VERSION_MAJOR <= 52 && LIBAVCODEC_VERSION_MINOR <= 20 )
+        avcodec_decode_video( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, 0, 0 );
+#else
         AVPacket temp;
         memset( &temp, 0, sizeof( AVPacket ) );
         av_init_packet( &temp );
+        avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack );
+#endif
 
-        /* check if there is still a frame left in the buffer */
-        avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, &temp );
     }
 
     /* if we did not get a frame or we need to hurry, we return */
     if( got_frame && !file->videoStream->_ffmpeg->codec->hurry_up ) {
+
 
         #if 0
         /* if YUV data is scaled in the range of 8 - 235 instead of 0 - 255, we need to take this into account */
@@ -2078,13 +2115,57 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
         /* convert YUV 420 to YUYV 422 data */
         if( frame->overlay && frame->overlay->format == SDL_YUY2_OVERLAY ) {
 
-            SDL_ffmpegConvertYUV420PtoYUY2( file->videoStream->decodeFrame, frame->overlay, file->videoStream->decodeFrame->interlaced_frame );
+            sws_freeContext( file->videoStream->_conversion );
+
+            /* create conversion context for current stream */
+            file->videoStream->_conversion = sws_getContext( file->videoStream->_ffmpeg->codec->width,
+                                                             file->videoStream->_ffmpeg->codec->height,
+                                                             file->videoStream->_ffmpeg->codec->pix_fmt,
+                                                             frame->overlay->w,
+                                                             frame->overlay->h,
+                                                             PIX_FMT_YUYV422,
+                                                             SWS_BILINEAR,
+                                                             0,
+                                                             0,
+                                                             0 );
+
+            int pitch[] = { frame->overlay->pitches[ 0 ],
+                            frame->overlay->pitches[ 1 ],
+                            frame->overlay->pitches[ 2 ] };
+            sws_scale( file->videoStream->_conversion,
+                       file->videoStream->decodeFrame->data,
+                       file->videoStream->decodeFrame->linesize,
+                       0,
+                       0,
+                       (uint8_t**)frame->overlay->pixels,
+                       pitch );
         }
 
         /* convert YUV to RGB data */
         if( frame->surface ) {
 
-            SDL_ffmpegConvertYUV420PtoRGBA( file->videoStream->decodeFrame, frame->surface, file->videoStream->decodeFrame->interlaced_frame );
+            sws_freeContext( file->videoStream->_conversion );
+
+            /* create conversion context for current stream */
+            file->videoStream->_conversion = sws_getContext( file->videoStream->_ffmpeg->codec->width,
+                                                             file->videoStream->_ffmpeg->codec->height,
+                                                             file->videoStream->_ffmpeg->codec->pix_fmt,
+                                                             frame->surface->w,
+                                                             frame->surface->h,
+                                                             PIX_FMT_RGB32,
+                                                             SWS_BILINEAR,
+                                                             0,
+                                                             0,
+                                                             0 );
+
+            int pitch = frame->surface->pitch;
+            sws_scale( file->videoStream->_conversion,
+                       file->videoStream->decodeFrame->data,
+                       file->videoStream->decodeFrame->linesize,
+                       0,
+                       0,
+                       (uint8_t**)&frame->surface->pixels,
+                       &pitch );
         }
 
 		/* we write the lastTimestamp we got */
@@ -2095,252 +2176,6 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
 	}
 
     return frame->ready;
-}
-
-inline int clamp0_255(int x) {
-	x &= (~x) >> 31;
-	x -= 255;
-	x &= x >> 31;
-	return x + 255;
-}
-
-void SDL_ffmpegConvertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *OUTPUT, int interlaced ) {
-
-    uint8_t *Y, *U, *V;
-	uint32_t *RGBA = (uint32_t*)OUTPUT->pixels;
-    int x, y;
-
-    for(y=0; y<OUTPUT->h; y++){
-
-        Y = YUV420P->data[0] + YUV420P->linesize[0] * y;
-        U = YUV420P->data[1] + YUV420P->linesize[1] * (y/2);
-        V = YUV420P->data[2] + YUV420P->linesize[2] * (y/2);
-
-		/* make sure we deinterlace before upsampling */
-		if( interlaced ) {
-            /* y & 3 means y % 3, but this should be faster */
-			/* on scanline 2 and 3 we need to look at different lines */
-            if( (y & 3) == 1 ) {
-				U += YUV420P->linesize[1];
-				V += YUV420P->linesize[2];
-            } else if( (y & 3) == 2 ) {
-				U -= YUV420P->linesize[1];
-				V -= YUV420P->linesize[2];
-			}
-		}
-
-        for(x=0; x<OUTPUT->w; x++){
-
-			/* shift components to the correct place in pixel */
-			*RGBA =   clamp0_255( __Y[*Y] + __CrtoR[*V] )							| /* red */
-					( clamp0_255( __Y[*Y] - __CrtoG[*V] - __CbtoG[*U] )	<<  8 )		| /* green */
-					( clamp0_255( __Y[*Y] + __CbtoB[*U] )				<< 16 )		| /* blue */
-					0xFF000000;
-
-			/* goto next pixel */
-			RGBA++;
-
-            /* full resolution luma, so we increment at every pixel */
-            Y++;
-
-			/* quarter resolution chroma, increment every other pixel */
-            U += x&1;
-			V += x&1;
-        }
-    }
-}
-
-void SDL_ffmpegConvertYUV420PtoYUY2scanline( const uint8_t *Y, const uint8_t *U, const uint8_t *V, uint32_t *YUVpacked, int w ) {
-
-    /* devide width by 2 */
-    w /= 2;
-
-    while( w-- ) {
-
-        /* Y0 U0 Y1 V0 */
-		*YUVpacked = (*Y) |
-					 ((*U) << 8) |
-					 ((*V) << 24);
-
-		Y++;
-        U++;
-        V++;
-
-        *YUVpacked |= (*Y) << 16;
-
-		YUVpacked++;
-		Y++;
-    }
-}
-
-void SDL_ffmpegConvertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced ) {
-
-    const uint8_t   *Y = YUV420P->data[0],
-                    *U = YUV420P->data[1],
-                    *V = YUV420P->data[2];
-
-    uint8_t *YUVpacked = YUY2->pixels[0];
-
-    SDL_LockYUVOverlay( YUY2 );
-
-    if( interlaced ) {
-
-        /* handle 4 lines per loop */
-		int y = YUY2->h / 4;
-        while( y-- ) {
-
-            /* line 0 */
-            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
-            YUVpacked += YUY2->pitches[0];
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-
-            /* line 1 */
-            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
-            YUVpacked += YUY2->pitches[0];
-            Y += YUV420P->linesize[0];
-            U -= YUV420P->linesize[1];
-            V -= YUV420P->linesize[2];
-
-            /* line 2 */
-            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
-            YUVpacked += YUY2->pitches[0];
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-
-            /* line 3 */
-            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
-            YUVpacked += YUY2->pitches[0];
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-        }
-
-    } else {
-
-        /* handle 2 lines per loop */
-		int y = YUY2->h / 2;
-        while( y-- ) {
-
-            /* line 0 */
-            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
-            YUVpacked += YUY2->pitches[0];
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-
-            /* line 1 */
-            SDL_ffmpegConvertYUV420PtoYUY2scanline( Y, U, V, (uint32_t*)YUVpacked, YUY2->w );
-            YUVpacked += YUY2->pitches[0];
-            Y += YUV420P->linesize[0];
-        }
-
-    }
-
-    SDL_UnlockYUVOverlay( YUY2 );
-}
-
-void SDL_ffmpegConvertRGBAtoYUV420Pscanline( uint8_t *Y, uint8_t *U, uint8_t *V, const uint32_t *RGBApacked, int w ) {
-
-//    Y  =      (0.257 * R) + (0.504 * G) + (0.098 * B) + 16
-//    Cr = V =  (0.439 * R) - (0.368 * G) - (0.071 * B) + 128
-//    Cb = U = -(0.148 * R) - (0.291 * G) + (0.439 * B) + 128
-
-    /* devide width by 2 */
-    w >>= 1;
-
-    typedef struct RGBA_t {
-        char b,
-             g,
-             r,
-             a;
-    } RGBA_t;
-
-    RGBA_t *rgba = (RGBA_t*)RGBApacked;
-
-    while( w-- ) {
-
-		*Y = (uint8_t)( 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16 );
-        Y++;
-        rgba++;
-
-        *U = (uint8_t)( -0.148 * rgba->r - 0.291 * rgba->g + 0.439 * rgba->b + 128 );
-        U++;
-
-        *V = (uint8_t)( 0.439 * rgba->r - 0.368 * rgba->g - 0.071 * 0.439 * rgba->b + 128 );
-        V++;
-
-        *Y = (uint8_t)( 0.257 * rgba->r + 0.504 * rgba->g + 0.098 * rgba->b + 16 );
-        Y++;
-        rgba++;
-    }
-}
-
-void SDL_ffmpegConvertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced ) {
-
-    int y;
-
-    uint8_t   *Y = YUV420P->data[0],
-              *U = YUV420P->data[1],
-              *V = YUV420P->data[2];
-
-    const uint32_t *RGBApacked = (const uint32_t*)RGBA->pixels;
-
-    if( interlaced ) {
-
-        /* handle 4 lines per loop */
-        for(y=0; y<(RGBA->h>>2); y++){
-
-            /* line 0 */
-            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
-            RGBApacked += RGBA->w;
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-
-            /* line 1 */
-            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
-            RGBApacked += RGBA->w;
-            Y += YUV420P->linesize[0];
-            U -= YUV420P->linesize[1];
-            V -= YUV420P->linesize[2];
-
-            /* line 2 */
-            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
-            RGBApacked += RGBA->w;
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-
-            /* line 3 */
-            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
-            RGBApacked += RGBA->w;
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-        }
-
-    } else {
-
-        /* handle 2 lines per loop */
-        for(y=0; y<(RGBA->h>>1); y++) {
-
-            /* line 0 */
-            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
-            RGBApacked += RGBA->w;
-            Y += YUV420P->linesize[0];
-            U += YUV420P->linesize[1];
-            V += YUV420P->linesize[2];
-
-            /* line 1 */
-            SDL_ffmpegConvertRGBAtoYUV420Pscanline( Y, U, V, RGBApacked, RGBA->w );
-            RGBApacked += RGBA->w;
-            Y += YUV420P->linesize[0];
-        }
-
-    }
 }
 
 /**

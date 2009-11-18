@@ -1,8 +1,8 @@
 cmake_minimum_required( VERSION 2.6 )
 
-project ( SDL_FFMPEG )
+project( SDL_FFMPEG )
 
-set( PROJECT_VERSION "1.1.0" )
+set( PROJECT_VERSION "1.1.1" )
 
 
 if( CMAKE_GENERATOR MATCHES "Visual .*" )
@@ -23,12 +23,10 @@ if( WIN32 )
 endif( WIN32 )
 
 
-set( CMAKE_DEBUG_POSTFIX "d" )
+#set( CMAKE_DEBUG_POSTFIX "d" )
 
 set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} )
 
 add_subdirectory( lib )
-
-add_subdirectory( bin )
 
 add_subdirectory( doc )

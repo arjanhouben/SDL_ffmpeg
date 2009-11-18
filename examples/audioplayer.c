@@ -51,7 +51,8 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
 
         /* move frames in buffer */
         SDL_ffmpegAudioFrame *f = frame[0];
-        for(int i=1; i<BUF_SIZE; i++) frame[i-1] = frame[i];
+        int i;
+        for(i=1; i<BUF_SIZE; i++) frame[i-1] = frame[i];
         frame[BUF_SIZE-1] = f;
 
         if( frame[0]->last ) done = 1;
@@ -109,7 +110,8 @@ int main(int argc, char** argv) {
     int bytes = specs.samples * specs.channels * 2;
 
     /* create audio frames to store data received from SDL_ffmpegGetAudioFrame */
-    for(int i=0; i<BUF_SIZE; i++) {
+    int i;
+    for( i=0; i<BUF_SIZE; i++) {
         frame[i] = SDL_ffmpegCreateAudioFrame( audioFile, bytes );
         if( !frame[i] ) {
             printf("couldn't prepare frame buffer\n");
@@ -142,7 +144,8 @@ int main(int argc, char** argv) {
         SDL_LockMutex( mutex );
 
         /* check for empty places in buffer */
-        for(int i=0; i<BUF_SIZE; i++) {
+        int i;
+        for( i=0; i<BUF_SIZE; i++) {
 
             /* if an empty space is found, fill it again */
             if( !frame[i]->size ) {
@@ -160,7 +163,7 @@ int main(int argc, char** argv) {
     CLEANUP_DATA:
 
     /* cleanup our buffer */
-    for(int i=0; i<BUF_SIZE; i++) {
+    for( i=0; i<BUF_SIZE; i++) {
         SDL_ffmpegFreeAudioFrame( frame[i] );
     }
 

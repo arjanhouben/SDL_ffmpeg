@@ -72,7 +72,8 @@ void audioCallback( void *data, Uint8 *stream, int length ) {
 
         /* move frames in buffer */
         SDL_ffmpegAudioFrame *f = audioFrame[0];
-        for(int i=1; i<BUF_SIZE; i++) audioFrame[i-1] = audioFrame[i];
+        int i;
+        for( i=1; i<BUF_SIZE; i++) audioFrame[i-1] = audioFrame[i];
         audioFrame[BUF_SIZE-1] = f;
 
     } else {
@@ -152,6 +153,7 @@ int main(int argc, char** argv) {
        with the format you would like to receive and the last parameter needs to
        be a pointer to the SDL_surface as returned by SDL_SetVideoMode */
     SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
+//    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
 
     /* create a SDL_Rect for blitting of image data */
     SDL_Rect rect;
@@ -172,7 +174,8 @@ int main(int argc, char** argv) {
         int frameSize = specs.channels * specs.samples * 2;
 
         /* prepare audio buffer */
-        for(int i=0; i<BUF_SIZE; i++) {
+        int i;
+        for( i=0; i<BUF_SIZE; i++) {
 
             /* create frame */
             audioFrame[i] = SDL_ffmpegCreateAudioFrame( file, frameSize );
@@ -230,7 +233,8 @@ int main(int argc, char** argv) {
 
                 /* invalidate buffered audio frames */
                 if( SDL_ffmpegValidAudio(file) ) {
-                    for(int i=0; i<BUF_SIZE; i++) {
+                    int i;
+                    for( i=0; i<BUF_SIZE; i++) {
                         audioFrame[i]->size = 0;
                     }
                 }
@@ -253,7 +257,8 @@ int main(int argc, char** argv) {
             SDL_LockMutex( mutex );
 
             /* fill empty spaces in audio buffer */
-            for(int i=0; i<BUF_SIZE; i++) {
+            int i;
+            for( i=0; i<BUF_SIZE; i++) {
                 /* check if frame is empty */
                 if( !audioFrame[i]->size ) {
                     /* fill frame with new data */
@@ -311,7 +316,8 @@ int main(int argc, char** argv) {
         SDL_PauseAudio( 1 );
 
         /* clean up frames */
-        for(int i=0; i<BUF_SIZE; i++) {
+        int i;
+        for( i=0; i<BUF_SIZE; i++) {
             SDL_ffmpegFreeAudioFrame( audioFrame[i] );
         }
     }
