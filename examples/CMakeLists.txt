@@ -14,7 +14,7 @@ add_executable(	extractaudio	${EXAMPLES_SOURCE_DIR}/extractaudio.c )
 
 find_package( SDL REQUIRED )
 
-find_package( SDL_FFMPEG REQUIRED )
+find_package( SDL_ffmpeg REQUIRED )
 
 include_directories( ${SDL_INCLUDE_DIR} ${SDL_FFMPEG_INCLUDE_DIR} )
 

@@ -22,12 +22,14 @@ find_package( SDL )
 find_package( avformat )
 find_package( avcodec )
 find_package( avutil )
+find_package( swscale )
 
 include_directories(	
 	${SDL_INCLUDE_DIR}
 	${AVFORMAT_INCLUDE_DIR}
 	${AVCODEC_INCLUDE_DIR}
 	${AVUTIL_INCLUDE_DIR}
+	${SWSCALE_INCLUDE_DIR}
 	${SDL_FFMPEG_SOURCE_DIR}/include/SDL
 )
 
@@ -53,6 +55,7 @@ set(
 	${AVFORMAT_LIBRARY}
 	${AVCODEC_LIBRARY}
 	${AVUTIL_LIBRARY}
+	${SWSCALE_LIBRARY}
 	${EXTRA_LIBRARIES}
 	${SDL_LIBRARY}
 )

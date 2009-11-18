@@ -152,8 +152,8 @@ int main(int argc, char** argv) {
        If you want to receive YCbCr data, you have to define the second parameter
        with the format you would like to receive and the last parameter needs to
        be a pointer to the SDL_surface as returned by SDL_SetVideoMode */
-    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
-//    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
+//    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
+    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
 
     /* create a SDL_Rect for blitting of image data */
     SDL_Rect rect;
