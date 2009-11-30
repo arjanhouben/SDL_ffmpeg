@@ -22,7 +22,7 @@
 
 /**
     @mainpage
-    @version 1.1.0
+    @version 1.1.1
     @author Arjan Houben
 
     SDL_ffmpeg is designed with ease of use in mind.
@@ -939,20 +939,8 @@ int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID ) {
         /* keep searching for correct videostream */
         for(int i=0; i<videoID && file->videoStream; i++) file->videoStream = file->videoStream->next;
 
-        /* check if pixel format is supported */
-        if( file->videoStream->_ffmpeg->codec->pix_fmt != PIX_FMT_YUV420P ) {
-
-            char c[512];
-            snprintf( c, 512, "unsupported pixel format [%i]", file->videoStream->_ffmpeg->codec->pix_fmt );
-            SDL_ffmpegAddError( c );
-
-            file->videoStream = 0;
-
-        } else {
-
-            /* active stream need not be discarded */
-            file->videoStream->_ffmpeg->discard = AVDISCARD_DEFAULT;
-        }
+        /* active stream need not be discarded */
+        file->videoStream->_ffmpeg->discard = AVDISCARD_DEFAULT;
     }
 
     SDL_UnlockMutex( file->streamMutex );
@@ -2104,14 +2092,6 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
     /* if we did not get a frame or we need to hurry, we return */
     if( got_frame && !file->videoStream->_ffmpeg->codec->hurry_up ) {
 
-
-        #if 0
-        /* if YUV data is scaled in the range of 8 - 235 instead of 0 - 255, we need to take this into account */
-        if( file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUVJ420P ||
-            file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUVJ422P ||
-            file->videoStream->_ffmpeg->codec->pix_fmt == PIX_FMT_YUVJ444P ) scaled = 0;
-        #endif
-
         /* convert YUV 420 to YUYV 422 data */
         if( frame->overlay && frame->overlay->format == SDL_YUY2_OVERLAY ) {
 
@@ -2132,6 +2112,7 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
             int pitch[] = { frame->overlay->pitches[ 0 ],
                             frame->overlay->pitches[ 1 ],
                             frame->overlay->pitches[ 2 ] };
+
             sws_scale( file->videoStream->_conversion,
                        file->videoStream->decodeFrame->data,
                        file->videoStream->decodeFrame->linesize,
