@@ -81,7 +81,7 @@ struct ConversionContext *contexts = 0;
  *  Provide a fast way to get the correct context.
  *  \returns The context matching the input values.
  */
-struct SwsContext* getContext( int inWidth, int inHeight, PixelFormat inFormat, int outWidth, int outHeight, PixelFormat outFormat )
+struct SwsContext* getContext( int inWidth, int inHeight, enum PixelFormat inFormat, int outWidth, int outHeight, enum PixelFormat outFormat )
 {
     struct ConversionContext **ctx = &contexts;
 
