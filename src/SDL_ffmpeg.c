@@ -81,7 +81,7 @@ struct ConversionContext *contexts = 0;
  *  Provide a fast way to get the correct context.
  *  \returns The context matching the input values.
  */
-struct SwsContext* getContext( int inWidth, int inHeight, int inFormat, int outWidth, int outHeight, int outFormat )
+struct SwsContext* getContext( int inWidth, int inHeight, PixelFormat inFormat, int outWidth, int outHeight, PixelFormat outFormat )
 {
     struct ConversionContext **ctx = &contexts;
 
@@ -110,17 +110,17 @@ struct SwsContext* getContext( int inWidth, int inHeight, int inFormat, int outW
     if ( !*ctx )
     {
         /* allocate a new context */
-        *ctx = malloc( sizeof( ConversionContext ) );
+        *ctx = (struct ConversionContext*) malloc( sizeof( ConversionContext ) );
     }
     else
     {
         /* allocate a new context as the next in line */
-        ( *ctx )->next = malloc( sizeof( ConversionContext ) );
+        ( *ctx )->next = (struct ConversionContext*) malloc( sizeof( ConversionContext ) );
         *ctx = ( *ctx )->next;
     }
 
     /* fill context with correct information */
-    ( *ctx )->context = sws_getContext( inWidth, inHeight,inFormat,
+    ( *ctx )->context = sws_getContext( inWidth, inHeight, inFormat,
                                         outWidth, outHeight, outFormat,
                                         SWS_BILINEAR,
                                         0,
@@ -2151,7 +2151,7 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
         }
 
         /* Decode the packet */
-#if ( LIBAVCODEC_VERSION_MAJOR <= 52 && LIBAVCODEC_VERSION_MINOR <= 20 )
+#if ( ( LIBAVCODEC_VERSION_MAJOR <= 52 ) && ( LIBAVCODEC_VERSION_MINOR <= 20 ) )
         avcodec_decode_video( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack->data, pack->size );
 #else
         avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack );

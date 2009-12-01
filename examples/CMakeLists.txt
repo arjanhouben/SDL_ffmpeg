@@ -2,6 +2,12 @@ cmake_minimum_required( VERSION 2.6 )
 
 project( EXAMPLES )
 
+if( CMAKE_GENERATOR MATCHES "Visual .*" )
+
+    add_definitions( "/TP -DMSVC" )
+
+endif()
+
 add_executable(	example         ${EXAMPLES_SOURCE_DIR}/example.c )
 
 add_executable(	record          ${EXAMPLES_SOURCE_DIR}/record.c )

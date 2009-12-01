@@ -7,9 +7,10 @@
 
 set( SWSCALE_FOUND "NO" )
 
-find_path( SWSCALE_INCLUDE_DIR swscale.h
+find_path( SWSCALE_INCLUDE_DIR libswscale/swscale.h
   HINTS
-  PATH_SUFFIXES include libswscale
+  $ENV{SWSCALEDIR}
+  PATH_SUFFIXES include 
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks
@@ -27,6 +28,7 @@ find_path( SWSCALE_INCLUDE_DIR swscale.h
 find_library( SWSCALE_LIBRARY
   NAMES swscale
   HINTS
+  $ENV{SWSCALEDIR}
   PATH_SUFFIXES lib64 lib
   PATHS
   /usr/local

@@ -33,6 +33,17 @@ include_directories(
 	${SDL_FFMPEG_SOURCE_DIR}/include/SDL
 )
 
+if( WIN32 )
+
+	set(
+		EXTRA_LIBRARIES
+		${EXTRA_LIBRARIES}
+		wsock32
+	)
+
+endif( WIN32)
+
+
 if( UNIX )
 
 	find_package( ZLIB )
@@ -92,7 +103,9 @@ install(
 
 install(
 	TARGETS SDL_ffmpeg
-	LIBRARY DESTINATION lib/
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib
 )
 
 install(

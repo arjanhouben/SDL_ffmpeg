@@ -7,9 +7,10 @@
 
 set( AVUTIL_FOUND "NO" )
 
-find_path( AVUTIL_INCLUDE_DIR avutil.h
+find_path( AVUTIL_INCLUDE_DIR libavutil/avutil.h
   HINTS
-  PATH_SUFFIXES include libavutil
+  $ENV{AVUTILDIR}
+  PATH_SUFFIXES include 
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks
@@ -27,6 +28,7 @@ find_path( AVUTIL_INCLUDE_DIR avutil.h
 find_library( AVUTIL_LIBRARY
   NAMES avutil
   HINTS
+  $ENV{AVUTILDIR}
   PATH_SUFFIXES lib64 lib
   PATHS
   /usr/local

@@ -7,9 +7,10 @@
 
 set( AVFORMAT_FOUND "NO" )
 
-find_path( AVFORMAT_INCLUDE_DIR avformat.h
+find_path( AVFORMAT_INCLUDE_DIR libavformat/avformat.h
   HINTS
-  PATH_SUFFIXES include libavformat
+  $ENV{AVFORMATDIR}
+  PATH_SUFFIXES include 
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks
@@ -27,6 +28,7 @@ find_path( AVFORMAT_INCLUDE_DIR avformat.h
 find_library( AVFORMAT_LIBRARY
   NAMES avformat
   HINTS
+  $ENV{AVFORMATDIR}
   PATH_SUFFIXES lib64 lib
   PATHS
   /usr/local

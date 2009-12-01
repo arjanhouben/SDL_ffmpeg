@@ -7,9 +7,10 @@
 
 set( AVCODEC_FOUND "NO" )
 
-find_path( AVCODEC_INCLUDE_DIR avcodec.h
+find_path( AVCODEC_INCLUDE_DIR libavcodec/avcodec.h
   HINTS
-  PATH_SUFFIXES include libavcodec
+  $ENV{AVCODECDIR}
+  PATH_SUFFIXES include 
   PATHS
   ~/Library/Frameworks
   /Library/Frameworks
@@ -27,6 +28,7 @@ find_path( AVCODEC_INCLUDE_DIR avcodec.h
 find_library( AVCODEC_LIBRARY
   NAMES avcodec
   HINTS
+  $ENV{AVCODECDIR}
   PATH_SUFFIXES lib64 lib
   PATHS
   /usr/local

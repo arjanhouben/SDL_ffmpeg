@@ -9,6 +9,7 @@ set( SDL_FFMPEG_FOUND "NO" )
 
 find_path( SDL_FFMPEG_INCLUDE_DIR SDL_ffmpeg.h
   HINTS
+  $ENV{SDL_FFMPEGDIR}
   PATH_SUFFIXES include lib SDL
   PATHS
   ~/Library/Frameworks
@@ -28,6 +29,7 @@ find_path( SDL_FFMPEG_INCLUDE_DIR SDL_ffmpeg.h
 find_library( SDL_FFMPEG_LIBRARY
   NAMES SDL_ffmpeg
   HINTS
+  $ENV{SDL_FFMPEGDIR}
   PATH_SUFFIXES lib64 lib
   PATHS
   /usr/local
