@@ -22,9 +22,6 @@ if( WIN32 )
 
 endif( WIN32 )
 
-
-#set( CMAKE_DEBUG_POSTFIX "d" )
-
 set( CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} )
 
 add_subdirectory( lib )

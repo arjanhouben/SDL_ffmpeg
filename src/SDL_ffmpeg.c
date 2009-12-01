@@ -64,6 +64,80 @@ extern "C" {
 \cond
 */
 
+struct ConversionContext
+{
+    int inWidth, inHeight, inFormat,
+        outWidth, outHeight, outFormat;
+
+    struct SwsContext *context;
+
+    struct ConversionContext *next;
+
+} ConversionContext;
+
+struct ConversionContext *contexts = 0;
+
+/**
+ *  Provide a fast way to get the correct context.
+ *  \returns The context matching the input values.
+ */
+struct SwsContext* getContext( int inWidth, int inHeight, int inFormat, int outWidth, int outHeight, int outFormat )
+{
+    struct ConversionContext **ctx = &contexts;
+
+    /* check for a matching context */
+    while ( *ctx )
+    {
+        if ( ( *ctx )->inWidth == inWidth &&
+             ( *ctx )->inHeight == inHeight &&
+             ( *ctx )->inFormat == inFormat &&
+             ( *ctx )->outWidth == outWidth &&
+             ( *ctx )->outHeight == outHeight &&
+             ( *ctx )->outFormat == outFormat )
+        {
+            return ( *ctx )->context;
+        }
+
+        *ctx = ( *ctx )->next;
+    }
+
+    ctx = &contexts;
+
+    /* find the last context */
+    while ( *ctx && ( *ctx )->next ) *ctx = ( *ctx )->next;
+
+    /* no previous context was found */
+    if ( !*ctx )
+    {
+        /* allocate a new context */
+        *ctx = malloc( sizeof( ConversionContext ) );
+    }
+    else
+    {
+        /* allocate a new context as the next in line */
+        ( *ctx )->next = malloc( sizeof( ConversionContext ) );
+        *ctx = ( *ctx )->next;
+    }
+
+    /* fill context with correct information */
+    ( *ctx )->context = sws_getContext( inWidth, inHeight,inFormat,
+                                        outWidth, outHeight, outFormat,
+                                        SWS_BILINEAR,
+                                        0,
+                                        0,
+                                        0 );
+
+    ( *ctx )->inWidth = inWidth;
+    ( *ctx )->inHeight = inHeight;
+    ( *ctx )->inFormat = inFormat;
+    ( *ctx )->outWidth = outWidth;
+    ( *ctx )->outHeight = outHeight;
+    ( *ctx )->outFormat = outFormat;
+    ( *ctx )->next = 0;
+
+    return ( *ctx )->context;
+}
+
 int __Y[256];
 int __CrtoR[256];
 int __CrtoG[256];
@@ -505,33 +579,42 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
     /* when accesing audio/video stream, streamMutex should be locked */
     SDL_LockMutex( file->streamMutex );
 
-    if( !file  || !file->videoStream || !frame || !frame->surface ) {
+    if( !file  || !file->videoStream || !frame || !frame->surface || !frame->surface->format ) {
         SDL_UnlockMutex( file->streamMutex );
         return -1;
     }
 
-    sws_freeContext( file->videoStream->_conversion );
-
-    /* create conversion context for current stream */
-    file->videoStream->_conversion = sws_getContext( frame->surface->w,
-                                                     frame->surface->h,
-                                                     PIX_FMT_RGB32,
-                                                     file->videoStream->_ffmpeg->codec->width,
-                                                     file->videoStream->_ffmpeg->codec->height,
-                                                     file->videoStream->_ffmpeg->codec->pix_fmt,
-                                                     SWS_BILINEAR,
-                                                     0,
-                                                     0,
-                                                     0 );
-
     int pitch = frame->surface->pitch;
-    sws_scale( file->videoStream->_conversion,
-               (uint8_t**)&frame->surface->pixels,
-               &pitch,
-               0,
-               0,
-               file->videoStream->encodeFrame->data,
-               file->videoStream->encodeFrame->linesize );
+
+    switch ( frame->surface->format->BitsPerPixel )
+    {
+        case 24:
+            sws_scale( getContext( frame->surface->w, frame->surface->h, PIX_FMT_RGB24,
+                                   file->videoStream->_ffmpeg->codec->width,
+                                   file->videoStream->_ffmpeg->codec->height,
+                                   file->videoStream->_ffmpeg->codec->pix_fmt ),
+                       (uint8_t**)&frame->surface->pixels,
+                       &pitch,
+                       0,
+                       0,
+                       file->videoStream->encodeFrame->data,
+                       file->videoStream->encodeFrame->linesize );
+            break;
+        case 32:
+            sws_scale( getContext( frame->surface->w, frame->surface->h, PIX_FMT_RGB32,
+                                   file->videoStream->_ffmpeg->codec->width,
+                                   file->videoStream->_ffmpeg->codec->height,
+                                   file->videoStream->_ffmpeg->codec->pix_fmt ),
+                       (uint8_t**)&frame->surface->pixels,
+                       &pitch,
+                       0,
+                       0,
+                       file->videoStream->encodeFrame->data,
+                       file->videoStream->encodeFrame->linesize );
+            break;
+        default:
+            break;
+    }
 
     /* PAL = upper field first
     file->videoStream->encodeFrame->top_field_first = 1;
@@ -2088,32 +2171,22 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
 #endif
 
     }
-
+    
     /* if we did not get a frame or we need to hurry, we return */
     if( got_frame && !file->videoStream->_ffmpeg->codec->hurry_up ) {
 
         /* convert YUV 420 to YUYV 422 data */
         if( frame->overlay && frame->overlay->format == SDL_YUY2_OVERLAY ) {
 
-            sws_freeContext( file->videoStream->_conversion );
-
-            /* create conversion context for current stream */
-            file->videoStream->_conversion = sws_getContext( file->videoStream->_ffmpeg->codec->width,
-                                                             file->videoStream->_ffmpeg->codec->height,
-                                                             file->videoStream->_ffmpeg->codec->pix_fmt,
-                                                             frame->overlay->w,
-                                                             frame->overlay->h,
-                                                             PIX_FMT_YUYV422,
-                                                             SWS_BILINEAR,
-                                                             0,
-                                                             0,
-                                                             0 );
-
             int pitch[] = { frame->overlay->pitches[ 0 ],
                             frame->overlay->pitches[ 1 ],
                             frame->overlay->pitches[ 2 ] };
 
-            sws_scale( file->videoStream->_conversion,
+            sws_scale( getContext( file->videoStream->_ffmpeg->codec->width,
+                                   file->videoStream->_ffmpeg->codec->height,
+                                   file->videoStream->_ffmpeg->codec->pix_fmt,
+                                   frame->overlay->w, frame->overlay->h,
+                                   PIX_FMT_YUYV422 ),
                        file->videoStream->decodeFrame->data,
                        file->videoStream->decodeFrame->linesize,
                        0,
@@ -2123,30 +2196,41 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
         }
 
         /* convert YUV to RGB data */
-        if( frame->surface ) {
-
-            sws_freeContext( file->videoStream->_conversion );
-
-            /* create conversion context for current stream */
-            file->videoStream->_conversion = sws_getContext( file->videoStream->_ffmpeg->codec->width,
-                                                             file->videoStream->_ffmpeg->codec->height,
-                                                             file->videoStream->_ffmpeg->codec->pix_fmt,
-                                                             frame->surface->w,
-                                                             frame->surface->h,
-                                                             PIX_FMT_RGB32,
-                                                             SWS_BILINEAR,
-                                                             0,
-                                                             0,
-                                                             0 );
+        if( frame->surface && frame->surface->format ) {
 
             int pitch = frame->surface->pitch;
-            sws_scale( file->videoStream->_conversion,
-                       file->videoStream->decodeFrame->data,
-                       file->videoStream->decodeFrame->linesize,
-                       0,
-                       0,
-                       (uint8_t**)&frame->surface->pixels,
-                       &pitch );
+
+            switch ( frame->surface->format->BitsPerPixel )
+            {
+                case 32:
+                    sws_scale( getContext( file->videoStream->_ffmpeg->codec->width,
+                                           file->videoStream->_ffmpeg->codec->height,
+                                           file->videoStream->_ffmpeg->codec->pix_fmt,
+                                           frame->surface->w, frame->surface->h,
+                                           PIX_FMT_RGB32 ),
+                               file->videoStream->decodeFrame->data,
+                               file->videoStream->decodeFrame->linesize,
+                               0,
+                               0,
+                               (uint8_t**)&frame->surface->pixels,
+                               &pitch );
+                    break;
+                case 24:
+                    sws_scale( getContext( file->videoStream->_ffmpeg->codec->width,
+                                           file->videoStream->_ffmpeg->codec->height,
+                                           file->videoStream->_ffmpeg->codec->pix_fmt,
+                                           frame->surface->w, frame->surface->h,
+                                           PIX_FMT_RGB24 ),
+                               file->videoStream->decodeFrame->data,
+                               file->videoStream->decodeFrame->linesize,
+                               0,
+                               0,
+                               (uint8_t**)&frame->surface->pixels,
+                               &pitch );
+                    break;
+                default:
+                    break;
+            }
         }
 
 		/* we write the lastTimestamp we got */
@@ -2158,7 +2242,6 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
 
     return frame->ready;
 }
-
 /**
 \endcond
 */
