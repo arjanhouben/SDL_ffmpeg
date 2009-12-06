@@ -10,7 +10,7 @@ endif()
 
 find_package( SDL REQUIRED )
 
-find_package( SDL_FFMPEG REQUIRED )
+find_package( SDL_ffmpeg REQUIRED )
 
 add_executable(	example         ${EXAMPLES_SOURCE_DIR}/example.c )
 

@@ -133,32 +133,6 @@ struct SwsContext* getContext( int inWidth, int inHeight, enum PixelFormat inFor
     return ( *ctx )->context;
 }
 
-int __Y[256];
-int __CrtoR[256];
-int __CrtoG[256];
-int __CbtoG[256];
-int __CbtoB[256];
-
-void initializeLookupTables() {
-
-    float f;
-    int i;
-
-    for(i=0; i<256; i++) {
-
-        f = ( float)i;
-
-        __Y[i] = (int)( 1.164 * ( f-16.0) );
-
-        __CrtoR[i] = (int)( 1.596 * ( f-128.0) );
-
-        __CrtoG[i] = (int)( 0.813 * ( f-128.0) );
-        __CbtoG[i] = (int)( 0.392 * ( f-128.0) );
-
-        __CbtoB[i] = (int)( 2.017 * ( f-128.0) );
-    }
-}
-
 uint32_t SDL_ffmpegInitWasCalled = 0;
 
 /* error handling */
@@ -280,7 +254,6 @@ void SDL_ffmpegInit() {
 
         avcodec_register_all();
         av_register_all();
-        initializeLookupTables();
     }
 }
 
@@ -1843,14 +1816,16 @@ void SDL_ffmpegAddError( const char *error ) {
 
     if( !error ) return;
 
+    unsigned int errorSize = strlen( error ) + 1;
+
     if( !SDL_ffmpegErrorBegin ) {
 
         SDL_ffmpegErrorBegin = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 		
-		SDL_ffmpegErrorBegin->message = (char*)malloc( strlen( error ) + 1 );
+        SDL_ffmpegErrorBegin->message = (char*)malloc( errorSize );
 		if( SDL_ffmpegErrorBegin->message )
 		{
-			memcpy( SDL_ffmpegErrorBegin->message, error, strlen( error ) );
+            memcpy( SDL_ffmpegErrorBegin->message, error, errorSize );
 		}
 		
         SDL_ffmpegErrorBegin->next = 0;
@@ -1863,10 +1838,10 @@ void SDL_ffmpegAddError( const char *error ) {
 
         message->next = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 
-		message->next->message = (char*)malloc( strlen( error ) + 1 );
+        message->next->message = (char*)malloc( errorSize );
 		if( message->next->message )
 		{
-			memcpy( message->next->message, error, strlen( error ) );
+            memcpy( message->next->message, error, errorSize );
 		}
 
         message->next->next = 0;
