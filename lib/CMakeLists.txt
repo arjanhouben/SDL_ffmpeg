@@ -69,7 +69,7 @@ link_directories(
 
 install(
 	FILES
-    	${SDL_FFMPEG_SOURCE_DIR}/include/SDL/SDL_ffmpeg.h
+    ${SDL_FFMPEG_SOURCE_DIR}/include/SDL/SDL_ffmpeg.h
 	DESTINATION
 	include/SDL/
 )
