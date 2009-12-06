@@ -44,23 +44,6 @@ if( WIN32 )
 endif( WIN32)
 
 
-if( UNIX )
-
-	find_package( ZLIB )
-	
-	set(
-		EXTRA_LIBRARIES
-		${EXTRA_LIBRARIES}
-	)
-	
-	set( 
-		EXTRA_LIBRARIES
-		${EXTRA_LIBRARIES}
-		${ZLIB_LIBRARY}
-	)
-
-endif( UNIX )
-
 set( 
 	SDL_FFMPEG_LIBRARIES	
 	${AVFORMAT_LIBRARY}
@@ -70,16 +53,6 @@ set(
 	${EXTRA_LIBRARIES}
 	${SDL_LIBRARY}
 )
-
-if( APPLE )
-
-	set(
-		SDL_FFMPEG_LIBRARIES
-		${SDL_FFMPEG_LIBRARIES}
-		bz2
-	)
-
-endif( APPLE )
 
 target_link_libraries(
 	SDL_ffmpeg
