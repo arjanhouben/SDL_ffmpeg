@@ -53,11 +53,6 @@ extern "C" {
 	#ifndef INT64_C
 		#define INT64_C(i) i
 	#endif
-	#define CODECCAST (CodecID)
-	#define STRDUP( str ) _strdup( str )
-#else
-	#define CODECCAST
-	#define STRDUP( str ) strdup( str )
 #endif
 
 /**
@@ -1542,7 +1537,7 @@ SDL_ffmpegStream* SDL_ffmpegAddVideoStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     if( codec.videoCodecID < 0 ) {
         stream->codec->codec_id = file->_ffmpeg->oformat->video_codec;
     } else {
-        stream->codec->codec_id = CODECCAST codec.videoCodecID;
+        stream->codec->codec_id = (enum CodecID) codec.videoCodecID;
     }
 
     stream->codec->codec_type = CODEC_TYPE_VIDEO;
@@ -1662,7 +1657,7 @@ SDL_ffmpegStream* SDL_ffmpegAddAudioStream( SDL_ffmpegFile *file, SDL_ffmpegCode
     if( codec.audioCodecID < 0 ) {
         stream->codec->codec_id = file->_ffmpeg->oformat->audio_codec;
     } else {
-        stream->codec->codec_id = CODECCAST codec.audioCodecID;
+        stream->codec->codec_id = (enum CodecID) codec.audioCodecID;
     }
 
     stream->codec->codec_type = CODEC_TYPE_AUDIO;
@@ -1851,9 +1846,13 @@ void SDL_ffmpegAddError( const char *error ) {
     if( !SDL_ffmpegErrorBegin ) {
 
         SDL_ffmpegErrorBegin = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
-
-        SDL_ffmpegErrorBegin->message = STRDUP( error );
-
+		
+		SDL_ffmpegErrorBegin->message = (char*)malloc( strlen( error ) + 1 );
+		if( SDL_ffmpegErrorBegin->message )
+		{
+			memcpy( SDL_ffmpegErrorBegin->message, error, strlen( error ) );
+		}
+		
         SDL_ffmpegErrorBegin->next = 0;
 
     } else {
@@ -1864,7 +1863,11 @@ void SDL_ffmpegAddError( const char *error ) {
 
         message->next = (SDL_ffmpegErrorMessage*)malloc( sizeof( SDL_ffmpegErrorMessage ) );
 
-        message->next->message = STRDUP( error );
+		message->next->message = (char*)malloc( strlen( error ) + 1 );
+		if( message->next->message )
+		{
+			memcpy( message->next->message, error, strlen( error ) );
+		}
 
         message->next->next = 0;
     }
