@@ -36,12 +36,14 @@ SDL_mutex *mutex = 0;
 /* use this value to check if we reached the end of our file */
 int done = 0;
 
-void audioCallback(void *udata, Uint8 *stream, int len) {
+void audioCallback( void *udata, Uint8 *stream, int len )
+{
 
     /* lock mutex, so frame[0] will not be changed from another thread */
     SDL_LockMutex( mutex );
 
-    if( frame[0]->size == len ) {
+    if ( frame[0]->size == len )
+    {
 
         /* copy the data to the output */
         memcpy( stream, frame[0]->buffer, frame[0]->size );
@@ -52,12 +54,14 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
         /* move frames in buffer */
         SDL_ffmpegAudioFrame *f = frame[0];
         int i;
-        for(i=1; i<BUF_SIZE; i++) frame[i-1] = frame[i];
+        for ( i = 1; i < BUF_SIZE; i++ ) frame[i-1] = frame[i];
         frame[BUF_SIZE-1] = f;
 
-        if( frame[0]->last ) done = 1;
+        if ( frame[0]->last ) done = 1;
 
-    } else {
+    }
+    else
+    {
 
         /* no data available, just set output to zero */
         memset( stream, 0, len );
@@ -69,40 +73,48 @@ void audioCallback(void *udata, Uint8 *stream, int len) {
     return;
 }
 
-int main(int argc, char** argv) {
+int main( int argc, char** argv )
+{
 
     /* check if we got an argument */
-    if(argc < 2) {
-        printf("usage: \"%s\" \"filename\"\n", argv[0]);
+    if ( argc < 2 )
+    {
+        printf( "usage: \"%s\" \"filename\"\n", argv[0] );
         return -1;
     }
 
     /* standard SDL initialization stuff */
-    if(SDL_Init(SDL_INIT_AUDIO) < 0) {
-        fprintf(stderr, "problem initializing SDL: %s\n", SDL_GetError());
+    if ( SDL_Init( SDL_INIT_AUDIO ) < 0 )
+    {
+        fprintf( stderr, "problem initializing SDL: %s\n", SDL_GetError() );
         return -1;
     }
 
     /* open file from arg[1] */
-    SDL_ffmpegFile *audioFile = SDL_ffmpegOpen(argv[1]);
-    if(!audioFile) {
-        SDL_ffmpegPrintErrors( stderr );
+    SDL_ffmpegFile *audioFile = SDL_ffmpegOpen( argv[1] );
+    if ( !audioFile )
+    {
+        fprintf( stderr, "could not open %s: %s\n", argv[ 1 ], SDL_ffmpegGetError() );
+
         return -1;
     }
 
     /* select the stream you want to decode (example just uses 0 as a default) */
-    if( SDL_ffmpegSelectAudioStream(audioFile, 0) ) {
-        SDL_ffmpegPrintErrors( stderr );
+    if ( SDL_ffmpegSelectAudioStream( audioFile, 0 ) )
+    {
+        fprintf( stderr, "could select audio stream: %s\n", SDL_ffmpegGetError() );
+
         goto CLEANUP_DATA;
     }
 
     /* get the audiospec which fits the selected audiostream, if no audiostream
        is selected, default values are used (2 channel, 48Khz) */
-    SDL_AudioSpec specs = SDL_ffmpegGetAudioSpec(audioFile, 512, audioCallback);
+    SDL_AudioSpec specs = SDL_ffmpegGetAudioSpec( audioFile, 512, audioCallback );
 
     /* Open the Audio device */
-    if( SDL_OpenAudio(&specs, 0) < 0 ) {
-        printf("Couldn't open audio: %s\n", SDL_GetError());
+    if ( SDL_OpenAudio( &specs, 0 ) < 0 )
+    {
+        printf( "Couldn't open audio: %s\n", SDL_GetError() );
         goto CLEANUP_DATA;
     }
 
@@ -111,10 +123,12 @@ int main(int argc, char** argv) {
 
     /* create audio frames to store data received from SDL_ffmpegGetAudioFrame */
     int i;
-    for( i=0; i<BUF_SIZE; i++) {
+    for ( i = 0; i < BUF_SIZE; i++ )
+    {
         frame[i] = SDL_ffmpegCreateAudioFrame( audioFile, bytes );
-        if( !frame[i] ) {
-            printf("couldn't prepare frame buffer\n");
+        if ( !frame[i] )
+        {
+            printf( "couldn't prepare frame buffer\n" );
             return -1;
         }
         /* fill the frames */
@@ -125,16 +139,19 @@ int main(int argc, char** argv) {
     mutex = SDL_CreateMutex();
 
     /* we unpause the audio so our audiobuffer gets read */
-    SDL_PauseAudio(0);
+    SDL_PauseAudio( 0 );
 
     done = 0;
 
-    while( !done ) {
+    while ( !done )
+    {
 
         /* just some standard SDL event stuff */
         SDL_Event event;
-        while(SDL_PollEvent(&event)) {
-            if(event.type == SDL_QUIT) {
+        while ( SDL_PollEvent( &event ) )
+        {
+            if ( event.type == SDL_QUIT )
+            {
                 done = 1;
                 break;
             }
@@ -145,10 +162,12 @@ int main(int argc, char** argv) {
 
         /* check for empty places in buffer */
         int i;
-        for( i=0; i<BUF_SIZE; i++) {
+        for ( i = 0; i < BUF_SIZE; i++ )
+        {
 
             /* if an empty space is found, fill it again */
-            if( !frame[i]->size ) {
+            if ( !frame[i]->size )
+            {
                 SDL_ffmpegGetAudioFrame( audioFile, frame[i] );
             }
         }
@@ -157,13 +176,14 @@ int main(int argc, char** argv) {
         SDL_UnlockMutex( mutex );
 
         /* we wish not to kill our poor cpu, so we give it some timeoff */
-        SDL_Delay(5);
+        SDL_Delay( 5 );
     }
 
-    CLEANUP_DATA:
+CLEANUP_DATA:
 
     /* cleanup our buffer */
-    for( i=0; i<BUF_SIZE; i++) {
+    for ( i = 0; i < BUF_SIZE; i++ )
+    {
         SDL_ffmpegFreeAudioFrame( frame[i] );
     }
 
@@ -172,9 +192,6 @@ int main(int argc, char** argv) {
 
     /* cleanup mutex */
     SDL_DestroyMutex( mutex );
-
-    /* print any errors which may have been encountered during this program */
-    SDL_ffmpegPrintErrors( stderr );
 
     /* the SDL_Quit function offcourse... */
     SDL_Quit();

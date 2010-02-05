@@ -199,13 +199,9 @@ typedef struct SDL_ffmpegFile {
 } SDL_ffmpegFile;
 
 /* error handling */
-EXPORT int SDL_ffmpegError();
+EXPORT const char* SDL_ffmpegGetError();
 
-EXPORT const char* SDL_ffmpegGetLastError();
-
-EXPORT void SDL_ffmpegPrintErrors( FILE *stream );
-
-EXPORT void SDL_ffmpegFlushErrors();
+EXPORT void SDL_ffmpegClearError();
 
 /* SDL_ffmpegFile create / destroy */
 EXPORT SDL_ffmpegFile* SDL_ffmpegOpen( const char* filename );

@@ -25,19 +25,22 @@
 
 #include <math.h>
 
-int main(int argc, char** argv) {
+int main( int argc, char** argv )
+{
 
     SDL_ffmpegFile  *file = 0;
 
     /* check if we got an argument */
-    if(argc < 2) {
+    if ( argc < 2 )
+    {
         printf( "usage: \"%s\" \"filename\"\n", argv[0] );
         return -1;
     }
 
     /* open file from arg[1] */
     file = SDL_ffmpegCreate( argv[1] );
-    if( !file ) {
+    if ( !file )
+    {
         fprintf( stderr, "error creating file\n" );
         SDL_Quit();
         return -1;
@@ -53,13 +56,16 @@ int main(int argc, char** argv) {
        stream. In the future, YUV overlays will be supported, currently only
        RGBA is supported when encoding */
     SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, 0, 0 );
-    if( !videoFrame ) {
-        SDL_ffmpegPrintErrors( stderr );
+    if ( !videoFrame )
+    {
+        fprintf( stderr, "could not create video frame: %s\n", SDL_ffmpegGetError() );
+
         return -1;
     }
 
     /* standard SDL initialization stuff */
-    if( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER ) < 0 ) {
+    if ( SDL_Init( SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_TIMER ) < 0 )
+    {
         fprintf( stderr, "problem initializing SDL: %s\n", SDL_GetError() );
         return -1;
     }
@@ -72,38 +78,45 @@ int main(int argc, char** argv) {
 
     int         done = 0;
     uint8_t     red = 0,
-                green = 0,
-                blue = 0;
+                      green = 0,
+                              blue = 0;
     SDL_Rect    r;
 
-    while( !done ) {
+    while ( !done )
+    {
 
         /* just some standard SDL event stuff */
         SDL_Event event;
-        while( SDL_PollEvent( &event ) ) {
+        while ( SDL_PollEvent( &event ) )
+        {
 
-            if( event.type == SDL_QUIT ) {
+            if ( event.type == SDL_QUIT )
+            {
                 done = 1;
                 break;
             }
 
             /* mouse moved, store new position */
-            if( event.type == SDL_MOUSEMOTION ) {
+            if ( event.type == SDL_MOUSEMOTION )
+            {
 
-                r.x = event.motion.x - 10;  r.y = event.motion.y - 10;
-                r.w = 20;                   r.h = 20;
+                r.x = event.motion.x - 10;
+                r.y = event.motion.y - 10;
+                r.w = 20;
+                r.h = 20;
             }
         }
 
         /* fade out current screen */
-        uint8_t *src = (uint8_t*)screen->pixels;
+        uint8_t *src = ( uint8_t* )screen->pixels;
         int i;
-        for( i=0; i<screen->h*screen->w; i++) {
-            if( *src ) (*src)--;
+        for ( i = 0; i < screen->h*screen->w; i++ )
+        {
+            if ( *src )( *src )--;
             src++;
-            if( *src ) (*src)--;
+            if ( *src )( *src )--;
             src++;
-            if( *src ) (*src)--;
+            if ( *src )( *src )--;
             src++;
             *src = 0xFF;
             src++;
@@ -135,8 +148,8 @@ int main(int argc, char** argv) {
         /* flip screen, so we can see what is happening */
         SDL_Flip( screen );
 
-        int64_t delay = SDL_ffmpegVideoDuration(file) - SDL_GetTicks();
-        if( delay > 0 ) SDL_Delay( delay );
+        int64_t delay = SDL_ffmpegVideoDuration( file ) - SDL_GetTicks();
+        if ( delay > 0 ) SDL_Delay( delay );
     }
 
     /* free video frame */
@@ -144,9 +157,6 @@ int main(int argc, char** argv) {
 
     /* after all is said and done, we should call this */
     SDL_ffmpegFree( file );
-
-    /* print any errors which may have been encountered during this program */
-    SDL_ffmpegPrintErrors( stderr );
 
     /* the SDL_Quit function offcourse... */
     SDL_Quit();

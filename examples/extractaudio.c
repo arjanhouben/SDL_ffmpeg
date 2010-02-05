@@ -24,23 +24,27 @@
 
 //#include <string.h>
 
-int main(int argc, char** argv) {
+int main( int argc, char** argv )
+{
 
     /* check if we got an argument */
-    if( argc < 2 ) {
+    if ( argc < 2 )
+    {
         printf( "usage: \"%s\" \"filename\"\n", argv[0] );
         return -1;
     }
 
     /* open file from arg[1] */
     SDL_ffmpegFile *audioFile = SDL_ffmpegOpen( argv[1] );
-    if( !audioFile ) {
+    if ( !audioFile )
+    {
         printf( "error opening file\n" );
         return -1;
     }
 
     /* select the stream you want to decode (example just uses 0 as a default) */
-    if( SDL_ffmpegSelectAudioStream( audioFile, 0 ) ) {
+    if ( SDL_ffmpegSelectAudioStream( audioFile, 0 ) )
+    {
         printf( "couldn't select audio stream\n" );
         SDL_ffmpegFree( audioFile );
         return -1;
@@ -48,7 +52,8 @@ int main(int argc, char** argv) {
 
     /* create an audio frame to store data received from SDL_ffmpegGetAudioFrame */
     SDL_ffmpegAudioFrame *frame = SDL_ffmpegCreateAudioFrame( audioFile, 32 );
-    if( !frame ) {
+    if ( !frame )
+    {
         SDL_ffmpegFree( audioFile );
         printf( "couldn't prepare frame buffer\n" );
         return -1;
@@ -56,9 +61,10 @@ int main(int argc, char** argv) {
 
     SDL_ffmpegGetAudioFrame( audioFile, frame );
 
-    FILE *f = fopen("test.raw","wb");
+    FILE *f = fopen( "test.raw", "wb" );
 
-    while( !frame->last ) {
+    while ( !frame->last )
+    {
         fwrite( frame->buffer, 1, frame->size, f );
         SDL_ffmpegGetAudioFrame( audioFile, frame );
     }
@@ -69,9 +75,6 @@ int main(int argc, char** argv) {
 
     /* when we are done with the file, we free it */
     SDL_ffmpegFree( audioFile );
-
-    /* print any errors which may have been encountered during this program */
-    SDL_ffmpegPrintErrors( stderr );
 
     /* the SDL_Quit function offcourse... */
     SDL_Quit();

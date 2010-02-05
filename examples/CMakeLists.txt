@@ -8,6 +8,8 @@ if( CMAKE_GENERATOR MATCHES "Visual .*" )
 
 endif()
 
+add_definitions( "-ggdb" )
+
 find_package( SDL REQUIRED )
 
 find_package( SDL_ffmpeg REQUIRED )
