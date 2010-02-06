@@ -36,7 +36,7 @@ SDL_ffmpegAudioFrame *audioFrame[BUF_SIZE];
 
 /* simple way of syncing, just for example purposes */
 uint64_t sync = 0,
-                offset = 0;
+         offset = 0;
 
 /* returns the current position the file should be at */
 uint64_t getSync()
@@ -60,13 +60,11 @@ SDL_mutex *mutex = 0;
 
 void audioCallback( void *data, Uint8 *stream, int length )
 {
-
     /* lock mutex, so audioFrame[0] will not be changed from another thread */
     SDL_LockMutex( mutex );
 
     if ( audioFrame[0]->size == length )
     {
-
         /* update sync */
         sync = audioFrame[0]->pts;
 
@@ -81,11 +79,9 @@ void audioCallback( void *data, Uint8 *stream, int length )
         int i;
         for ( i = 1; i < BUF_SIZE; i++ ) audioFrame[i-1] = audioFrame[i];
         audioFrame[BUF_SIZE-1] = f;
-
     }
     else
     {
-
         /* no data available, just set output to zero */
         memset( stream, 0, length );
     }
@@ -98,7 +94,6 @@ void audioCallback( void *data, Uint8 *stream, int length )
 
 int main( int argc, char** argv )
 {
-
     /* check if we got an argument */
     if ( argc < 2 )
     {
@@ -157,7 +152,7 @@ int main( int argc, char** argv )
     SDL_ffmpegGetVideoSize( file, &w, &h );
 
     /* Open the Video device */
-    SDL_Surface *screen = SDL_SetVideoMode( w, h, 0, SDL_DOUBLEBUF | SDL_HWSURFACE );
+    SDL_Surface *screen = SDL_SetVideoMode( w, h, 0, SDL_DOUBLEBUF | SDL_HWSURFACE | SDL_RESIZABLE );
     if ( !screen )
     {
         fprintf( stderr, "Couldn't open video: %s\n", SDL_GetError() );
@@ -165,11 +160,18 @@ int main( int argc, char** argv )
         return -1;
     }
 
-    /* create a video frame which will be used to receive the video data.
-       If you want to receive YCbCr data, you have to define the second parameter
-       with the format you would like to receive and the last parameter needs to
-       be a pointer to the SDL_surface as returned by SDL_SetVideoMode */
-    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame( file, SDL_YUY2_OVERLAY, screen );
+    /* create a video frame which will be used to receive the video data. */
+    SDL_ffmpegVideoFrame *videoFrame = SDL_ffmpegCreateVideoFrame();
+
+    /* depending on which type of surface you want to use, you either create an RGB or an YUV buffer */
+
+    /* RGB */
+    videoFrame->surface = SDL_CreateRGBSurface( 0, screen->w, screen->h, 24, 0x0000FF, 0x00FF00, 0xFF0000, 0 );
+
+    /* YUV */
+/*
+    videoFrame->overlay = SDL_CreateYUVOverlay( screen->w, screen->h, SDL_YUY2_OVERLAY, screen );
+*/
 
     /* create a SDL_Rect for blitting of image data */
     SDL_Rect rect;
@@ -197,7 +199,6 @@ int main( int argc, char** argv )
         int i;
         for ( i = 0; i < BUF_SIZE; i++ )
         {
-
             /* create frame */
             audioFrame[i] = SDL_ffmpegCreateAudioFrame( file, frameSize );
 
@@ -217,71 +218,134 @@ int main( int argc, char** argv )
     }
 
     int done = 0,
-               mouseState = 0,
-                            time = SDL_GetTicks();
+        mouseState = 0,
+        fullscreen = 0;
 
     while ( !done )
     {
-
         /* just some standard SDL event stuff */
         SDL_Event event;
         while ( SDL_PollEvent( &event ) )
         {
-
-            if ( event.type == SDL_QUIT )
+            switch( event.type )
             {
-                done = 1;
-                break;
-            }
+                case SDL_QUIT:
 
-            if ( event.type == SDL_MOUSEBUTTONUP ) mouseState = 0;
+                    done = 1;
+                    break;
 
-            if ( event.type == SDL_MOUSEBUTTONDOWN ) mouseState = 1;
+                case SDL_VIDEORESIZE:
 
-            if ( mouseState )
-            {
-
-                /* parse events */
-                SDL_PumpEvents();
-
-                int x, y;
-                SDL_GetMouseState( &x, &y );
-                /* by clicking you turn on the stream, seeking to the percentage
-                   in time, based on the x-position you clicked on */
-                uint64_t time = ( uint64_t )((( double )x / ( double )w ) * SDL_ffmpegDuration( file ) );
-
-
-                /* lock mutex when working on data which is shared with the audiocallback */
-                SDL_LockMutex( mutex );
-
-                /* invalidate current video frame */
-                if ( videoFrame ) videoFrame->ready = 0;
-
-                /* invalidate buffered audio frames */
-                if ( SDL_ffmpegValidAudio( file ) )
-                {
-                    int i;
-                    for ( i = 0; i < BUF_SIZE; i++ )
+                    screen = SDL_SetVideoMode( event.resize.w, event.resize.h, 0, SDL_DOUBLEBUF | SDL_HWSURFACE | SDL_RESIZABLE );
+                    if ( !screen )
                     {
-                        audioFrame[i]->size = 0;
+                        fprintf( stderr, "could not resize screen: %s\n", SDL_GetError() );
+                        goto CLEANUP_DATA;
                     }
-                }
 
-                /* we seek to time (milliseconds) */
-                SDL_ffmpegSeek( file, time );
+                    /* check if surface existed */
+                    if ( videoFrame->surface )
+                    {
+                        /* destroy old surface */
+                        SDL_FreeSurface( videoFrame->surface );
 
-                /* store new offset */
-                offset = time - ( getSync() - offset );
+                        /* create new surface */
+                        videoFrame->surface = SDL_CreateRGBSurface( 0, screen->w, screen->h, 24, 0x0000FF, 0x00FF00, 0xFF0000, 0 );
+                    }
 
-                /* we release the mutex so the new data can be handled */
-                SDL_UnlockMutex( mutex );
+                    /* check if overlay existed */
+                    if ( videoFrame->overlay )
+                    {
+                        /* destroy old overlay */
+                        SDL_FreeYUVOverlay( videoFrame->overlay );
+
+                        /* create new overlay */
+                        videoFrame->overlay = SDL_CreateYUVOverlay( screen->w, screen->h, SDL_YUY2_OVERLAY, screen );
+                    }
+                    break;
+
+                case SDL_MOUSEBUTTONUP:
+
+                    mouseState = 0;
+                    break;
+
+                case SDL_MOUSEBUTTONDOWN:
+
+                    mouseState = 1;
+                    break;
+
+                case SDL_KEYDOWN:
+
+                    if ( event.key.keysym.sym == SDLK_f )
+                    {
+                        if ( fullscreen )
+                        {
+                            screen = SDL_SetVideoMode( w, h, 0, SDL_DOUBLEBUF | SDL_HWSURFACE | SDL_RESIZABLE );
+                            if ( !screen )
+                            {
+                                fprintf( stderr, "could not revert from fullscreen mode: %s\n", SDL_GetError() );
+                                goto CLEANUP_DATA;
+                            }
+
+                            fullscreen = 0;
+                        }
+                        else
+                        {
+                            screen = SDL_SetVideoMode( 0, 0, 0, SDL_DOUBLEBUF | SDL_HWSURFACE | SDL_FULLSCREEN );
+                            if ( !screen )
+                            {
+                                fprintf( stderr, "could not go to fullscreen mode: %s\n", SDL_GetError() );
+                                goto CLEANUP_DATA;
+                            }
+
+                            fullscreen = 1;
+                        }
+                    }
+
+                    if ( event.key.keysym.sym == SDLK_ESCAPE )
+                    {
+                        done = 1;
+                    }
             }
+        }
+
+        if ( mouseState )
+        {
+            int x, y;
+            SDL_GetMouseState( &x, &y );
+            /* by clicking you turn on the stream, seeking to the percentage
+               in time, based on the x-position you clicked on */
+            uint64_t time = ( uint64_t )((( double )x / ( double )w ) * SDL_ffmpegDuration( file ) );
+
+            /* lock mutex when working on data which is shared with the audiocallback */
+            SDL_LockMutex( mutex );
+
+            /* invalidate current video frame */
+            if ( videoFrame ) videoFrame->ready = 0;
+
+            /* invalidate buffered audio frames */
+            if ( SDL_ffmpegValidAudio( file ) )
+            {
+                int i;
+                for ( i = 0; i < BUF_SIZE; i++ )
+                {
+                    audioFrame[i]->size = 0;
+                }
+            }
+
+            /* we seek to time (milliseconds) */
+            SDL_ffmpegSeek( file, time );
+
+            /* store new offset */
+            offset = time - ( getSync() - offset );
+
+            /* we release the mutex so the new data can be handled */
+            SDL_UnlockMutex( mutex );
         }
 
         /* check if we need to decode audio data */
         if ( SDL_ffmpegValidAudio( file ) )
         {
-
             /* lock mutex when working on data which is shared with the audiocallback */
             SDL_LockMutex( mutex );
 
@@ -302,30 +366,22 @@ int main( int argc, char** argv )
 
         if ( videoFrame )
         {
-
             /* check if video frame is ready */
             if ( !videoFrame->ready )
             {
-
                 /* not ready, try to get a new frame */
                 SDL_ffmpegGetVideoFrame( file, videoFrame );
-
             }
             else if ( videoFrame->pts <= getSync() )
             {
-
                 /* video frame ready and in sync */
-
-                if ( 0 && videoFrame->overlay )
+                if ( videoFrame->overlay )
                 {
-
                     /* blit overlay */
                     SDL_DisplayYUVOverlay( videoFrame->overlay, &rect );
-
                 }
                 else if ( videoFrame->surface )
                 {
-
                     /* blit RGB surface */
                     SDL_BlitSurface( videoFrame->surface, 0, screen, 0 );
 
@@ -337,13 +393,6 @@ int main( int argc, char** argv )
                 videoFrame->ready = 0;
             }
         }
-
-        if ( SDL_GetTicks() - time < 5 )
-        {
-            /* we wish not to kill our poor cpu, so we give it some timeoff */
-            SDL_Delay( 5 );
-        }
-        time = SDL_GetTicks();
     }
 
 CLEANUP_DATA:

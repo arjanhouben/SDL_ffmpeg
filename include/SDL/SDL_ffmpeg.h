@@ -229,9 +229,9 @@ EXPORT SDL_ffmpegStream* SDL_ffmpegGetVideoStream( SDL_ffmpegFile *file, uint32_
 EXPORT int SDL_ffmpegSelectVideoStream( SDL_ffmpegFile* file, int videoID);
 
 /* video frame */
-EXPORT SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen );
+EXPORT SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame();
 
-EXPORT int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
+EXPORT int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_Surface *frame );
 
 EXPORT int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame );
 

@@ -58,11 +58,9 @@ void audioCallback( void *udata, Uint8 *stream, int len )
         frame[BUF_SIZE-1] = f;
 
         if ( frame[0]->last ) done = 1;
-
     }
     else
     {
-
         /* no data available, just set output to zero */
         memset( stream, 0, len );
     }
@@ -75,7 +73,6 @@ void audioCallback( void *udata, Uint8 *stream, int len )
 
 int main( int argc, char** argv )
 {
-
     /* check if we got an argument */
     if ( argc < 2 )
     {

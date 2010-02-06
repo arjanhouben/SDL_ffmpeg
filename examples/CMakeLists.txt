@@ -6,9 +6,11 @@ if( CMAKE_GENERATOR MATCHES "Visual .*" )
 
     add_definitions( "/TP -DMSVC" )
 
-endif()
+else()
 
-add_definitions( "-ggdb" )
+    add_definitions( "-Wall -ansi -pedantic -std=c99 -O2 -D_ISOC99_SOURCE" )
+
+endif()
 
 find_package( SDL REQUIRED )
 

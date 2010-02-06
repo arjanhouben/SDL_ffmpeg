@@ -11,7 +11,7 @@ if( CMAKE_GENERATOR MATCHES "Visual .*" )
 
 else()
 
-    add_definitions( "-Wall -ansi -std=c99 -O2 -D_ISOC99_SOURCE" )
+    add_definitions( "-Wall -ansi -pedantic -std=c99 -O2 -D_ISOC99_SOURCE" )
 
 endif()
 

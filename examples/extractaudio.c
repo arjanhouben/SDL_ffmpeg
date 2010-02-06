@@ -22,11 +22,8 @@
 
 #include "SDL_ffmpeg.h"
 
-//#include <string.h>
-
 int main( int argc, char** argv )
 {
-
     /* check if we got an argument */
     if ( argc < 2 )
     {

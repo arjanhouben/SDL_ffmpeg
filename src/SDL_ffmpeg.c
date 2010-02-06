@@ -152,13 +152,6 @@ int SDL_ffmpegDecodeAudioFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegAudioFrame
 
 int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile*, AVPacket*, SDL_ffmpegVideoFrame* );
 
-/* convert functions */
-void SDL_ffmpegConvertYUV420PtoRGBA( AVFrame *YUV420P, SDL_Surface *RGB444, int interlaced );
-
-void SDL_ffmpegConvertYUV420PtoYUY2( AVFrame *YUV420P, SDL_Overlay *YUY2, int interlaced );
-
-void SDL_ffmpegConvertRGBAtoYUV420P( const SDL_Surface *RGBA, AVFrame *YUV420P, int interlaced );
-
 const SDL_ffmpegCodec SDL_ffmpegCodecAUTO =
 {
     -1,
@@ -215,13 +208,6 @@ SDL_ffmpegFile* SDL_ffmpegCreateFile()
     return file;
 }
 
-void SDL_ffmpegLogCallback( void *unused_1, int unused_2, const char *fmt, va_list vl )
-{
-    fprintf( stderr, fmt, vl );
-
-    return;
-}
-
 /**
 \endcond
 */
@@ -238,8 +224,6 @@ void SDL_ffmpegInit()
     /* register all codecs */
     if ( !SDL_ffmpegInitWasCalled )
     {
-        av_log_set_callback( SDL_ffmpegLogCallback );
-
         SDL_ffmpegInitWasCalled = 1;
 
         avcodec_register_all();
@@ -556,42 +540,52 @@ SDL_ffmpegFile* SDL_ffmpegCreate( const char* filename )
 \param      frame SDL_ffmpegVideoFrame which will be added to the stream.
 \returns    0 if frame was added, non-zero if an error occured.
 */
-int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_ffmpegVideoFrame *frame )
+int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_Surface *frame )
 {
     /* when accesing audio/video stream, streamMutex should be locked */
     SDL_LockMutex( file->streamMutex );
 
-    if ( !file  || !file->videoStream || !frame || !frame->surface || !frame->surface->format )
+    if ( !file->videoStream || !frame || !frame->format )
     {
         SDL_UnlockMutex( file->streamMutex );
         return -1;
     }
 
-    int pitch = frame->surface->pitch;
+    int pitch [] =
+    {
+        frame->pitch,
+        0
+    };
 
-    switch ( frame->surface->format->BitsPerPixel )
+    const uint8_t *const data [] =
+    {
+        frame->pixels,
+        0
+    };
+
+    switch ( frame->format->BitsPerPixel )
     {
         case 24:
-            sws_scale( getContext( frame->surface->w, frame->surface->h, PIX_FMT_RGB24,
+            sws_scale( getContext( frame->w, frame->h, PIX_FMT_RGB24,
                                    file->videoStream->_ffmpeg->codec->width,
                                    file->videoStream->_ffmpeg->codec->height,
                                    file->videoStream->_ffmpeg->codec->pix_fmt ),
-                       ( const uint8_t* const * )frame->surface->pixels,
-                       &pitch,
+                       data,
+                       pitch,
                        0,
-                       0,
+                       frame->h,
                        file->videoStream->encodeFrame->data,
                        file->videoStream->encodeFrame->linesize );
             break;
         case 32:
-            sws_scale( getContext( frame->surface->w, frame->surface->h, PIX_FMT_RGB32,
+            sws_scale( getContext( frame->w, frame->h, PIX_FMT_BGR32,
                                    file->videoStream->_ffmpeg->codec->width,
                                    file->videoStream->_ffmpeg->codec->height,
                                    file->videoStream->_ffmpeg->codec->pix_fmt ),
-                       ( const uint8_t* const * )frame->surface->pixels,
-                       &pitch,
+                       data,
+                       pitch,
                        0,
-                       0,
+                       frame->h,
                        file->videoStream->encodeFrame->data,
                        file->videoStream->encodeFrame->linesize );
             break;
@@ -742,42 +736,15 @@ SDL_ffmpegAudioFrame* SDL_ffmpegCreateAudioFrame( SDL_ffmpegFile *file, uint32_t
 
 /** \brief  Use this to create a SDL_ffmpegVideoFrame
 
-            With this frame, you can receve video frames from the stream using
-            SDL_ffmpegGetVideoFrame.
-\param      file SDL_ffmpegFile for which a frame needs to be created
-\param      format flag as used by SDL. The following options are implemented
-            SDL_YUY2_OVERLAY. If you would like to receive a RGBA image, you can
-            set both format and screen parameter to NULL.
-\param      screen This is a pointer to the SDL_Surface as returned by SDL_SetVideoMode.
-            This parameter is only required when YUV data is desired. When RGBA
-            data is required, this parameter can be set to NULL.
+            In order to receive video data, either SDL_ffmpegVideoFrame.surface or
+            SDL_ffmpegVideoFrame.overlay need to be set by user.
 \returns    Pointer to SDL_ffmpegVideoFrame, or NULL if no frame could be created
 */
-SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame( const SDL_ffmpegFile *file, const uint32_t format, SDL_Surface *screen )
+SDL_ffmpegVideoFrame* SDL_ffmpegCreateVideoFrame()
 {
-    /* when accesing audio/video stream, streamMutex should be locked */
-    SDL_LockMutex( file->streamMutex );
-
-    if ( !file || !file->videoStream )
-    {
-        SDL_UnlockMutex( file->streamMutex );
-        return 0;
-    }
-
     SDL_ffmpegVideoFrame *frame = ( SDL_ffmpegVideoFrame* )malloc( sizeof( SDL_ffmpegVideoFrame ) );
+
     memset( frame, 0, sizeof( SDL_ffmpegVideoFrame ) );
-
-    if ( format == SDL_YUY2_OVERLAY && screen )
-    {
-        frame->overlay = SDL_CreateYUVOverlay( file->videoStream->_ffmpeg->codec->width, file->videoStream->_ffmpeg->codec->height, SDL_YUY2_OVERLAY, screen );
-    }
-
-    if ( !format )
-    {
-        frame->surface = SDL_CreateRGBSurface( 0, file->videoStream->_ffmpeg->codec->width, file->videoStream->_ffmpeg->codec->height, 24, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000 );
-    }
-
-    SDL_UnlockMutex( file->streamMutex );
 
     return frame;
 }
@@ -1284,9 +1251,7 @@ float SDL_ffmpegGetFrameRate( SDL_ffmpegStream *stream, int *nominator, int *den
     }
     else
     {
-        char c[128];
-        snprintf( c, sizeof( c ), "could not retreive frame rate from stream %p", stream );
-        SDL_ffmpegSetError( c );
+        SDL_ffmpegSetError( "could not retreive frame rate from stream" );
 
         if ( nominator ) *nominator = 0;
 
@@ -2111,9 +2076,11 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
         avcodec_decode_video( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, 0, 0 );
 #else
         AVPacket temp;
-        memset( &temp, 0, sizeof( AVPacket ) );
         av_init_packet( &temp );
-        avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, pack );
+        temp.data = 0;
+        temp.size = 0;
+        temp.stream_index = file->videoStream->_ffmpeg->index;
+        avcodec_decode_video2( file->videoStream->_ffmpeg->codec, file->videoStream->decodeFrame, &got_frame, &temp );
 #endif
     }
 
@@ -2138,7 +2105,7 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
                        ( const uint8_t* const* )file->videoStream->decodeFrame->data,
                        file->videoStream->decodeFrame->linesize,
                        0,
-                       0,
+                       file->videoStream->_ffmpeg->codec->height,
                        ( uint8_t* const* )frame->overlay->pixels,
                        pitch );
         }
@@ -2159,7 +2126,7 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
                                ( const uint8_t* const* )file->videoStream->decodeFrame->data,
                                file->videoStream->decodeFrame->linesize,
                                0,
-                               0,
+                               file->videoStream->_ffmpeg->codec->height,
                                ( uint8_t* const* )&frame->surface->pixels,
                                &pitch );
                     break;
@@ -2172,7 +2139,7 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
                                ( const uint8_t* const* )file->videoStream->decodeFrame->data,
                                file->videoStream->decodeFrame->linesize,
                                0,
-                               0,
+                               file->videoStream->_ffmpeg->codec->height,
                                ( uint8_t* const* )&frame->surface->pixels,
                                &pitch );
                     break;

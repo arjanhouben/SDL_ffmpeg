@@ -51,13 +51,10 @@ void audioCallback( void *udata, Uint8 *stream, int len )
     int f;
     for ( f = 0; f < 10 && audioFile[f]; f++ )
     {
-
         if ( playing[f] )
         {
-
             if ( audioFrame[f][0]->size == len )
             {
-
                 /* add audio data to output */
                 int16_t *dest = ( int16_t* )stream;
                 int16_t *src = ( int16_t* )audioFrame[f][0]->buffer;
@@ -86,7 +83,6 @@ void audioCallback( void *udata, Uint8 *stream, int len )
 
 int main( int argc, char** argv )
 {
-
     SDL_AudioSpec specs;
     int i, f, done;
 
@@ -117,7 +113,6 @@ int main( int argc, char** argv )
     f = 0;
     for ( i = 1; i < argc && i < 10; i++ )
     {
-
         /* open file from argument */
         audioFile[f] = SDL_ffmpegOpen( argv[i] );
 
@@ -149,7 +144,6 @@ int main( int argc, char** argv )
         int i;
         for ( i = 0; i < BUF_SIZE; i++ )
         {
-
             /* create frame */
             audioFrame[f][i] = SDL_ffmpegCreateAudioFrame( audioFile[f], frameSize );
 
@@ -157,7 +151,7 @@ int main( int argc, char** argv )
             if ( !audioFrame[f][i] )
             {
                 /* no frame could be created, this is fatal */
-//                goto CLEANUP_DATA;
+                goto CLEANUP_DATA;
             }
 
             /* fill frame with data */
@@ -186,12 +180,10 @@ int main( int argc, char** argv )
 
     while ( !done )
     {
-
         /* just some standard SDL event stuff */
         SDL_Event event;
         while ( SDL_PollEvent( &event ) )
         {
-
             if ( event.type == SDL_QUIT )
             {
                 done = 1;
@@ -233,12 +225,10 @@ int main( int argc, char** argv )
         int f;
         for ( f = 0; f < 10 && audioFile[f]; f++ )
         {
-
             /* update audio buffer */
             int i;
             for ( i = 0; i < BUF_SIZE; i++ )
             {
-
                 /* check if frame is empty */
                 if ( !audioFrame[f][i]->size )
                 {
@@ -264,7 +254,6 @@ CLEANUP_DATA:
     /* free all frames / files */
     for ( f = 0; audioFile[f]; f++ )
     {
-
         int i;
         for ( i = 0; i < BUF_SIZE; i++ )
         {
