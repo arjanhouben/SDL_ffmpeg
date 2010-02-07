@@ -29,7 +29,7 @@ find_library( SWSCALE_LIBRARY
   NAMES swscale
   HINTS
   $ENV{SWSCALEDIR}
-  PATH_SUFFIXES lib64 lib
+  PATH_SUFFIXES lib64 lib bin
   PATHS
   /usr/local
   /usr

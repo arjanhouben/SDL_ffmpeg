@@ -29,7 +29,7 @@ find_library( AVCODEC_LIBRARY
   NAMES avcodec
   HINTS
   $ENV{AVCODECDIR}
-  PATH_SUFFIXES lib64 lib
+  PATH_SUFFIXES lib64 lib bin
   PATHS
   /usr/local
   /usr

@@ -29,7 +29,7 @@ find_library( AVUTIL_LIBRARY
   NAMES avutil
   HINTS
   $ENV{AVUTILDIR}
-  PATH_SUFFIXES lib64 lib
+  PATH_SUFFIXES lib64 lib bin
   PATHS
   /usr/local
   /usr

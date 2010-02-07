@@ -29,7 +29,7 @@ find_library( AVFORMAT_LIBRARY
   NAMES avformat
   HINTS
   $ENV{AVFORMATDIR}
-  PATH_SUFFIXES lib64 lib
+  PATH_SUFFIXES lib64 lib bin
   PATHS
   /usr/local
   /usr
