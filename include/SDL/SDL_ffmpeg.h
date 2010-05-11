@@ -48,6 +48,16 @@ enum SDL_ffmpegStreamType {
 
 typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
+struct SDL_ffmpegConversionContext
+{
+    int inWidth, inHeight, inFormat,
+    outWidth, outHeight, outFormat;
+
+    struct SwsContext *context;
+
+    struct SDL_ffmpegConversionContext *next;
+} SDL_ffmpegConversionContext;
+
 /** Struct to hold codec values */
 typedef struct SDL_ffmpegCodec {
     /** video codec ID */
@@ -134,6 +144,8 @@ typedef struct SDL_ffmpegStream {
     struct AVFrame *decodeFrame;
     /** Intermediate frame which will be used when encoding */
     struct AVFrame *encodeFrame;
+    /** Store conversion context for this stream */
+    struct SDL_ffmpegConversionContext *conversionContext;
 
     int encodeFrameBufferSize;
     uint8_t *encodeFrameBuffer;

@@ -22,7 +22,7 @@
 
 /**
     @mainpage
-    @version 1.1.1
+    @version 1.3.0
     @author Arjan Houben
 
     SDL_ffmpeg is designed with ease of use in mind.
@@ -60,25 +60,13 @@ extern "C"
 \cond
 */
 
-struct ConversionContext
-{
-    int inWidth, inHeight, inFormat,
-    outWidth, outHeight, outFormat;
-
-    struct SwsContext *context;
-
-    struct ConversionContext *next;
-} ConversionContext;
-
-struct ConversionContext *contexts = 0;
-
 /**
  *  Provide a fast way to get the correct context.
  *  \returns The context matching the input values.
  */
-struct SwsContext* getContext( int inWidth, int inHeight, enum PixelFormat inFormat, int outWidth, int outHeight, enum PixelFormat outFormat )
+struct SwsContext* getContext( struct SDL_ffmpegConversionContext *context, int inWidth, int inHeight, enum PixelFormat inFormat, int outWidth, int outHeight, enum PixelFormat outFormat )
 {
-    struct ConversionContext *ctx = contexts;
+    struct SDL_ffmpegConversionContext *ctx = context;
 
     /* check for a matching context */
     while ( ctx )
@@ -96,23 +84,13 @@ struct SwsContext* getContext( int inWidth, int inHeight, enum PixelFormat inFor
         ctx = ctx->next;
     }
 
-    ctx = contexts;
+    ctx = context;
 
     /* find the last context */
-    while ( ctx && ctx->next ) ctx = ctx->next;
+    while ( ctx ) ctx = ctx->next;
 
-    /* no previous context was found */
-    if ( !ctx )
-    {
-        /* allocate a new context */
-        ctx = ( struct ConversionContext* ) malloc( sizeof( ConversionContext ) );
-    }
-    else
-    {
-        /* allocate a new context as the next in line */
-        ctx->next = ( struct ConversionContext* ) malloc( sizeof( ConversionContext ) );
-        ctx = ctx->next;
-    }
+    /* allocate a new context */
+    ctx = ( struct SDL_ffmpegConversionContext* ) malloc( sizeof( SDL_ffmpegConversionContext ) );
 
     /* fill context with correct information */
     ctx->context = sws_getContext( inWidth, inHeight, inFormat,
@@ -258,6 +236,28 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file )
 
         SDL_DestroyMutex( old->mutex );
 
+        while ( old->buffer )
+        {
+            SDL_ffmpegPacket *pack = old->buffer;
+
+            old->buffer = old->buffer->next;
+
+            av_free( pack->data );
+
+            free( pack );
+        }
+
+        while ( old->conversionContext )
+        {
+            struct SDL_ffmpegConversionContext *ctx = old->conversionContext;
+
+            old->conversionContext = old->conversionContext->next;
+
+            sws_freeContext( ctx->context );
+
+            free( ctx );
+        }
+
         av_free( old->decodeFrame );
 
         if ( old->_ffmpeg ) avcodec_close( old->_ffmpeg->codec );
@@ -273,6 +273,17 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file )
         s = s->next;
 
         SDL_DestroyMutex( old->mutex );
+
+        while ( old->buffer )
+        {
+            SDL_ffmpegPacket *pack = old->buffer;
+
+            old->buffer = old->buffer->next;
+
+            av_free( pack->data );
+
+            free( pack );
+        }
 
         av_free( old->sampleBuffer );
 
@@ -566,7 +577,8 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_Surface *frame )
     switch ( frame->format->BitsPerPixel )
     {
         case 24:
-            sws_scale( getContext( frame->w, frame->h, PIX_FMT_RGB24,
+            sws_scale( getContext( file->videoStream->conversionContext,
+                                   frame->w, frame->h, PIX_FMT_RGB24,
                                    file->videoStream->_ffmpeg->codec->width,
                                    file->videoStream->_ffmpeg->codec->height,
                                    file->videoStream->_ffmpeg->codec->pix_fmt ),
@@ -578,7 +590,8 @@ int SDL_ffmpegAddVideoFrame( SDL_ffmpegFile *file, SDL_Surface *frame )
                        file->videoStream->encodeFrame->linesize );
             break;
         case 32:
-            sws_scale( getContext( frame->w, frame->h, PIX_FMT_BGR32,
+            sws_scale( getContext( file->videoStream->conversionContext,
+                                   frame->w, frame->h, PIX_FMT_BGR32,
                                    file->videoStream->_ffmpeg->codec->width,
                                    file->videoStream->_ffmpeg->codec->height,
                                    file->videoStream->_ffmpeg->codec->pix_fmt ),
@@ -2097,7 +2110,8 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
                 frame->overlay->pitches[ 2 ]
             };
 
-            sws_scale( getContext( file->videoStream->_ffmpeg->codec->width,
+            sws_scale( getContext( file->videoStream->conversionContext,
+                                   file->videoStream->_ffmpeg->codec->width,
                                    file->videoStream->_ffmpeg->codec->height,
                                    file->videoStream->_ffmpeg->codec->pix_fmt,
                                    frame->overlay->w, frame->overlay->h,
@@ -2118,7 +2132,8 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
             switch ( frame->surface->format->BitsPerPixel )
             {
                 case 32:
-                    sws_scale( getContext( file->videoStream->_ffmpeg->codec->width,
+                    sws_scale( getContext( file->videoStream->conversionContext,
+                                           file->videoStream->_ffmpeg->codec->width,
                                            file->videoStream->_ffmpeg->codec->height,
                                            file->videoStream->_ffmpeg->codec->pix_fmt,
                                            frame->surface->w, frame->surface->h,
@@ -2131,7 +2146,8 @@ int SDL_ffmpegDecodeVideoFrame( SDL_ffmpegFile* file, AVPacket *pack, SDL_ffmpeg
                                &pitch );
                     break;
                 case 24:
-                    sws_scale( getContext( file->videoStream->_ffmpeg->codec->width,
+                    sws_scale( getContext( file->videoStream->conversionContext,
+                                           file->videoStream->_ffmpeg->codec->width,
                                            file->videoStream->_ffmpeg->codec->height,
                                            file->videoStream->_ffmpeg->codec->pix_fmt,
                                            frame->surface->w, frame->surface->h,
