@@ -64,9 +64,9 @@ extern "C"
  *  Provide a fast way to get the correct context.
  *  \returns The context matching the input values.
  */
-struct SwsContext* getContext( struct SDL_ffmpegConversionContext **context, int inWidth, int inHeight, enum PixelFormat inFormat, int outWidth, int outHeight, enum PixelFormat outFormat )
+struct SwsContext* getContext( SDL_ffmpegConversionContext **context, int inWidth, int inHeight, enum PixelFormat inFormat, int outWidth, int outHeight, enum PixelFormat outFormat )
 {
-    struct SDL_ffmpegConversionContext *ctx = *context;
+    SDL_ffmpegConversionContext *ctx = *context;
 
     if ( ctx )
     {
@@ -256,7 +256,7 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file )
 
         while ( old->conversionContext )
         {
-            struct SDL_ffmpegConversionContext *ctx = old->conversionContext;
+            SDL_ffmpegConversionContext *ctx = old->conversionContext;
 
             old->conversionContext = old->conversionContext->next;
 

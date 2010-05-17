@@ -40,7 +40,8 @@ extern "C" {
     #define EXPORT
 #endif
 
-enum SDL_ffmpegStreamType {
+enum SDL_ffmpegStreamType
+{
     SDL_ffmpegUninitialized = 0,
     SDL_ffmpegOutputStream,
     SDL_ffmpegInputStream
@@ -48,7 +49,7 @@ enum SDL_ffmpegStreamType {
 
 typedef void (*SDL_ffmpegCallback)(void *userdata, Uint8 *stream, int len);
 
-struct SDL_ffmpegConversionContext
+typedef struct SDL_ffmpegConversionContext
 {
     int inWidth, inHeight, inFormat,
     outWidth, outHeight, outFormat;
@@ -59,7 +60,8 @@ struct SDL_ffmpegConversionContext
 } SDL_ffmpegConversionContext;
 
 /** Struct to hold codec values */
-typedef struct SDL_ffmpegCodec {
+typedef struct
+{
     /** video codec ID */
     int32_t videoCodecID;
     /** width of the output stream */
@@ -106,7 +108,8 @@ typedef struct SDL_ffmpegPacket {
 } SDL_ffmpegPacket;
 
 /** Struct to hold audio data */
-typedef struct SDL_ffmpegAudioFrame {
+typedef struct
+{
     /** Presentation timestamp, time at which this data should be used. */
     int64_t pts;
     /** Pointer to audio buffer, user adjustable. */
@@ -121,7 +124,8 @@ typedef struct SDL_ffmpegAudioFrame {
 
 
 /** Struct to hold audio data */
-typedef struct SDL_ffmpegVideoFrame {
+typedef struct
+{
     /** Presentation timestamp, time at which this data should be used. */
     int64_t pts;
     /** Pointer to video buffer, user adjustable. */
@@ -135,8 +139,8 @@ typedef struct SDL_ffmpegVideoFrame {
 } SDL_ffmpegVideoFrame;
 
 /** This is the basic stream for SDL_ffmpeg */
-typedef struct SDL_ffmpegStream {
-
+typedef struct SDL_ffmpegStream
+{
     /** Pointer to ffmpeg data, internal use only! */
     struct AVStream *_ffmpeg;
 
@@ -175,12 +179,11 @@ typedef struct SDL_ffmpegStream {
 
     /** pointer to the next stream, or NULL if current stream is the last one */
     struct SDL_ffmpegStream *next;
-
 } SDL_ffmpegStream;
 
 /** Struct to hold information about file */
-typedef struct SDL_ffmpegFile {
-
+typedef struct
+{
     /** type of file */
     enum SDL_ffmpegStreamType type;
 
@@ -207,7 +210,6 @@ typedef struct SDL_ffmpegFile {
 
     /** Holds the lowest timestamp which will be decoded */
     int64_t             minimalTimestamp;
-
 } SDL_ffmpegFile;
 
 /* error handling */
