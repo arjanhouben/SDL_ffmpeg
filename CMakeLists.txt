@@ -2,7 +2,7 @@ cmake_minimum_required( VERSION 2.6 )
 
 project( SDL_FFMPEG )
 
-set( PROJECT_VERSION "1.1.1" )
+set( PROJECT_VERSION "1.3.2" )
 
 
 if( CMAKE_GENERATOR MATCHES "Visual .*" )
