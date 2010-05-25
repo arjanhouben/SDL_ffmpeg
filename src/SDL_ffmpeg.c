@@ -249,6 +249,8 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file )
 
             old->buffer = old->buffer->next;
 
+            av_free_packet( pack->data );
+
             av_free( pack->data );
 
             free( pack );
@@ -286,6 +288,8 @@ void SDL_ffmpegFree( SDL_ffmpegFile *file )
             SDL_ffmpegPacket *pack = old->buffer;
 
             old->buffer = old->buffer->next;
+
+            av_free_packet( pack->data );
 
             av_free( pack->data );
 
@@ -812,6 +816,9 @@ int SDL_ffmpegGetVideoFrame( SDL_ffmpegFile* file, SDL_ffmpegVideoFrame *frame )
 
         /* destroy used packet */
         av_free_packet( pack->data );
+
+        av_free( pack->data );
+
         free( pack );
 
         pack = SDL_ffmpegGetVideoPacket( file );
@@ -1081,7 +1088,10 @@ int SDL_ffmpegFlush( SDL_ffmpegFile *file )
 
             pack = pack->next;
 
+            av_free_packet( old->data );
+
             av_free( old->data );
+
             free( old );
         }
 
@@ -1109,7 +1119,10 @@ int SDL_ffmpegFlush( SDL_ffmpegFile *file )
 
             pack = pack->next;
 
+            av_free_packet( old->data );
+
             av_free( old->data );
+
             free( old );
         }
 
@@ -1179,7 +1192,11 @@ int SDL_ffmpegGetAudioFrame( SDL_ffmpegFile *file, SDL_ffmpegAudioFrame *frame )
     {
         /* destroy used packet */
         av_free_packet( pack->data );
+
+        av_free( pack->data );
+
         free( pack );
+
         pack = 0;
 
         /* check if new packet is required */
